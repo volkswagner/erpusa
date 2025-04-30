@@ -1,0 +1,24 @@
+{% extends "templates/web.html" %}
+
+{% block title %} Payment Result {% endblock %}
+{%- block header -%}
+    <link rel="stylesheet" href="stripe_plus_style.css">
+{% endblock %}
+{% block script %}
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>{% include "templates/includes/stripe_plus_return.js" %}</script>
+{% endblock %}
+{% block page_content %}
+  <div class="py-5 my-5"></div>
+  <div class="d-flex align-items-center justify-content-center w-100 p-1 p-xl-5 m-1 my-xl-5">
+    <div id="payment-status">
+        <div id="status-icon"></div>
+        <h2 id="status-text"></h2>
+        <hr class="w-100"/>
+        <p id="payment-description" class="text-center">
+           
+        </p>
+    </div>
+  </div>
+  <div class="py-5 my-5"></div>
+{% endblock %}

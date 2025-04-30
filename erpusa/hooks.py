@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/erpusa/css/erpusa.css"
-# app_include_js = "/assets/erpusa/js/erpusa.js"
+app_include_js = "/assets/erpusa/js/stripe_checkout.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpusa/css/erpusa.css"
@@ -43,7 +43,10 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+    "Payment Request" : "public/js/payment_request.js",
+	"Customer" : "public/js/customer.js"
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -129,21 +132,19 @@ app_license = "mit"
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride"
+}
 
 # Document Events
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Payment Request": {
+        "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_stripe_plus_fields"
+	}
+}
 
 # Scheduled Tasks
 # ---------------
@@ -241,4 +242,3 @@ app_license = "mit"
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
-

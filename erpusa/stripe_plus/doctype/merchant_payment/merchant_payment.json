@@ -1,0 +1,156 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:MER-PAY-{YY}{MM}-{#####}",
+ "creation": "2025-04-09 05:08:46.530023",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "merchant",
+  "merchant_transaction_id",
+  "status",
+  "source",
+  "company",
+  "column_break_pore",
+  "created",
+  "available_on",
+  "section_break_jdhr",
+  "customer",
+  "associated_sales_order",
+  "associated_sales_invoice",
+  "associated_payment_entry",
+  "column_break_zjuu",
+  "merchant_fee",
+  "gross_amount",
+  "net_amount"
+ ],
+ "fields": [
+  {
+   "fieldname": "merchant",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Merchant",
+   "reqd": 1
+  },
+  {
+   "fieldname": "merchant_transaction_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Merchant Transaction ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "associated_sales_order",
+   "fieldtype": "Link",
+   "label": "Associated Sales Order",
+   "options": "Sales Order"
+  },
+  {
+   "fieldname": "associated_sales_invoice",
+   "fieldtype": "Link",
+   "label": "Associated Sales Invoice",
+   "options": "Sales Invoice"
+  },
+  {
+   "fieldname": "gross_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Gross Amount",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "merchant_fee",
+   "fieldtype": "Currency",
+   "label": "Merchant Fee",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "net_amount",
+   "fieldtype": "Currency",
+   "label": "Net Amount",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_jdhr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "created",
+   "fieldtype": "Datetime",
+   "label": "Created"
+  },
+  {
+   "fieldname": "available_on",
+   "fieldtype": "Datetime",
+   "label": "Available On"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Pending\nAvailable\nPaid\nJournaled"
+  },
+  {
+   "fieldname": "column_break_pore",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_zjuu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Link",
+   "label": "Source",
+   "options": "Stripe Transaction",
+   "reqd": 1
+  },
+  {
+   "fieldname": "associated_payment_entry",
+   "fieldtype": "Link",
+   "label": "Associated Payment Entry",
+   "options": "Payment Entry"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-04-29 09:22:29.293576",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Merchant Payment",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

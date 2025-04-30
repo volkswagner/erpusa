@@ -1,0 +1,41 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-04-24 13:14:54.962417",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "stripe_settings",
+  "signing_secret"
+ ],
+ "fields": [
+  {
+   "fieldname": "stripe_settings",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Stripe Settings",
+   "options": "Stripe Settings",
+   "reqd": 1
+  },
+  {
+   "fieldname": "signing_secret",
+   "fieldtype": "Password",
+   "in_list_view": 1,
+   "label": "Signing Secret",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-04-24 13:16:54.759322",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Stripe Plus Settings Webhook Validator",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

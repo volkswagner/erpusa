@@ -1,0 +1,79 @@
+{% extends "templates/web.html" %}
+
+{% block title %} Stripe Checkout {% endblock %}
+{%- block header -%}
+    <link rel="stylesheet" href="stripe_plus_style.css">
+{% endblock %}
+{% block script %}
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>{% include "templates/includes/stripe_plus_checkout.js" %}</script>
+{% endblock %}
+{% block page_content %}
+    <div class="py-5 my-5"></div>
+    <div class="w-100 row justify-content-center align-items-stretch p-1 p-xl-5 m-1 my-xl-5">
+        <div class="col-12 col-md-5 w-100 h-100">
+            <div class="d-flex flex-column p-1 p-xl-5 w-100 h-100 d-flex align-items-center justify-content-start">
+                {% if header_image %}
+                    <img src="{{ header_image }}" width="150">
+                {% else %}
+                    <h2 class="h3 font-weight-bold" style="font-family: Georgia, serif;">{{ company }}</h2>
+                {% endif %}
+                <h1 class="h5 mb-5">{{ description }}</h1>
+                <hr class="w-100"/>
+                <div class="form-group w-100">
+                    <div class="clearfix">
+                        <label class="control-label" style="padding-right: 0px;">Payer Name</label>
+                        <span class="help"></span>
+                    </div>
+                    <div class="control-input-wrapper">
+                        <div class="control-input" style="">
+                            <input type="text" autocomplete="off" class="input-with-feedback form-control p-1 p-xl-5 focus-whiten" 
+                                data-fieldtype="Data" data-fieldname="name" placeholder="" value="{{ payer_name }}">
+                        </div>
+                        <div class="control-value like-disabled-input" style="display: none;">$ 0.00</div>
+                        <p class="help-box small text-muted"></p>
+                    </div>
+                </div>
+                <div class="form-group w-100">
+                    <div class="clearfix">
+                        <label class="control-label" style="padding-right: 0px;">Email for Receipt</label>
+                        <span class="help"></span>
+                    </div>
+                    <div class="control-input-wrapper">
+                        <div class="control-input" style="">
+                            <input type="text" autocomplete="off" class="input-with-feedback form-control p-1 p-xl-5 focus-whiten" data-fieldtype="Data" 
+                                id="receipt-email" data-fieldname="receipt_email" placeholder="" value="{{payer_email}}">
+                        </div>
+                        <div class="control-value like-disabled-input" style="display: none;">$ 0.00</div>
+                        <p class="help-box small text-muted"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-1 d-none d-md-block"></div>
+        <div class="col-12 col-md-6">
+            <div class="w-100 row p-0 m-0">
+                <div class="col-8 p-0 m-0">
+                    <small>{{ to_pay_doctype }}</small>
+                    <h3 class="h5 m-0">{{ to_pay_id }}</h3>
+                </div>
+                <div class="col-4 p-0 m-0 text-right">
+                    <small>Amount</small>
+                    <h3 class="h5 m-0 font-weight-bold">{{ amount }}</h3>
+                </div>
+            </div>
+            <hr class="w-100"/>
+            <form id="payment-form" class="w-100">
+                
+                <div id="payment-element">
+                </div>
+                <button id="submit">
+                    <div class="spinner hidden" id="spinner"></div>
+                    <span id="button-text">Pay now</span>
+                </button>
+                <div id="payment-message" class="hidden"></div>
+            </form>
+        </div>
+    </div>
+    <div class="py-5 my-5"></div>
+{% endblock %}

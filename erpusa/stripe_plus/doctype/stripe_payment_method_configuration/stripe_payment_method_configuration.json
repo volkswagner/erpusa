@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:configuration_name",
+ "creation": "2025-04-08 11:29:34.896079",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_fmal",
+  "enabled",
+  "stripe_settings",
+  "configuration_name",
+  "stripe_configuration_id",
+  "section_break_sfde",
+  "card",
+  "ach_debit_card",
+  "section_break_wsig",
+  "affected_customers"
+ ],
+ "fields": [
+  {
+   "fieldname": "configuration_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Configuration Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "stripe_configuration_id",
+   "fieldtype": "Data",
+   "label": "Stripe Configuration ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stripe_settings",
+   "fieldtype": "Link",
+   "label": "Stripe Settings",
+   "options": "Stripe Settings",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_fmal",
+   "fieldtype": "Section Break",
+   "hide_border": 1
+  },
+  {
+   "fieldname": "section_break_sfde",
+   "fieldtype": "Section Break",
+   "label": "<small>Payment Methods<small></small></small>"
+  },
+  {
+   "default": "1",
+   "fieldname": "card",
+   "fieldtype": "Check",
+   "label": "Card"
+  },
+  {
+   "default": "0",
+   "fieldname": "ach_debit_card",
+   "fieldtype": "Check",
+   "label": "ACH Debit Card"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "section_break_wsig",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "affected_customers",
+   "fieldtype": "Table",
+   "label": "Affected Customers",
+   "options": "PC Customer List"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-04-16 08:57:18.831536",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Stripe Payment Method Configuration",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

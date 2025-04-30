@@ -1,0 +1,673 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:stripe_transaction_id",
+ "creation": "2025-04-24 02:27:15.319307",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "stripe_transaction_id",
+  "created",
+  "object",
+  "status",
+  "description",
+  "transaction_metadata",
+  "destination",
+  "livemode",
+  "column_break_jwjc",
+  "currency",
+  "application",
+  "application_fee",
+  "application_fee_amount",
+  "html_lwpw",
+  "failure_balance_transaction",
+  "failure_code",
+  "failure_message",
+  "section_break_yqmn",
+  "paid",
+  "refunded",
+  "customer",
+  "on_behalf_of",
+  "html_uvho",
+  "invoice",
+  "order",
+  "payment_intent",
+  "html_bzjq",
+  "receipt_email",
+  "receipt_url",
+  "column_break_doyg",
+  "gross_amount",
+  "captured",
+  "amount_captured",
+  "amount_refunded",
+  "html_oofe",
+  "dispute",
+  "disputed",
+  "html_bydn",
+  "transfer_data",
+  "transfer_group",
+  "html_jpxl",
+  "fraud_details",
+  "section_break_ujbu",
+  "type",
+  "amount",
+  "arrival_date",
+  "automatic",
+  "method",
+  "statement_descriptor",
+  "trace_id",
+  "column_break_dizf",
+  "original_payout",
+  "reconciliation_status",
+  "reversed_by",
+  "outcome_section",
+  "advice_code",
+  "network_advice_code",
+  "network_decline_code",
+  "network_status",
+  "column_break_rlag",
+  "outcome_type",
+  "risk_level",
+  "reason",
+  "seller_message",
+  "payment_method_details_section",
+  "payment_method",
+  "payment_method_type",
+  "column_break_ozgh",
+  "payment_method_details",
+  "card_payment_details_section",
+  "card_status",
+  "card_funding",
+  "card_authorization_code",
+  "card_network_transaction_id",
+  "column_break_ujjh",
+  "card_brand",
+  "card_maximum_amount_capturable",
+  "card_cvc_check",
+  "source_details_section",
+  "source",
+  "source_name",
+  "source_funding",
+  "source_metadata",
+  "column_break_nfna",
+  "source_object",
+  "source_customer",
+  "source_fingerprint",
+  "balance_transaction_section",
+  "balance_transaction",
+  "bt_status",
+  "bt_type",
+  "bt_description",
+  "column_break_jtqw",
+  "bt_net",
+  "bt_amount",
+  "bt_fee",
+  "section_break_fmev",
+  "fee_details",
+  "data_source_section",
+  "data_source"
+ ],
+ "fields": [
+  {
+   "fieldname": "stripe_transaction_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Stripe Transaction ID",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "object",
+   "fieldtype": "Select",
+   "label": "Object",
+   "options": "charge\npayment_intent\nsetup_intent\npayout\nrefund"
+  },
+  {
+   "fieldname": "gross_amount",
+   "fieldtype": "Int",
+   "label": "Gross Amount"
+  },
+  {
+   "fieldname": "amount_captured",
+   "fieldtype": "Int",
+   "label": "Amount Captured"
+  },
+  {
+   "fieldname": "amount_refunded",
+   "fieldtype": "Int",
+   "label": "Amount Refunded"
+  },
+  {
+   "fieldname": "application",
+   "fieldtype": "Data",
+   "label": "Application"
+  },
+  {
+   "fieldname": "application_fee",
+   "fieldtype": "Currency",
+   "label": "Application Fee"
+  },
+  {
+   "fieldname": "application_fee_amount",
+   "fieldtype": "Int",
+   "label": "Application Fee Amount"
+  },
+  {
+   "default": "0",
+   "fieldname": "captured",
+   "fieldtype": "Check",
+   "label": "Captured"
+  },
+  {
+   "fieldname": "created",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created",
+   "reqd": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Data",
+   "label": "Destination"
+  },
+  {
+   "fieldname": "dispute",
+   "fieldtype": "Data",
+   "label": "Dispute"
+  },
+  {
+   "default": "0",
+   "fieldname": "disputed",
+   "fieldtype": "Check",
+   "label": "Disputed"
+  },
+  {
+   "fieldname": "failure_balance_transaction",
+   "fieldtype": "Data",
+   "label": "Failure Balance Transaction"
+  },
+  {
+   "fieldname": "failure_code",
+   "fieldtype": "Data",
+   "label": "Failure Code"
+  },
+  {
+   "fieldname": "failure_message",
+   "fieldtype": "Small Text",
+   "label": "Failure Message"
+  },
+  {
+   "fieldname": "invoice",
+   "fieldtype": "Data",
+   "label": "Invoice"
+  },
+  {
+   "default": "0",
+   "fieldname": "livemode",
+   "fieldtype": "Check",
+   "label": "Livemode"
+  },
+  {
+   "fieldname": "fraud_details",
+   "fieldtype": "JSON",
+   "label": "Fraud Details"
+  },
+  {
+   "fieldname": "transaction_metadata",
+   "fieldtype": "JSON",
+   "label": "Transaction Metadata"
+  },
+  {
+   "fieldname": "on_behalf_of",
+   "fieldtype": "Data",
+   "label": "On Behalf Of"
+  },
+  {
+   "fieldname": "order",
+   "fieldtype": "Data",
+   "label": "Order"
+  },
+  {
+   "fieldname": "advice_code",
+   "fieldtype": "Select",
+   "label": "Advice Code",
+   "options": "confirm_card_data\ndo_not_try_again\ntry_again_later"
+  },
+  {
+   "fieldname": "network_advice_code",
+   "fieldtype": "Data",
+   "label": "Network Advice Code"
+  },
+  {
+   "fieldname": "network_decline_code",
+   "fieldtype": "Currency",
+   "label": "Network Decline Code"
+  },
+  {
+   "fieldname": "network_status",
+   "fieldtype": "Select",
+   "label": "Network Status",
+   "options": "approved_by_network\ndeclined_by_network\nnot_sent_to_network\nreversed_after_approval"
+  },
+  {
+   "depends_on": "eval:doc.object==\"charge\"||doc.object==\"payment_intent\"||doc.object==\"setup_intent\";",
+   "fieldname": "outcome_section",
+   "fieldtype": "Section Break",
+   "label": "Outcome"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Select",
+   "label": "Reason",
+   "options": "\nhighest_risk_level\nelevated_risk_level\nrule"
+  },
+  {
+   "fieldname": "risk_level",
+   "fieldtype": "Select",
+   "label": "Risk Level",
+   "options": "normal\nelevated\nhighest"
+  },
+  {
+   "fieldname": "seller_message",
+   "fieldtype": "Data",
+   "label": "Seller Message"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "bank_account\ncard"
+  },
+  {
+   "default": "0",
+   "fieldname": "paid",
+   "fieldtype": "Check",
+   "label": "Paid"
+  },
+  {
+   "fieldname": "payment_intent",
+   "fieldtype": "Data",
+   "label": "Payment Intent"
+  },
+  {
+   "depends_on": "eval:doc.object==\"charge\"||doc.object==\"payment_intent\"||doc.object==\"setup_intent\";",
+   "fieldname": "payment_method_details_section",
+   "fieldtype": "Section Break",
+   "label": "Payment Method Details"
+  },
+  {
+   "fieldname": "payment_method",
+   "fieldtype": "Data",
+   "label": "Payment Method"
+  },
+  {
+   "fieldname": "payment_method_details",
+   "fieldtype": "JSON",
+   "label": "Payment Method Details"
+  },
+  {
+   "fieldname": "payment_method_type",
+   "fieldtype": "Data",
+   "label": "Payment Method Type"
+  },
+  {
+   "fieldname": "card_authorization_code",
+   "fieldtype": "Data",
+   "label": "Card Authorization Code"
+  },
+  {
+   "depends_on": "eval: doc.payment_method_type == \"card\";",
+   "fieldname": "card_brand",
+   "fieldtype": "Data",
+   "label": "Card Brand"
+  },
+  {
+   "depends_on": "eval: doc.payment_method_type == \"card\";",
+   "fieldname": "card_cvc_check",
+   "fieldtype": "Select",
+   "label": "Card CVC Check",
+   "options": "\npass\nfail\nunavailable\nunchecked"
+  },
+  {
+   "depends_on": "eval: doc.payment_method_type == \"card\";",
+   "fieldname": "card_funding",
+   "fieldtype": "Select",
+   "label": "Card Funding",
+   "options": "debit\ncredit"
+  },
+  {
+   "fieldname": "card_status",
+   "fieldtype": "Select",
+   "label": "Card Status",
+   "options": "available\nunavailable"
+  },
+  {
+   "depends_on": "eval: doc.payment_method_type == \"card\";",
+   "fieldname": "card_network_transaction_id",
+   "fieldtype": "Data",
+   "label": "Card Network Transaction ID"
+  },
+  {
+   "depends_on": "eval: doc.payment_method_type == \"card\";",
+   "fieldname": "card_maximum_amount_capturable",
+   "fieldtype": "Int",
+   "label": "Card Maximum Amount Capturable"
+  },
+  {
+   "depends_on": "eval:doc.payment_method_type==\"card\"&&(doc.object==\"charge\"||doc.object==\"payment_intent\"||doc.object==\"setup_intent\");",
+   "fieldname": "card_payment_details_section",
+   "fieldtype": "Section Break",
+   "label": "Card Payment Details"
+  },
+  {
+   "fieldname": "receipt_email",
+   "fieldtype": "Data",
+   "label": "Receipt Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "receipt_url",
+   "fieldtype": "Long Text",
+   "label": "Receipt URL",
+   "options": "URL"
+  },
+  {
+   "default": "0",
+   "fieldname": "refunded",
+   "fieldtype": "Check",
+   "label": "Refunded"
+  },
+  {
+   "depends_on": "eval: doc.source&&(doc.object==\"charge\"||doc.object==\"payment_intent\"||doc.object==\"setup_intent\");",
+   "fieldname": "source_details_section",
+   "fieldtype": "Section Break",
+   "label": "Source Details"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Source"
+  },
+  {
+   "fieldname": "source_customer",
+   "fieldtype": "Data",
+   "label": "Source Customer"
+  },
+  {
+   "fieldname": "source_fingerprint",
+   "fieldtype": "Data",
+   "label": "Source Fingerprint"
+  },
+  {
+   "fieldname": "source_funding",
+   "fieldtype": "Select",
+   "label": "Source Funding",
+   "options": "debit\ncredit"
+  },
+  {
+   "fieldname": "source_metadata",
+   "fieldtype": "JSON",
+   "label": "Source Metadata"
+  },
+  {
+   "fieldname": "source_name",
+   "fieldtype": "Data",
+   "label": "Source Name"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Status"
+  },
+  {
+   "fieldname": "transfer_data",
+   "fieldtype": "Data",
+   "label": "Transfer Data"
+  },
+  {
+   "fieldname": "transfer_group",
+   "fieldtype": "Data",
+   "label": "Transfer Group"
+  },
+  {
+   "fieldname": "column_break_doyg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "html_lwpw",
+   "fieldtype": "HTML",
+   "options": "<hr class=\"w-100\">"
+  },
+  {
+   "fieldname": "html_oofe",
+   "fieldtype": "HTML",
+   "options": "<hr class=\"w-100\">"
+  },
+  {
+   "fieldname": "html_uvho",
+   "fieldtype": "HTML",
+   "options": "<hr class=\"w-100\">"
+  },
+  {
+   "fieldname": "html_bydn",
+   "fieldtype": "HTML",
+   "options": "<hr class=\"w-100\">"
+  },
+  {
+   "fieldname": "html_bzjq",
+   "fieldtype": "HTML",
+   "options": "<hr class=\"w-100\">"
+  },
+  {
+   "fieldname": "html_jpxl",
+   "fieldtype": "HTML",
+   "options": "<hr class=\"w-100\">"
+  },
+  {
+   "fieldname": "column_break_rlag",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_nfna",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ujjh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ozgh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source_object",
+   "fieldtype": "Select",
+   "label": "Source Object",
+   "options": "ach_credit_transfer\nach_debit\nalipay\nbancontact\ncard\ncard_present\neps\ngiropay\nideal\nmultibanco\nklarna\np24\nsepa_debit\nsofort\nthree_d_secure\nwechat"
+  },
+  {
+   "fieldname": "data_source_section",
+   "fieldtype": "Section Break",
+   "label": "History"
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Table",
+   "label": "Events Log",
+   "options": "Stripe Transaction Data Source"
+  },
+  {
+   "fieldname": "balance_transaction_section",
+   "fieldtype": "Section Break",
+   "hide_border": 1,
+   "label": "Balance Transaction"
+  },
+  {
+   "fieldname": "balance_transaction",
+   "fieldtype": "Data",
+   "label": "Balance Transaction"
+  },
+  {
+   "fieldname": "outcome_type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "authorized\nmanual_review\nissuer_declined\nblocked\ninvalid"
+  },
+  {
+   "depends_on": "eval:doc.object==\"payout\";",
+   "fieldname": "section_break_ujbu",
+   "fieldtype": "Section Break",
+   "label": "Payout Information"
+  },
+  {
+   "fieldname": "bt_description",
+   "fieldtype": "Data",
+   "label": "BT Description"
+  },
+  {
+   "fieldname": "bt_type",
+   "fieldtype": "Select",
+   "label": "BT Type",
+   "options": "adjustment\nadvance\nadvance_funding\nanticipation_repayment\napplication_fee\napplication_fee_refund\ncharge\nclimate_order_purchase\nclimate_order_refund\nconnect_collection_transfer\ncontribution\nissuing_authorization_hold\nissuing_authorization_release\nissuing_dispute\nissuing_transaction\nobligation_outbound\nobligation_reversal_inbound\npayment\npayment_failure_refund\npayment_network_reserve_hold\npayment_network_reserve_release\npayment_refund\npayment_reversal\npayment_unreconciled\npayout\npayout_cancel\npayout_failure\npayout_minimum_balance_hold\npayout_minimum_balance_release\nrefund\nrefund_failure\nreserve_transaction\nreserved_funds\nstripe_fee\nstripe_fx_fee\ntax_fee\ntopup\ntopup_reversal\ntransfer\ntransfer_cancel\ntransfer_failure\ntransfer_refund"
+  },
+  {
+   "fieldname": "bt_amount",
+   "fieldtype": "Int",
+   "label": "BT Amount"
+  },
+  {
+   "fieldname": "bt_fee",
+   "fieldtype": "Int",
+   "label": "BT Fee"
+  },
+  {
+   "fieldname": "bt_net",
+   "fieldtype": "Int",
+   "label": "BT Net"
+  },
+  {
+   "fieldname": "bt_status",
+   "fieldtype": "Select",
+   "label": "BT Status",
+   "options": "available\npending"
+  },
+  {
+   "fieldname": "column_break_jtqw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_fmev",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "fee_details",
+   "fieldtype": "Table",
+   "label": "Fee Details",
+   "options": "Stripe Fee Detail"
+  },
+  {
+   "fieldname": "column_break_jwjc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.object==\"charge\"||doc.object==\"payment_intent\"||doc.object==\"setup_intent\";",
+   "fieldname": "section_break_yqmn",
+   "fieldtype": "Section Break",
+   "label": "Charge/Payment Intent Information"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Int",
+   "label": "Amount"
+  },
+  {
+   "fieldname": "arrival_date",
+   "fieldtype": "Datetime",
+   "label": "Arrival Date"
+  },
+  {
+   "default": "0",
+   "fieldname": "automatic",
+   "fieldtype": "Check",
+   "label": "Automatic"
+  },
+  {
+   "fieldname": "method",
+   "fieldtype": "Select",
+   "label": "Method",
+   "options": "standard\ninstant"
+  },
+  {
+   "fieldname": "original_payout",
+   "fieldtype": "Data",
+   "label": "Original Payout"
+  },
+  {
+   "fieldname": "reconciliation_status",
+   "fieldtype": "Select",
+   "label": "Reconciliation Status",
+   "options": "completed\nin_progress\nnot_applicable"
+  },
+  {
+   "fieldname": "reversed_by",
+   "fieldtype": "Data",
+   "label": "Reversed By"
+  },
+  {
+   "fieldname": "statement_descriptor",
+   "fieldtype": "Data",
+   "label": "Statement Descriptor"
+  },
+  {
+   "fieldname": "trace_id",
+   "fieldtype": "JSON",
+   "label": "Trace ID"
+  },
+  {
+   "fieldname": "column_break_dizf",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-04-25 23:04:44.386490",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Stripe Transaction",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

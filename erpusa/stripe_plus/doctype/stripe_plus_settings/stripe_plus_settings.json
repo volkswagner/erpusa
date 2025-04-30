@@ -1,0 +1,123 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-04-08 09:23:43.504043",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enable_stripe_plus",
+  "hide_warning",
+  "webhook_section",
+  "webhook_instructions",
+  "signing_secret_list",
+  "notification_section",
+  "turn_on_notifications",
+  "notification_method",
+  "column_break_ykjd",
+  "notify_in_email",
+  "notify_in_app",
+  "section_break_eaam",
+  "notification_schedule"
+ ],
+ "fields": [
+  {
+   "default": "Digest",
+   "fieldname": "notification_method",
+   "fieldtype": "Select",
+   "label": "Notification Method",
+   "options": "Digest\nRealtime"
+  },
+  {
+   "fieldname": "notification_schedule",
+   "fieldtype": "Table",
+   "label": "Notification Schedule",
+   "options": "Stripe Notification Schedule"
+  },
+  {
+   "fieldname": "notification_section",
+   "fieldtype": "Section Break",
+   "hide_border": 1,
+   "label": "Notification"
+  },
+  {
+   "default": "1",
+   "fieldname": "turn_on_notifications",
+   "fieldtype": "Check",
+   "label": "Turn on notifications"
+  },
+  {
+   "default": "1",
+   "fieldname": "notify_in_email",
+   "fieldtype": "Check",
+   "label": "Notify in email"
+  },
+  {
+   "default": "0",
+   "fieldname": "notify_in_app",
+   "fieldtype": "Check",
+   "label": "Notify in app"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, Stripe Plus will override the original checkout page for Stripe.",
+   "fieldname": "enable_stripe_plus",
+   "fieldtype": "Check",
+   "label": "Enable Stripe Plus"
+  },
+  {
+   "default": "1",
+   "fieldname": "hide_warning",
+   "fieldtype": "Check",
+   "label": "Hide warning in Payment Request when Stripe Plus is disabled"
+  },
+  {
+   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks more features such as notifications, logging events, and creating transaction data and payment entry.</small>",
+   "fieldname": "webhook_section",
+   "fieldtype": "Section Break",
+   "label": "Advanced Features"
+  },
+  {
+   "fieldname": "signing_secret_list",
+   "fieldtype": "Table",
+   "label": "Signing Secret List",
+   "options": "Stripe Plus Settings Webhook Validator"
+  },
+  {
+   "fieldname": "webhook_instructions",
+   "fieldtype": "HTML",
+   "label": "Instructions",
+   "options": "<small>\n <span>Instructions</span>\n <ol>\n  <li>Go to your Stripe dashboard. Navigate to the bottom bar and look for 'Developers' menu button.</li>\n  <li>Click the button and choose 'Webhooks'. Wait until a pane appears.</li>\n <li>From the pane, click the 'Add destination' button.</li>\n  <li>Select all events related to Charge, Payment Intent, Setup Intent and Payout, then continue.</li>\n  <li>Choose the destination type to 'Webhook endpoint', then continue.</li>\n  <li>Choose a destination name and set the endpoint url to <code> https://{your_domain}/api/method/erpusa.stripe_plus.api.webhook_receiver.receive_stripe_events\n   </code>.</li>\n  <li>Finally, create the destination.</li>\n  <li>Once the destination is created, look for its signing secret and copy it.</li>\n  <li>In the table below, add a row where the Stripe Settings is the account you used and the Signing Secret is the text you copied.</li>\n </ol>\n</small>"
+  },
+  {
+   "fieldname": "column_break_ykjd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_eaam",
+   "fieldtype": "Section Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-04-25 11:02:22.335286",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Stripe Plus Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
