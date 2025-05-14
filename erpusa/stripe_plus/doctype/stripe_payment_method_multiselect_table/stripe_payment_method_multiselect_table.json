@@ -1,40 +1,30 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-04-08 09:30:38.310428",
+ "creation": "2025-05-06 11:37:40.117028",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "time",
-  "label"
+  "payment_method"
  ],
  "fields": [
   {
-   "fieldname": "label",
-   "fieldtype": "Data",
-   "in_filter": 1,
-   "in_global_search": 1,
+   "fieldname": "payment_method",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "in_preview": 1,
-   "in_standard_filter": 1,
-   "label": "Label"
-  },
-  {
-   "fieldname": "time",
-   "fieldtype": "Time",
-   "in_list_view": 1,
-   "label": "Time",
+   "label": "Payment Method",
+   "options": "Stripe Payment Method",
    "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-08 11:06:52.301944",
+ "modified": "2025-05-07 07:01:06.648594",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
- "name": "Stripe Notification Schedule",
+ "name": "Stripe Payment Method Multiselect Table",
  "owner": "Administrator",
  "permissions": [],
  "sort_field": "modified",

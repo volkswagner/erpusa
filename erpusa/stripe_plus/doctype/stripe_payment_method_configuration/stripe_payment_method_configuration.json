@@ -8,12 +8,12 @@
  "field_order": [
   "section_break_fmal",
   "enabled",
+  "is_default",
+  "is_user_created",
   "stripe_settings",
   "configuration_name",
   "stripe_configuration_id",
-  "section_break_sfde",
-  "card",
-  "ach_debit_card",
+  "payment_methods",
   "section_break_wsig",
   "affected_customers"
  ],
@@ -45,27 +45,11 @@
    "hide_border": 1
   },
   {
-   "fieldname": "section_break_sfde",
-   "fieldtype": "Section Break",
-   "label": "<small>Payment Methods<small></small></small>"
-  },
-  {
-   "default": "1",
-   "fieldname": "card",
-   "fieldtype": "Check",
-   "label": "Card"
-  },
-  {
-   "default": "0",
-   "fieldname": "ach_debit_card",
-   "fieldtype": "Check",
-   "label": "ACH Debit Card"
-  },
-  {
    "default": "1",
    "fieldname": "enabled",
    "fieldtype": "Check",
-   "label": "Enabled"
+   "label": "Enabled",
+   "read_only_depends_on": "eval:doc.is_default;"
   },
   {
    "fieldname": "section_break_wsig",
@@ -75,12 +59,36 @@
    "fieldname": "affected_customers",
    "fieldtype": "Table",
    "label": "Affected Customers",
-   "options": "PC Customer List"
+   "options": "Stripe Payment Method Configuration Customer"
+  },
+  {
+   "columns": 12,
+   "fieldname": "payment_methods",
+   "fieldtype": "Table MultiSelect",
+   "label": "Payment Methods",
+   "options": "Stripe Payment Method Multiselect Table",
+   "width": "100%"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.is_default;",
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Is default",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "is_user_created",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Is user-created",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-16 08:57:18.831536",
+ "modified": "2025-05-08 09:29:55.200576",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Payment Method Configuration",

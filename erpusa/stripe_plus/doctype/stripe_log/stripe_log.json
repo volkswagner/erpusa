@@ -34,7 +34,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-08 09:22:52.836205",
+ "modified": "2025-05-08 11:29:22.374986",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Log",
@@ -51,6 +51,25 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1
   }
  ],
  "sort_field": "modified",

@@ -3,6 +3,7 @@
 
 from frappe import _
 import frappe
+import datetime
 from frappe.utils import cint
 from frappe.model.document import Document
 import stripe
@@ -12,60 +13,107 @@ METHODS_FULLNAME = {
   "affirm": "Affirm",
   "afterpay_clearpay": "Afterpay / Clearpay",
   "alipay": "Alipay",
-  "alma": "Alma",
   "amazon_pay": "Amazon Pay",
-  "au_becs_debit": "BECS Direct Debit",
+  "apple_pay": "Apple Pay",
+  "apple_pay_later": "Apple Pay Later",
   "bacs_debit": "Bacs Direct Debit",
   "bancontact": "Bancontact",
-  "billie": "Billie",
   "blik": "BLIK",
-  "boleto": "Boleto",
   "card": "Card Payments",
-  "card_present": "Stripe Terminal",
   "cashapp": "Cash App Pay",
-  "customer_balance": "Bank Transfer",
+  "customer_balance": "Customer Balance",
   "eps": "EPS",
-  "fpx": "FPX",
   "giropay": "Giropay",
-  "grabpay": "GrabPay",
+  "google_pay": "Google Pay",
   "ideal": "iDEAL",
-  "interac_present": "Stripe Terminal",
   "kakao_pay": "Kakao Pay",
   "klarna": "Klarna",
-  "konbini": "Konbini",
   "kr_card": "Korean Cards",
   "link": "Link",
-  "mobilepay": "MobilePay",
   "multibanco": "Multibanco",
   "naver_pay": "Naver Pay",
-  "nz_bank_account": "New Zealand BECS Direct Debit",
-  "oxxo": "OXXO",
   "p24": "Przelewy24",
-  "pay_by_bank": "Pay By Bank",
   "payco": "PAYCO",
-  "paynow": "PayNow",
-  "paypal": "PayPal",
   "pix": "Pix",
-  "promptpay": "PromptPay",
-  "revolut_pay": "Revolut Pay",
   "samsung_pay": "Samsung Pay",
-  "satispay": "Satispay",
   "sepa_debit": "SEPA Direct Debit",
   "sofort": "Sofort",
-  "swish": "Swish",
-  "twint": "Twint",
   "us_bank_account": "ACH Direct Debit",
   "wechat_pay": "WeChat Pay",
   "zip": "Zip"
 }
 
 class StripePlusSettings(Document):
-	def validate(self):
-		if self.notification_method == 'Digest' and not self.notification_schedule:
-			frappe.throw("Notification Schedule can't be empty. Add at least one schedule.")
+  def validate(self):
+    if self.signing_secret_list:
+      if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center:
+        frappe.throw(_("Fields User to Authorize, Merchant Fee Account and Cost Centers are empty. Fill them out to enable auto-creation of Payment Entry."))
+      
+    if self.turn_on_email_notifications:
+      self.validate_schedule_interval()
+      if self.notification_method == "Digest":
+        if not self.notification_schedule:
+          frappe.throw(_("Notification Schedule can't be empty. Add at least one schedule."))
+      if not self.notification_recipients:
+         frappe.throw(_("Notifications require a recipient. Set a user in the Notification Recipient field."))
+
+  def validate_schedule_interval(self):
+    if len(self.notification_schedule) >= 2:
+      schedule_times = [
+          datetime.datetime.strptime(schedule.time, "%H:%M:%S") - datetime.datetime.strptime("00:00:00", "%H:%M:%S")
+          for schedule in self.notification_schedule
+      ]
+
+      schedule_times.sort()
+
+      all_intervals_within_hour = all(
+        (schedule_times[i+1] - schedule_times[i]) < datetime.timedelta(hours=1)
+        for i in range(len(schedule_times) - 1)
+      )
+
+      if all_intervals_within_hour:
+        frappe.throw(_("Schedules can only have an hour (or more) interval between them."))
 
 @frappe.whitelist()
-def get_gateway_settings(payment_gateway):
+def is_stripe_plus_applicable(payment_gateway):
+  enabled = frappe.db.get_single_value("Stripe Plus Settings", "enable_stripe_plus")
+  if payment_gateway:
+    is_gateway_stripe = frappe.db.get_value("Payment Gateway", payment_gateway, "gateway_settings") == "Stripe Settings"
+  else:
+    is_gateway_stripe = False
+
+  return enabled and is_gateway_stripe
+
+def validate_stripe_plus_fields(payment_request, method=None):
+  is_stripe_applicable = is_stripe_plus_applicable(payment_request.payment_gateway)
+  # if Stripe Plus is enabled and the payment gateway settings doc is Stripe
+  if is_stripe_applicable:
+    if payment_request.is_new() and payment_request.party_type == "Customer":
+      if find_customer_configuration(payment_request.party, payment_request.payment_gateway):
+        payment_request.payment_method_configuration = find_customer_configuration(payment_request.party, payment_request.payment_gateway)
+        payment_request.methods_included = get_pm_configuration_methods(payment_request.payment_method_configuration)
+
+    if not payment_request.payment_method_configuration:
+      if get_default_payment_configuration_doc():
+        payment_request.payment_method_configuration = get_default_payment_configuration_doc()
+      payment_request.methods_included = get_default_pm_configuration_methods(payment_request.payment_gateway)
+
+  else:
+    return
+
+@frappe.whitelist()
+def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
+    users = frappe.db.sql("""
+        SELECT u.name, u.full_name
+        FROM `tabUser` u
+        JOIN `tabHas Role` r ON r.parent = u.name
+        WHERE r.role = %s
+    """, ("Sales Manager",))
+
+    return users
+
+@frappe.whitelist()
+def get_gateway_settings_doc(payment_gateway):
 	gateway_settings = frappe.db.get_value("Payment Gateway", payment_gateway, "gateway_settings")
 	gateway_controller = frappe.db.get_value("Payment Gateway", payment_gateway, "gateway_controller")
 
@@ -74,10 +122,9 @@ def get_gateway_settings(payment_gateway):
 	else:
 		frappe.throw(_("Not a valid gateway controller."))
 
-
 def get_api_key_secret(gateway_controller=None, payment_gateway=None):
   if payment_gateway:
-    settings = get_gateway_settings(payment_gateway)
+    settings = get_gateway_settings_doc(payment_gateway)
   else:
     settings = frappe.get_doc("Stripe Settings", gateway_controller)
 
@@ -86,6 +133,11 @@ def get_api_key_secret(gateway_controller=None, payment_gateway=None):
       secret_key = frappe.conf.sandbox_secret_key
 
   return secret_key
+
+def get_default_payment_configuration_doc():
+  default_pmc = frappe.db.exists("Stripe Payment Method Configuration", {"is_default": True})
+
+  return default_pmc
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
@@ -96,71 +148,63 @@ def get_payment_methods(doctype, txt, searchfield, start, page_len, filters):
     FROM
       `tabStripe Payment Method Configuration`
     WHERE
-      stripe_settings = "{get_gateway_settings(filters["payment_gateway"]).name}" and enabled = 1
+      stripe_settings = "{get_gateway_settings_doc(filters["payment_gateway"]).name}" and enabled = 1
   """
   )
 
 @frappe.whitelist()
-def get_default_pm_configuration(payment_gateway):
-  if payment_gateway:
-    stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
+def get_default_pm_configuration_methods(payment_gateway):
+  default_pmc = get_default_payment_configuration_doc()
+  if default_pmc:
+     return get_pm_configuration_methods(
+        default_pmc
+      )
+  else:
+    if payment_gateway:
+      stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
 
-    configuration_list = stripe.PaymentMethodConfiguration.list()
+      configuration_list = stripe.PaymentMethodConfiguration.list()
 
-    if configuration_list.data:
-      for configuration in configuration_list.data:
-        if configuration.is_default:
-          methods = []
-          for method_alias, method in configuration.items():
-            if isinstance(method, dict) and method["available"]:
-              method_name = METHODS_FULLNAME[method_alias] if method_alias in METHODS_FULLNAME else method_alias.title()
-              methods.append(method_name)
-          return methods
-
-def validate_stripe_plus_fields(payment_request, method=None):
-	enabled = frappe.db.get_single_value("Stripe Plus Settings", "enable_stripe_plus")
-
-	if enabled:
-		if not payment_request.use_default_methods and not payment_request.payment_methods:
-			frappe.throw(_("Payment Methods is empty. Either use the default methods or choose a payment method configuration."))
-	else:
-		return
+      if configuration_list.data:
+        for configuration in configuration_list.data:
+          if configuration.is_default:
+            methods = ""
+            for method_code, method in configuration.items():
+              if isinstance(method, dict) and method["available"]:
+                method_name = frappe.db.get_value("Stripe Payment Method", method_code, "payment_method_name")
+                methods = methods + f"<br/>{method_name}"
+            
+            return methods
 
 @frappe.whitelist()
-def find_customer_configuration(customer):
-  pc_customer_list = frappe.qb.DocType('PC Customer List')
-  query = (
-    frappe.qb.from_(pc_customer_list)
-    .select(pc_customer_list.parent.as_('configuration'))
-    .where(pc_customer_list.customer == customer)
-    .limit(1)
-  )
-  result = query.run(as_dict=1)
+def get_pm_configuration_methods(payment_method_configuration):
+  pmc = frappe.get_doc("Stripe Payment Method Configuration", payment_method_configuration)
+  methods = []
 
-  if result:
-    return result[0]
+  for method in pmc.payment_methods:
+    methods.append(frappe.db.get_value("Stripe Payment Method", method.payment_method, "payment_method_name"))
+        
+  return ",<br/>".join(methods)
+    
 
-def create_payment_intent(data):
-  try:
-      intent = stripe.PaymentIntent.create(
-          amount=int(float(data.get('amount')) * 100),
-          currency='usd',
-          payment_method_configuration=data.get('pm_configuration', None),
-          metadata={
-              'doctype': data.get('doctype'),
-              'docname': data.get('docname')
-          }
-      )
-      if frappe.db.exists("Payment Request", data.get('request_name')):
-          frappe.db.set_value("Payment Request", data.get('request_name'), "stripe_intent_id", intent['id'])
+@frappe.whitelist()
+def find_customer_configuration(customer, payment_gateway):
+  if payment_gateway:
+    stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
+    settings = get_gateway_settings_doc(payment_gateway)
 
-      return {
-          "clientSecret": intent['client_secret'],
-          "redirect": ""
-      }
-  except Exception as e:
-      frappe.log_error(f"Stripe Payment Error: {str(e)}", "Stripe API Error")
-      return {"error": str(e)}, 403
+    doctype_stripe_pmc_customer = frappe.qb.DocType('Stripe Payment Method Configuration Customer')
+    query = (
+      frappe.qb.from_(doctype_stripe_pmc_customer)
+      .select(doctype_stripe_pmc_customer.parent.as_('configuration'))
+      .where(doctype_stripe_pmc_customer.customer == customer)
+      .limit(1)
+    )
+    result = query.run()
+
+    if result:
+      return result[0]
+  
 @frappe.whitelist()
 def create_stripe_customer(customer, stripe_settings=None, show_success_message=0):
   if frappe.db.get_value("Customer", customer, "stripe_customer_id"):
@@ -185,3 +229,18 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
       frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{error}"))
 
 # def create_subscription():
+
+@frappe.whitelist()
+def get_bank_account(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
+  account = paid_to if payment_type == "Receive" else paid_from
+  bank_account = None
+
+  if account and trigger_change:
+      bank_account = frappe.db.get_value("Bank Account", {"account": account}, "name")
+      if bank_account:
+          bank_account = bank_account
+
+  if as_dict:
+    return { "bank_account": bank_account or 0}
+  else:
+     return bank_account

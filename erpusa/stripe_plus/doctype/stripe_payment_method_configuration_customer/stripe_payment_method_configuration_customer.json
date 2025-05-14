@@ -36,7 +36,7 @@
  "modified": "2025-04-18 12:06:43.143095",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
- "name": "PC Customer List",
+ "name": "Stripe Payment Method Configuration Customer",
  "owner": "Administrator",
  "permissions": [],
  "sort_field": "modified",

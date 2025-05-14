@@ -1,0 +1,319 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:stripe_payout_id",
+ "creation": "2025-05-06 13:32:37.175224",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "stripe_payout_id",
+  "created",
+  "status",
+  "description",
+  "metadata",
+  "livemode",
+  "column_break_jwjc",
+  "amount",
+  "currency",
+  "application",
+  "application_fee",
+  "application_fee_amount",
+  "html_lwpw",
+  "failure_balance_transaction",
+  "failure_code",
+  "failure_message",
+  "section_break_ujbu",
+  "destination",
+  "type",
+  "arrival_date",
+  "automatic",
+  "method",
+  "statement_descriptor",
+  "trace_id",
+  "column_break_dizf",
+  "journal_entry",
+  "original_payout",
+  "reconciliation_status",
+  "reversed_by",
+  "balance_transaction_section",
+  "balance_transaction",
+  "bt_status",
+  "bt_type",
+  "bt_description",
+  "column_break_jtqw",
+  "bt_net",
+  "bt_amount",
+  "bt_fee",
+  "section_break_fmev",
+  "fee_details",
+  "data_source_section",
+  "data_source"
+ ],
+ "fields": [
+  {
+   "fieldname": "created",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Created",
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Status"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Data",
+   "label": "Destination"
+  },
+  {
+   "default": "0",
+   "fieldname": "livemode",
+   "fieldtype": "Check",
+   "label": "Livemode"
+  },
+  {
+   "fieldname": "column_break_jwjc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "application",
+   "fieldtype": "Data",
+   "label": "Application"
+  },
+  {
+   "fieldname": "application_fee",
+   "fieldtype": "Currency",
+   "label": "Application Fee"
+  },
+  {
+   "fieldname": "application_fee_amount",
+   "fieldtype": "Int",
+   "label": "Application Fee Amount"
+  },
+  {
+   "fieldname": "html_lwpw",
+   "fieldtype": "HTML",
+   "options": "<hr class=\"w-100\">"
+  },
+  {
+   "fieldname": "failure_balance_transaction",
+   "fieldtype": "Data",
+   "label": "Failure Balance Transaction"
+  },
+  {
+   "fieldname": "failure_code",
+   "fieldtype": "Data",
+   "label": "Failure Code"
+  },
+  {
+   "fieldname": "failure_message",
+   "fieldtype": "Small Text",
+   "label": "Failure Message"
+  },
+  {
+   "fieldname": "section_break_ujbu",
+   "fieldtype": "Section Break",
+   "label": "Payout Information"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "bank_account\ncard"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount"
+  },
+  {
+   "fieldname": "arrival_date",
+   "fieldtype": "Datetime",
+   "label": "Arrival Date"
+  },
+  {
+   "default": "0",
+   "fieldname": "automatic",
+   "fieldtype": "Check",
+   "label": "Automatic"
+  },
+  {
+   "fieldname": "method",
+   "fieldtype": "Select",
+   "label": "Method",
+   "options": "standard\ninstant"
+  },
+  {
+   "fieldname": "statement_descriptor",
+   "fieldtype": "Data",
+   "label": "Statement Descriptor"
+  },
+  {
+   "fieldname": "trace_id",
+   "fieldtype": "JSON",
+   "label": "Trace ID"
+  },
+  {
+   "fieldname": "column_break_dizf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "original_payout",
+   "fieldtype": "Data",
+   "label": "Original Payout"
+  },
+  {
+   "fieldname": "reconciliation_status",
+   "fieldtype": "Select",
+   "label": "Reconciliation Status",
+   "options": "completed\nin_progress\nnot_applicable"
+  },
+  {
+   "fieldname": "reversed_by",
+   "fieldtype": "Data",
+   "label": "Reversed By"
+  },
+  {
+   "fieldname": "balance_transaction_section",
+   "fieldtype": "Section Break",
+   "hide_border": 1,
+   "label": "Balance Transaction"
+  },
+  {
+   "fieldname": "balance_transaction",
+   "fieldtype": "Data",
+   "label": "Balance Transaction"
+  },
+  {
+   "fieldname": "bt_status",
+   "fieldtype": "Select",
+   "label": "BT Status",
+   "options": "available\npending"
+  },
+  {
+   "fieldname": "bt_type",
+   "fieldtype": "Select",
+   "label": "BT Type",
+   "options": "adjustment\nadvance\nadvance_funding\nanticipation_repayment\napplication_fee\napplication_fee_refund\ncharge\nclimate_order_purchase\nclimate_order_refund\nconnect_collection_transfer\ncontribution\nissuing_authorization_hold\nissuing_authorization_release\nissuing_dispute\nissuing_transaction\nobligation_outbound\nobligation_reversal_inbound\npayment\npayment_failure_refund\npayment_network_reserve_hold\npayment_network_reserve_release\npayment_refund\npayment_reversal\npayment_unreconciled\npayout\npayout_cancel\npayout_failure\npayout_minimum_balance_hold\npayout_minimum_balance_release\nrefund\nrefund_failure\nreserve_transaction\nreserved_funds\nstripe_fee\nstripe_fx_fee\ntax_fee\ntopup\ntopup_reversal\ntransfer\ntransfer_cancel\ntransfer_failure\ntransfer_refund"
+  },
+  {
+   "fieldname": "bt_description",
+   "fieldtype": "Data",
+   "label": "BT Description"
+  },
+  {
+   "fieldname": "column_break_jtqw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bt_net",
+   "fieldtype": "Int",
+   "label": "BT Net"
+  },
+  {
+   "fieldname": "bt_amount",
+   "fieldtype": "Int",
+   "label": "BT Amount"
+  },
+  {
+   "fieldname": "bt_fee",
+   "fieldtype": "Int",
+   "label": "BT Fee"
+  },
+  {
+   "fieldname": "section_break_fmev",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "fee_details",
+   "fieldtype": "Table",
+   "label": "Fee Details",
+   "options": "Stripe Fee Detail"
+  },
+  {
+   "fieldname": "data_source_section",
+   "fieldtype": "Section Break",
+   "label": "History"
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Table",
+   "label": "Events Log",
+   "options": "Stripe Transaction Data Source"
+  },
+  {
+   "fieldname": "stripe_payout_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Stripe Payout ID",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "metadata",
+   "fieldtype": "JSON",
+   "label": "Transaction Metadata"
+  },
+  {
+   "fieldname": "journal_entry",
+   "fieldtype": "Link",
+   "label": "Journal Entry",
+   "options": "Journal Entry"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "link_doctype": "Stripe Transaction",
+   "link_fieldname": "payout"
+  }
+ ],
+ "modified": "2025-05-08 12:03:07.797172",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Stripe Payout",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

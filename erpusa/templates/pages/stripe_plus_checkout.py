@@ -77,7 +77,6 @@ def create_payment_intent(data):
                 'docname': data.get('docname')
             }
         )
-        frappe.log_error(f"Stripe Payment Error:", str(frappe.db.exists("Payment Request", data.get('request_name'))))
         if frappe.db.exists("Payment Request", data.get('request_name')):
             frappe.db.set_value("Payment Request", data.get('request_name'), "stripe_intent_id", intent['id'])
 
@@ -115,7 +114,6 @@ def create_fetch_payment_intent():
             else:
                 return create_payment_intent(data)
         except Exception as e:
-            frappe.log_error(f"Stripe Payment Error: {str(e)}", "Stripe API Error")
             return {"error": str(e)}, 403
     else:
         # create new intent if no intent id

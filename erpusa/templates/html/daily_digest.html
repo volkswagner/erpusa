@@ -1,0 +1,16 @@
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b>You have <b id="count">{{ count }}</b> new transaction(s) since {{ schedule }}</b>
+		</td>
+	</tr>
+		<tr>
+			<td>
+				<p>
+					{{ _("Here's a link to the new transactions.") }}:
+					<a href="{{list_url}}" target="_blank">{{list_url}}</a>
+				</p>
+			</td>
+		</tr>
+</table>
+

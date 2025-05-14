@@ -36,7 +36,7 @@
  "links": [],
  "modified": "2025-03-31 03:24:37.813465",
  "modified_by": "Administrator",
- "module": "Payment Gateways USA",
+ "module": "Stripe Plus",
  "name": "Stripe Log",
  "owner": "Administrator",
  "permissions": [

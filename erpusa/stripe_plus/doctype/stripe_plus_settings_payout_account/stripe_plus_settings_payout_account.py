@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class StripeNotificationSchedule(Document):
+class StripePlusSettingsPayoutAccount(Document):
 	pass

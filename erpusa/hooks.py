@@ -8,7 +8,10 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = [
+    "erpnext",
+    "payments"
+]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -45,6 +48,7 @@ app_include_js = "/assets/erpusa/js/stripe_checkout.js"
 # include js in doctype views
 doctype_js = {
     "Payment Request" : "public/js/payment_request.js",
+    "Payment Entry" : "public/js/payment_entry.js",
 	"Customer" : "public/js/customer.js"
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
@@ -86,7 +90,7 @@ doctype_js = {
 # ------------
 
 # before_install = "erpusa.install.before_install"
-# after_install = "erpusa.install.after_install"
+after_install = "erpusa.post_installation.create_docs.create_docs_payment_methods"
 
 # Uninstallation
 # ------------
@@ -149,23 +153,23 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"erpusa.tasks.all"
-# 	],
-# 	"daily": [
-# 		"erpusa.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"erpusa.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"erpusa.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"erpusa.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	# "all": [
+	# 	"erpusa.tasks.all"
+	# ],
+	"daily": [
+		"erpusa.stripe_plus.hook.daily_task.create_scheduled_notifications"
+	],
+	# "hourly": [
+	# 	"erpusa.tasks.hourly"
+	# ],
+	# "weekly": [
+	# 	"erpusa.tasks.weekly"
+	# ],
+	# "monthly": [
+	# 	"erpusa.tasks.monthly"
+	# ],
+}
 
 # Testing
 # -------

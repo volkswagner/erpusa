@@ -23,7 +23,7 @@ frappe.ready(function() {
       },
       body: JSON.stringify({ 
         "amount": "{{ amount_int }}", 
-        "pm_configuration": "{{ pm_configuration }}"=="None"? null:"{{ pm_configuration }}",
+        "pm_configuration": "{{ pm_configuration }}"=="None"? null : "{{ pm_configuration }}",
         "doctype": "{{ to_pay_doctype }}",
         "docname": "{{ to_pay_id }}",
         "gateway_controller": "{{ gateway_controller }}",

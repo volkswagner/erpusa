@@ -5,6 +5,5 @@
 from frappe.model.document import Document
 
 
-class MerchantPayment(Document):
-	def validate(self):
-		self.created_before = self.created
+class StripePaymentMethodConfigurationCustomer(Document):
+	pass

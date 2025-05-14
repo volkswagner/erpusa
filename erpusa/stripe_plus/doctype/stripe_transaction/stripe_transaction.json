@@ -12,9 +12,9 @@
   "status",
   "description",
   "transaction_metadata",
-  "destination",
   "livemode",
   "column_break_jwjc",
+  "amount",
   "currency",
   "application",
   "application_fee",
@@ -32,6 +32,7 @@
   "invoice",
   "order",
   "payment_intent",
+  "payout",
   "html_bzjq",
   "receipt_email",
   "receipt_url",
@@ -48,18 +49,6 @@
   "transfer_group",
   "html_jpxl",
   "fraud_details",
-  "section_break_ujbu",
-  "type",
-  "amount",
-  "arrival_date",
-  "automatic",
-  "method",
-  "statement_descriptor",
-  "trace_id",
-  "column_break_dizf",
-  "original_payout",
-  "reconciliation_status",
-  "reversed_by",
   "outcome_section",
   "advice_code",
   "network_advice_code",
@@ -120,7 +109,7 @@
    "fieldname": "object",
    "fieldtype": "Select",
    "label": "Object",
-   "options": "charge\npayment_intent\nsetup_intent\npayout\nrefund"
+   "options": "charge\npayment_intent\nsetup_intent\nrefund"
   },
   {
    "fieldname": "gross_amount",
@@ -181,11 +170,6 @@
    "fieldname": "description",
    "fieldtype": "Data",
    "label": "Description"
-  },
-  {
-   "fieldname": "destination",
-   "fieldtype": "Data",
-   "label": "Destination"
   },
   {
    "fieldname": "dispute",
@@ -288,12 +272,6 @@
    "fieldname": "seller_message",
    "fieldtype": "Data",
    "label": "Seller Message"
-  },
-  {
-   "fieldname": "type",
-   "fieldtype": "Select",
-   "label": "Type",
-   "options": "bank_account\ncard"
   },
   {
    "default": "0",
@@ -531,12 +509,6 @@
    "options": "authorized\nmanual_review\nissuer_declined\nblocked\ninvalid"
   },
   {
-   "depends_on": "eval:doc.object==\"payout\";",
-   "fieldname": "section_break_ujbu",
-   "fieldtype": "Section Break",
-   "label": "Payout Information"
-  },
-  {
    "fieldname": "bt_description",
    "fieldtype": "Data",
    "label": "BT Description"
@@ -593,61 +565,20 @@
    "label": "Charge/Payment Intent Information"
   },
   {
+   "fieldname": "payout",
+   "fieldtype": "Link",
+   "label": "Payout",
+   "options": "Stripe Payout"
+  },
+  {
    "fieldname": "amount",
-   "fieldtype": "Int",
+   "fieldtype": "Currency",
    "label": "Amount"
-  },
-  {
-   "fieldname": "arrival_date",
-   "fieldtype": "Datetime",
-   "label": "Arrival Date"
-  },
-  {
-   "default": "0",
-   "fieldname": "automatic",
-   "fieldtype": "Check",
-   "label": "Automatic"
-  },
-  {
-   "fieldname": "method",
-   "fieldtype": "Select",
-   "label": "Method",
-   "options": "standard\ninstant"
-  },
-  {
-   "fieldname": "original_payout",
-   "fieldtype": "Data",
-   "label": "Original Payout"
-  },
-  {
-   "fieldname": "reconciliation_status",
-   "fieldtype": "Select",
-   "label": "Reconciliation Status",
-   "options": "completed\nin_progress\nnot_applicable"
-  },
-  {
-   "fieldname": "reversed_by",
-   "fieldtype": "Data",
-   "label": "Reversed By"
-  },
-  {
-   "fieldname": "statement_descriptor",
-   "fieldtype": "Data",
-   "label": "Statement Descriptor"
-  },
-  {
-   "fieldname": "trace_id",
-   "fieldtype": "JSON",
-   "label": "Trace ID"
-  },
-  {
-   "fieldname": "column_break_dizf",
-   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-25 23:04:44.386490",
+ "modified": "2025-05-08 12:02:19.022601",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Transaction",
@@ -663,6 +594,18 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
    "share": 1,
    "write": 1
   }

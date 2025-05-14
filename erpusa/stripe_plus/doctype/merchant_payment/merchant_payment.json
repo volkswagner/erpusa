@@ -8,16 +8,17 @@
  "field_order": [
   "merchant",
   "merchant_transaction_id",
-  "status",
+  "stripe_status",
   "source",
-  "company",
   "column_break_pore",
   "created",
+  "created_before",
   "available_on",
   "section_break_jdhr",
   "customer",
   "associated_sales_order",
   "associated_sales_invoice",
+  "associated_payment_request",
   "associated_payment_entry",
   "column_break_zjuu",
   "merchant_fee",
@@ -95,12 +96,6 @@
    "label": "Available On"
   },
   {
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "label": "Status",
-   "options": "Pending\nAvailable\nPaid\nJournaled"
-  },
-  {
    "fieldname": "column_break_pore",
    "fieldtype": "Column Break"
   },
@@ -122,15 +117,28 @@
    "options": "Payment Entry"
   },
   {
-   "fieldname": "company",
+   "fieldname": "associated_payment_request",
    "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company"
+   "label": "Associated Payment Request",
+   "options": "Payment Request"
+  },
+  {
+   "fieldname": "stripe_status",
+   "fieldtype": "Select",
+   "label": "Stripe Status",
+   "options": "Pending\nAvailable"
+  },
+  {
+   "fieldname": "created_before",
+   "fieldtype": "Datetime",
+   "hidden": 1,
+   "label": "Created Before",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-29 09:22:29.293576",
+ "modified": "2025-05-13 17:24:41.966356",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Merchant Payment",
@@ -148,6 +156,27 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1
   }
  ],
  "sort_field": "modified",
