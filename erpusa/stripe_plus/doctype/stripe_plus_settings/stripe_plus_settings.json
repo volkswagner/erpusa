@@ -41,7 +41,7 @@
    "options": "Stripe Plus Settings Notification Schedule"
   },
   {
-   "description": "Receive email when customers fulfill payment requests.",
+   "description": "<small>Receive email when customers fulfill payment requests.</small>",
    "fieldname": "notification_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
@@ -55,13 +55,13 @@
    "label": "Enable Stripe Plus"
   },
   {
-   "default": "1",
+   "default": "0",
    "fieldname": "hide_warning",
    "fieldtype": "Check",
    "label": "Hide warning in Payment Request when Stripe Plus is disabled"
   },
   {
-   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks more features such as notifications, logging events, and creating transaction data and payment entry.</small>",
+   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks more features such as notifications, events logging and automation.</small>",
    "fieldname": "webhook_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
@@ -81,6 +81,7 @@
   },
   {
    "depends_on": "eval: doc.notification_method==\"Daily Digest\"",
+   "description": "<small>There can be up to 24 timeslots and each timeslot can have hour and minute.</small>",
    "fieldname": "section_break_eaam",
    "fieldtype": "Section Break"
   },
@@ -92,7 +93,7 @@
   },
   {
    "default": "Administrator",
-   "description": "Because Accounting data is sensitive, an admin must authorize the creation of Payment Entry. <br>Leaving this empty won't automatically create a Payment Entry.",
+   "description": "<small>Because Accounting data is sensitive, an admin must authorize the creation of Payment Entry. Leaving this empty won't automatically create a Payment Entry.</small>",
    "fieldname": "user_to_authorize",
    "fieldtype": "Link",
    "label": "User to Authorize Payment Entry Creation (must be an Accounts Manager or someone with a higher position)",
@@ -105,7 +106,7 @@
    "options": "Account"
   },
   {
-   "description": "The cost center in the Payment Entry is determined by the item with the highest amount in the invoice. If a cost center can\u2019t be determined, the value in this field will be applied.",
+   "description": "<small>The cost center in the Payment Entry is determined by the item with the highest amount in the invoice. If a cost center can\u2019t be determined, the value in this field will be applied.</small>",
    "fieldname": "merchant_fee_cost_center",
    "fieldtype": "Link",
    "label": "Default Merchant Fee Cost Center",
@@ -117,7 +118,7 @@
   },
   {
    "default": "0",
-   "description": "This setting is only applicable when payment is applied to Sales Invoice (including automatically generated invoices via Payment Requests)",
+   "description": "<small>This setting is only applicable when payment is applied to Sales Invoice (including automatically generated invoices via Payment Requests)</small>",
    "fieldname": "auto_submit_payment",
    "fieldtype": "Check",
    "label": "Automatically submit Payment Entry"
@@ -138,10 +139,10 @@
    "fieldname": "notes",
    "fieldtype": "HTML",
    "label": "Notes",
-   "options": "<small>\n <span>Notes</span>\n <ol>\n  <li>Stripe Plus only supports payment methods allowed in the US. During creation of Payment Method Configuration, some payment methods will not appear.</li>\n </ol>\n</small>"
+   "options": "<small>\n <span>Notes</span>\n <ol>\n  <li>Stripe Plus only supports payment methods allowed in the US. During creation of Payment Method Configuration, some payment methods will not appear.</li>\n<li>To make advanced features work, the website should be public.</li>\n<li>It is best practice to have a dedicated Stripe account for a site. If two websites share the same Stripe account, there can be unexpected results.\n</li>\n </ol>\n</small>"
   },
   {
-   "default": "1",
+   "default": "0",
    "fieldname": "turn_on_email_notifications",
    "fieldtype": "Check",
    "label": "Turn on email notifications"
@@ -157,7 +158,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-05-12 13:08:21.058376",
+ "modified": "2025-05-15 12:25:28.542677",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

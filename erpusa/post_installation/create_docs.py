@@ -39,6 +39,7 @@ def create_docs_payment_methods():
     for method_code, method_name in payment_methods.items():
         if not frappe.db.exists("Stripe Payment Method", {"payment_method_code": method_code}):
             doc = frappe.get_doc({
+                "doctype": "Stripe Payment Method",
                 "payment_method_name": method_name,
                 "payment_method_code": method_code,
             })

@@ -42,8 +42,8 @@ def get_context(context):
                 context.header_image = frappe.db.get_value("Company", context.company, "company_logo")
                 
                 context.to_pay_id = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_name")
-                if not frappe.db.get_value(context.reference_doctype, context.reference_docname, "use_default_methods"):
-                    pm_configuration_doc = frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_methods")
+                if frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration"):
+                    pm_configuration_doc = frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration")
                     context.pm_configuration = frappe.db.get_value("Stripe Payment Method Configuration", pm_configuration_doc, "stripe_configuration_id")
                 else:
                     context.pm_configuration = None

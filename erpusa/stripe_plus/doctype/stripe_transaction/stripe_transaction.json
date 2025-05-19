@@ -151,8 +151,7 @@
    "fieldname": "created",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Created",
-   "reqd": 1
+   "label": "Created"
   },
   {
    "fieldname": "currency",
@@ -578,7 +577,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-08 12:02:19.022601",
+ "modified": "2025-05-19 05:58:26.848327",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Transaction",

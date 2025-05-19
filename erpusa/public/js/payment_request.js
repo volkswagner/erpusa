@@ -36,17 +36,6 @@ frappe.ui.form.on("Payment Request", {
                 };
             });
         }
-        frm.add_custom_button("Pay", function() {
-            frappe.call({
-                method: "erpusa.stripe_plus.api.webhook_receiver.generate_link_to_merchant_payment_list",
-                callback: function (r) {
-                    if (r.message) {
-                        console.log(r.message)
-
-                    }
-                },
-            });
-        });
     },
 
     payment_method_configuration: function(frm) {
@@ -90,19 +79,21 @@ frappe.ui.form.on("Payment Request", {
 })
 
 function toggle_stripe_plus_section(frm) {
-    frappe.call({
-        method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.is_stripe_plus_applicable",
-        args: {
-            payment_gateway: frm.doc.payment_gateway
-        },
-        callback: function (r) {
-            if (r.message) {
-                frm.set_df_property("stripe_plus_section", "hidden", 0)
+    if (frm.doc.payment_gateway) {
+        frappe.call({
+            method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.is_stripe_plus_applicable",
+            args: {
+                payment_gateway: frm.doc.payment_gateway
+            },
+            callback: function (r) {
+                if (r.message) {
+                    frm.set_df_property("stripe_plus_section", "hidden", 0)
+                }
+                else
+                {
+                    frm.set_df_property("stripe_plus_section", "hidden", 1)
+                }
             }
-            else
-            {
-                frm.set_df_property("stripe_plus_section", "hidden", 1)
-            }
-        }
-    });
+        });
+    }
 }

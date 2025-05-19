@@ -29,7 +29,6 @@ required_apps = [
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/erpusa/css/erpusa.css"
-app_include_js = "/assets/erpusa/js/stripe_checkout.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpusa/css/erpusa.css"
@@ -157,9 +156,9 @@ scheduler_events = {
 	# "all": [
 	# 	"erpusa.tasks.all"
 	# ],
-	"daily": [
-		"erpusa.stripe_plus.hook.daily_task.create_scheduled_notifications"
-	],
+	# "daily": [
+	#	"erpusa.tasks.daily"
+	# ],
 	# "hourly": [
 	# 	"erpusa.tasks.hourly"
 	# ],
@@ -169,6 +168,11 @@ scheduler_events = {
 	# "monthly": [
 	# 	"erpusa.tasks.monthly"
 	# ],
+	"cron": {
+        "* * * * *": [
+            "erpusa.stripe_plus.hook.minutely_task.send_daily_digest"
+        ]
+    }
 }
 
 # Testing
@@ -246,3 +250,20 @@ scheduler_events = {
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
+
+# fixtures = [
+#     "Custom Field",
+#     "Property Setter",
+#     "Custom DocPerm"
+# ]
+
+fixtures = [
+       {
+         "dt": "Custom Field", 
+         "filters":[
+             [
+                "module", "in", ["Stripe Plus", "ERPUSA"]
+			 ]
+        ]
+      },
+]

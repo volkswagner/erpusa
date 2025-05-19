@@ -48,16 +48,20 @@ class StripePlusSettings(Document):
     if self.signing_secret_list:
       if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center:
         frappe.throw(_("Fields User to Authorize, Merchant Fee Account and Cost Centers are empty. Fill them out to enable auto-creation of Payment Entry."))
-      
+      if frappe.db.get_value("Account", self.merchant_fee_account, "is_group"):
+        frappe.throw(_("The selected Merchant Fee Account is a group account and group accounts cannot be used in transactions."))
+
     if self.turn_on_email_notifications:
-      self.validate_schedule_interval()
+      if not self.signing_secret_list:
+        frappe.throw(_("Can't turn on notifications when signing secret is empty."))
+      self.validate_schedule()
       if self.notification_method == "Digest":
         if not self.notification_schedule:
           frappe.throw(_("Notification Schedule can't be empty. Add at least one schedule."))
       if not self.notification_recipients:
-         frappe.throw(_("Notifications require a recipient. Set a user in the Notification Recipient field."))
+         frappe.throw(_("Notifications require a recipient."))
 
-  def validate_schedule_interval(self):
+  def validate_schedule(self):
     if len(self.notification_schedule) >= 2:
       schedule_times = [
           datetime.datetime.strptime(schedule.time, "%H:%M:%S") - datetime.datetime.strptime("00:00:00", "%H:%M:%S")
@@ -73,16 +77,24 @@ class StripePlusSettings(Document):
 
       if all_intervals_within_hour:
         frappe.throw(_("Schedules can only have an hour (or more) interval between them."))
+  
+    if len(self.notification_schedule) > 24:
+       frappe.throw(_("There can only be 24 timeslots at a time."))
+
+    for schedule in self.notification_schedule:
+      if datetime.datetime.strptime(schedule.time, "%H:%M:%S").second != 0 or datetime.datetime.strptime(schedule.time, "%H:%M:%S").microsecond != 0:
+        frappe.throw(_("Time must not include seconds or milliseconds."))
 
 @frappe.whitelist()
-def is_stripe_plus_applicable(payment_gateway):
-  enabled = frappe.db.get_single_value("Stripe Plus Settings", "enable_stripe_plus")
+def is_stripe_plus_applicable(payment_gateway=None):
   if payment_gateway:
-    is_gateway_stripe = frappe.db.get_value("Payment Gateway", payment_gateway, "gateway_settings") == "Stripe Settings"
-  else:
-    is_gateway_stripe = False
+    enabled = frappe.db.get_single_value("Stripe Plus Settings", "enable_stripe_plus")
+    if payment_gateway:
+      is_gateway_stripe = frappe.db.get_value("Payment Gateway", payment_gateway, "gateway_settings") == "Stripe Settings"
+    else:
+      is_gateway_stripe = False
 
-  return enabled and is_gateway_stripe
+    return enabled and is_gateway_stripe
 
 def validate_stripe_plus_fields(payment_request, method=None):
   is_stripe_applicable = is_stripe_plus_applicable(payment_request.payment_gateway)

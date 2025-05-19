@@ -11,6 +11,8 @@ from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import
 
 class StripePaymentMethodConfiguration(Document):
 	def validate(self):
+		if not self.payment_methods:
+			frappe.throw(_("Payment Methods can't be empty"))
 		if self.payment_methods:
 			has_dependent_on_card = False
 			has_card = False
@@ -20,7 +22,7 @@ class StripePaymentMethodConfiguration(Document):
 				if frappe.db.get_value("Stripe Payment Method", method.payment_method, "payment_method_code") == "card":
 					has_card = True
 			if not has_card and has_dependent_on_card:
-				frappe.throw("Apple Pay and Google Pay payment methods require Card Payments. Add Card Payments in the payment methods to enable Apple Pay and Google Play.")
+				frappe.throw(_("Apple Pay and Google Pay payment methods require Card Payments. Add Card Payments in the payment methods to enable Apple Pay and Google Play."))
 
 	def on_update(self):
 		stripe_settings = frappe.get_doc('Stripe Settings', self.stripe_settings)
