@@ -2,7 +2,7 @@ app_name = "erpusa"
 app_title = "ERPUSA"
 app_publisher = "VolksWagner"
 app_description = "An add-on to ERPNext that tailors and expands features more suitable for American users and companies."
-app_email = "ewagner@itgetit.com"
+app_email = "apps@itgetit.com"
 app_license = "mit"
 
 # Apps
