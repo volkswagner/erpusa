@@ -1,7 +1,7 @@
 ## erpUSA
 An extension of ERPNext with goodies for users in the USA.
 
-IMPORTANT: This app is under heavy development and should be considered BETA software at this time. Please use in a test/dev environment. If you encounter any issues please raise them via the issues tab in this Repository.
+IMPORTANT: This app is under heavy development and should be considered BETA software at this time. Please use in a test/dev environment. If you encounter any issues, please raise them via the issues tab in this Repository.
 
 #### Main Modules
 1. ERP USA
