@@ -1,7 +1,7 @@
 [project]
 name = "erpusa"
 authors = [
-    { name = "VolksWagner", email = "ewagner@itgetit.com"}
+    { name = "VolksWagner", email = "apps@itgetit.com"}
 ]
 description = "An add-on to ERPNext that tailors and expands features more suitable for American users and companies."
 requires-python = ">=3.10"
