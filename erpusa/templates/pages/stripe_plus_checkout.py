@@ -38,8 +38,19 @@ def get_context(context):
                     context.reference_doctype, context.reference_docname, frappe.form_dict["payment_gateway"]
                 )
                 context.publishable_key = get_api_key(context.reference_docname, context.gateway_controller)
-                context.company = frappe.db.get_value(context.reference_doctype, context.reference_docname, "company")
-                context.header_image = frappe.db.get_value("Company", context.company, "company_logo")
+                
+                settings_company = frappe.db.get_single_value("Stripe Plus Settings", "payment_page_company_name")
+                settings_header_image = frappe.db.get_single_value("Stripe Plus Settings", "payment_page_company_logo")
+
+                if settings_company:
+                    context.company = settings_company
+                else: 
+                    context.company = frappe.db.get_value(context.reference_doctype, context.reference_docname, "company")
+
+                if settings_company and settings_header_image:
+                    context.header_image = settings_header_image
+                else:
+                    context.header_image = frappe.db.get_value("Company", context.company, "company_logo")
                 
                 context.to_pay_id = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_name")
                 if frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration"):
@@ -66,11 +77,12 @@ def get_context(context):
         frappe.local.flags.redirect_location = frappe.local.response.location
         raise frappe.Redirect
 
-def create_payment_intent(data):
+def create_payment_intent(data, customer_id=None):
     try:
         intent = stripe.PaymentIntent.create(
             amount=int(float(data.get('amount')) * 100),
             currency='usd',
+            customer=customer_id,
             payment_method_configuration=data.get('pm_configuration', None),
             metadata={
                 'doctype': data.get('doctype'),
@@ -95,6 +107,9 @@ def create_fetch_payment_intent():
 
     # check if intent has already been made
     stripe_intent_id = frappe.db.get_value("Payment Request", data.get('request_name'), "stripe_intent_id")
+    payment_request_customer = frappe.db.get_value("Payment Request", data.get('request_name'), "party")
+    stripe_customer_id = frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id")
+
     if stripe_intent_id:
         try:
             intent = stripe.PaymentIntent.retrieve(stripe_intent_id)
@@ -117,4 +132,4 @@ def create_fetch_payment_intent():
             return {"error": str(e)}, 403
     else:
         # create new intent if no intent id
-        return create_payment_intent(data)
+        return create_payment_intent(data, stripe_customer_id)

@@ -96,19 +96,45 @@ def is_stripe_plus_applicable(payment_gateway=None):
 
     return enabled and is_gateway_stripe
 
+@frappe.whitelist()
+def get_payment_method_code(payment_method_name):
+  return frappe.db.get_value("Stripe Payment Method", payment_method_name, "payment_method_code")
+
 def validate_stripe_plus_fields(payment_request, method=None):
   is_stripe_applicable = is_stripe_plus_applicable(payment_request.payment_gateway)
   # if Stripe Plus is enabled and the payment gateway settings doc is Stripe
   if is_stripe_applicable:
-    if payment_request.is_new() and payment_request.party_type == "Customer":
-      if find_customer_configuration(payment_request.party, payment_request.payment_gateway):
+    if payment_request.party_type == "Customer":
+      if payment_request.is_new() and find_customer_configuration(payment_request.party, payment_request.payment_gateway):
         payment_request.payment_method_configuration = find_customer_configuration(payment_request.party, payment_request.payment_gateway)
         payment_request.methods_included = get_pm_configuration_methods(payment_request.payment_method_configuration)
+      
+      if payment_request.payment_method_configuration and \
+        frappe.db.get_single_value("Stripe Plus Settings", "always_create_stripe_customer") and \
+        not frappe.get_value("Customer", payment_request.party, "stripe_customer_id"):
+
+        pr_payment_methods = frappe.get_all("Stripe Payment Method Multiselect Table", filters={"parent": payment_request.payment_method_configuration}, pluck="payment_method")
+        has_customer_balance = False
+        
+        for method in pr_payment_methods:
+          if get_payment_method_code(method) == "customer_balance":
+            has_customer_balance = True
+            break
+          
+        if has_customer_balance:
+          create_stripe_customer(
+            payment_request.party,
+            stripe_settings=get_gateway_settings_doc(payment_request.payment_gateway),
+            show_success_message=0
+          )
 
     if not payment_request.payment_method_configuration:
       if get_default_payment_configuration_doc():
         payment_request.payment_method_configuration = get_default_payment_configuration_doc()
       payment_request.methods_included = get_default_pm_configuration_methods(payment_request.payment_gateway)
+
+    if payment_request.docstatus == 2:
+      payment_request.stripe_intent_id = None
 
   else:
     return

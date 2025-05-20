@@ -120,8 +120,13 @@ frappe.ready(function() {
     elements = stripe.elements({ appearance, clientSecret })
   
     const paymentElementOptions = {
-      layout: 'tabs',
-      // defaultPaymentMethodType: 'bank_transfer',
+      layout: {
+        type: 'accordion',
+        defaultCollapsed: false,
+        radios: true,
+        spacedAccordionItems: false
+      },
+      defaultPaymentMethodType: 'us_bank_account',
       paymentMethodOrder: ['us_bank_account', 'card']
     };
   

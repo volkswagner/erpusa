@@ -8,6 +8,10 @@
   "enable_stripe_plus",
   "hide_warning",
   "notes",
+  "checkoutpayment_section",
+  "always_create_stripe_customer",
+  "payment_page_company_name",
+  "payment_page_company_logo",
   "webhook_section",
   "webhook_instructions",
   "signing_secret_list",
@@ -153,12 +157,34 @@
    "fieldtype": "Long Text",
    "label": "Notification Recipients",
    "options": "Contact"
+  },
+  {
+   "default": "1",
+   "fieldname": "always_create_stripe_customer",
+   "fieldtype": "Check",
+   "label": "Always add customer to Stripe when payment configuration has customer_balance method"
+  },
+  {
+   "fieldname": "payment_page_company_name",
+   "fieldtype": "Data",
+   "label": "Payment Page Company Name"
+  },
+  {
+   "depends_on": "eval:doc.payment_page_company_name;",
+   "fieldname": "payment_page_company_logo",
+   "fieldtype": "Attach Image",
+   "label": "Payment Page Company Logo"
+  },
+  {
+   "fieldname": "checkoutpayment_section",
+   "fieldtype": "Section Break",
+   "label": "Checkout/Payment"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-05-15 12:25:28.542677",
+ "modified": "2025-05-20 13:43:53.057990",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",
