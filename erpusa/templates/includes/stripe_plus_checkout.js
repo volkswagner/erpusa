@@ -138,7 +138,7 @@ frappe.ready(function() {
       elements,
       confirmParams: {
         // Make sure to change this to your payment completion page
-        return_url: "https://emower.hvgeek.com/stripe_plus_return?reference_docname={{ reference_docname }}&gateway_controller={{ gateway_controller }}&to_pay_id={{ to_pay_id }}&amount={{ amount }}",
+        return_url: "{{ frappe.utils.get_url() }}/stripe_plus_return?reference_docname={{ reference_docname }}&gateway_controller={{ gateway_controller }}&to_pay_id={{ to_pay_id }}&amount={{ amount }}",
         payment_method_data: {
           billing_details: {
             email: receipt_email_node.value, 
