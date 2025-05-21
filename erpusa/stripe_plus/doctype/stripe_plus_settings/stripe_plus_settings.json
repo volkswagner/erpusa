@@ -9,7 +9,7 @@
   "hide_warning",
   "notes",
   "checkoutpayment_section",
-  "always_create_stripe_customer",
+  "add_new_checkout_customers",
   "payment_page_company_name",
   "payment_page_company_logo",
   "webhook_section",
@@ -136,7 +136,7 @@
   {
    "fieldname": "erp_stripe_accounts",
    "fieldtype": "Table",
-   "label": "ERP-Stripe Accounts",
+   "label": "ERP-Stripe Accounts (Required to automatically submit payment entry)",
    "options": "Stripe Plus Settings Payout Account"
   },
   {
@@ -159,12 +159,6 @@
    "options": "Contact"
   },
   {
-   "default": "1",
-   "fieldname": "always_create_stripe_customer",
-   "fieldtype": "Check",
-   "label": "Always add customer to Stripe when payment configuration has customer_balance method"
-  },
-  {
    "fieldname": "payment_page_company_name",
    "fieldtype": "Data",
    "label": "Payment Page Company Name"
@@ -179,12 +173,18 @@
    "fieldname": "checkoutpayment_section",
    "fieldtype": "Section Break",
    "label": "Checkout/Payment"
+  },
+  {
+   "default": "1",
+   "fieldname": "add_new_checkout_customers",
+   "fieldtype": "Check",
+   "label": "Add new checkout customers to Stripe.com account"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-05-20 13:43:53.057990",
+ "modified": "2025-05-21 11:53:53.773616",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

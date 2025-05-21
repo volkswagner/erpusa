@@ -1,16 +1,9 @@
 import datetime
 import json
-import time
 import frappe
 import stripe
 from frappe import _
-from frappe.utils import (
-	format_time,
-	get_url_to_report,
-	global_date_format,
-	now,
-    fmt_money
-)
+from frappe.utils import fmt_money
 from frappe.email.doctype.auto_email_report.auto_email_report import make_links, update_field_types
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_bank_account
@@ -153,11 +146,14 @@ def receive_stripe_events():
             log_doc.event_data = data
             log_doc.save(ignore_permissions=True)
 
-            if "charge" or "payout" in type:
+            if any(word in type for word in ["charge", "payment_intent", "setup_intent", "refund"]):
                 create_update_stripe_transaction(data, type, log_doc, api_key)
+
             elif "payout" in type:
                 create_update_stripe_payout(data, log_doc, api_key)
+
             return "", 200
+        
         except stripe.error.SignatureVerificationError:
             continue
 
@@ -464,41 +460,39 @@ def create_journal_entry(payout):
                 })
                 frappe.set_value("Stripe Transaction", txn.source, "payout", payout.name)
 
-        # loop through the sources to create payment entry
-        for index, source in enumerate(sources):
-            if source.get('merchant_payment'):
-                credit_account = frappe.db.get_value(
-                    "Payment Request",
-                    frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_payment_request"),
-                    "payment_account"
-                )
+        # loop through the sources to create journal entry
+        if sources:
+            for index, source in enumerate(sources):
+                if source.get('merchant_payment'):
+                    credit_account = frappe.db.get_value(
+                        "Payment Request",
+                        frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_payment_request"),
+                        "payment_account"
+                    )
 
-                credit_bank_account = frappe.db.get_value("Bank Account", {"account": credit_account}, "name")
+                    credit_bank_account = frappe.db.get_value("Bank Account", {"account": credit_account}, "name")
 
-        debit_accounts_name = frappe.db.exists("Stripe Plus Settings Payout Account", {"payout_account": payout.destination})
-        if not debit_accounts_name:
-            debit_accounts_name = frappe.db.exists("Stripe Plus Settings Payout Account", {"is_default_payout_account": True})
+            debit_accounts_name = frappe.db.exists("Stripe Plus Settings Payout Account", {"payout_account": payout.destination})
 
-        je_doc = frappe.new_doc("Journal Entry")
-        je_doc.entry_type = "Journal Entry"
-        je_doc.posting_date = frappe.utils.today()
-        je_doc.cheque_no = payout.name
-        je_doc.cheque_date = payout.created
-        je_doc.append("accounts", {
-            "account": credit_account,
-            "bank_account": credit_bank_account,
-            "credit_in_account_currency": abs(payout.amount)
-        })
-        je_doc.append("accounts", {
-            "account": frappe.db.get_value("Stripe Plus Settings Payout Account", debit_accounts_name, "erp_account"),
-            "bank_account": frappe.db.get_value("Stripe Plus Settings Payout Account", debit_accounts_name, "erp_bank_account"),
-            "debit_in_account_currency": abs(payout.amount)
-        })
-        
-        try:
-            je_doc.save()
-        except Exception as e:
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Document"))
+            if not debit_accounts_name:
+                debit_accounts_name = frappe.db.exists("Stripe Plus Settings Payout Account", {"is_default_payout_account": True})
+
+            je_doc = frappe.new_doc("Journal Entry")
+            je_doc.entry_type = "Journal Entry"
+            je_doc.posting_date = frappe.utils.today()
+            je_doc.cheque_no = payout.name
+            je_doc.cheque_date = payout.created
+
+            je_doc.append("accounts", {
+                "account": credit_account,
+                "bank_account": credit_bank_account,
+                "credit_in_account_currency": abs(payout.amount)
+            })
+
+            try:
+                je_doc.save()
+            except Exception as e:
+                frappe.log_error(frappe.get_traceback(), _("Error Saving Document"))
 
 def generate_realtime_notification_email_message(title, description, merchant_payment):
     return frappe.render_template(
