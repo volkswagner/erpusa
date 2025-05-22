@@ -54,17 +54,21 @@ class StripePlusSettings(Document):
     if self.turn_on_email_notifications:
       if not self.signing_secret_list:
         frappe.throw(_("Can't turn on notifications when signing secret is empty."))
+
       self.validate_schedule()
 
-      if self.notification_method == "Daily Digest":
-        if not self.notification_schedule:
-          frappe.throw(_("Notification Schedule can't be empty. Add at least one schedule."))
+      if self.notification_method == "Daily Digest" and not self.notification_schedule:
+        frappe.throw(_("Notification Schedule can't be empty. Add at least one schedule."))
 
       if not self.notification_recipients:
         frappe.throw(_("Notifications require a recipient."))
 
-    if self.auto_submit_payment and not self.erp_stripe_accounts:
-      frappe.throw(_("An ERP-Stripe Account is needed to automatically submit a payment entry. Link at least one Stripe payout account with an ERP account."))
+    if self.auto_submit_journal and not self.erp_stripe_accounts:
+      frappe.throw(_("An ERP-Stripe Account is needed to automatically submit a payout journal entry. Link at least one Stripe payout account with an ERP account."))
+
+    if self.erp_stripe_accounts:
+      self.validate_erp_stripe_account()
+
 
   def validate_schedule(self):
     import datetime
@@ -92,6 +96,16 @@ class StripePlusSettings(Document):
       if datetime.datetime.strptime(schedule.time, "%H:%M:%S").second != 0 or \
       datetime.datetime.strptime(schedule.time, "%H:%M:%S").microsecond != 0:
         frappe.throw(_("Time must not include seconds or milliseconds."))
+
+  def validate_erp_stripe_account(self):
+    default_count = 0
+
+    for erp_stripe_account in self.erp_stripe_accounts:
+      if erp_stripe_account.is_default_payout_account:
+        default_count = default_count + 1
+
+      if default_count > 1:
+        frappe.throw(_("There can only be one default ERP-Stripe account link."))
 
 @frappe.whitelist()
 def is_stripe_plus_applicable(payment_gateway=None):
