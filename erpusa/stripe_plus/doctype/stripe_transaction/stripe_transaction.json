@@ -264,7 +264,7 @@
    "fieldname": "risk_level",
    "fieldtype": "Select",
    "label": "Risk Level",
-   "options": "normal\nelevated\nhighest"
+   "options": "normal\nelevated\nhighest\nnot_assessed\nunknown"
   },
   {
    "fieldname": "seller_message",
@@ -576,7 +576,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-22 12:36:52.674263",
+ "modified": "2025-05-23 11:35:55.690949",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Transaction",

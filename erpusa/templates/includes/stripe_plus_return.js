@@ -20,9 +20,10 @@ const InfoIcon =
 function setPaymentDetails(intent) {
   let statusText = "Something went wrong, please try again.";
   let paymentDescriptionBase = "Your payment for {{ to_pay_id }} amounting {{ amount }}";
-  let paymentDescription = ""
   let iconColor = "#DF1B41";
+  let shadowColor = "rgba(177, 48, 48, 0.25)";
   let icon = ErrorIcon;
+  let paymentDescription = " didn't go through.";
 
   
   if (!intent) {

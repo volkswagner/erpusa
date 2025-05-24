@@ -249,7 +249,6 @@ def create_update_stripe_transaction(data, type, log_doc, api_key):
 
         if type == "charge.succeeded" and billing_details and billing_details.get("email") and data.get("receipt_url") and frappe.db.exists("Stripe Transaction", data.get("id")):
             if not frappe.db.exists("Email Queue", {"reference_name": doc.name}):
-                frappe.log_error("To send email", "hmm")
                 frappe.sendmail(
                     recipients=[billing_details.get("email")],
                     subject="Thank you for your payment",

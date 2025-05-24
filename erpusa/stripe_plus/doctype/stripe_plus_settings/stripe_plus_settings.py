@@ -164,6 +164,7 @@ def validate_stripe_plus_fields(payment_request, method=None):
     if not payment_request.payment_method_configuration:
       if get_default_payment_configuration_doc():
         payment_request.payment_method_configuration = get_default_payment_configuration_doc()
+        
       payment_request.methods_included = get_default_pm_configuration_methods(payment_request.payment_gateway)
 
     if payment_request.docstatus == 2:
@@ -231,26 +232,28 @@ def get_default_pm_configuration_methods(payment_gateway):
   default_pmc = get_default_payment_configuration_doc()
 
   if default_pmc:
-     return get_pm_configuration_methods(
-        default_pmc
-      )
+    return get_pm_configuration_methods(default_pmc)
   
   else:
     if payment_gateway:
       stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
 
-      configuration_list = stripe.PaymentMethodConfiguration.list()
+      configuration_list = stripe.PaymentMethodConfiguration.list(limit=100)
 
       if configuration_list.data:
         for configuration in configuration_list.data:
           if configuration.is_default:
-            methods = ""
+            methods = []
+            
             for method_code, method in configuration.items():
               if isinstance(method, dict) and method["available"]:
-                method_name = frappe.db.get_value("Stripe Payment Method", method_code, "payment_method_name")
-                methods = methods + f"<br/>{method_name}"
+                method_name = frappe.db.exists("Stripe Payment Method", {"payment_method_code": method_code})
+                methods.append(method_name)
             
-            return methods
+            if not methods:
+              frappe.throw(_("The default payment method configuration in your Stripe account has no payment methods. To proceed, set up at least one payment method through Stripe.com dashboard."))
+              
+            return ",<br/>".join(methods)
 
 @frappe.whitelist()
 def get_pm_configuration_methods(payment_method_configuration):
@@ -287,6 +290,7 @@ def find_customer_configuration(customer, payment_gateway):
 def create_stripe_customer(customer, stripe_settings=None, show_success_message=0):
   if frappe.db.get_value("Customer", customer, "stripe_customer_id"):
     if show_success_message:
+      
       frappe.throw(_("Customer already added to Stripe with id {stripe_customer}").format(stripe_customer=frappe.db.get_value("Customer", customer, "stripe_customer_id")))
     return
   
@@ -297,19 +301,31 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
     stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
 
     try:
-      stripe_customer = stripe.Customer.create(
-        name=frappe.db.get_value("Customer", customer, "customer_name"),
-        email=frappe.db.get_value("Contact", customer, "email_id"),
-      )
-
-      frappe.db.set_value("Customer", customer, "stripe_customer_id", stripe_customer.id)
-      if show_success_message:
-        frappe.msgprint(_("Customer <b>{customer}</b> was successfully added to Stripe with id <i>{stripe_customer}</i>").format(customer=customer, stripe_customer=stripe_customer.id))
+      matching_customer_list = stripe.Customer.search(query=f"metadata['erp_customer_name']:'{customer}'")
 
     except Exception as e:
       error = str(e)
-      frappe.log_error(f"Stripe Payment Error: {error}", "Stripe API Error")
+      frappe.log_error(f"Error Fetching Customers: ", str(error))
       frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{error}"))
+
+    if matching_customer_list and matching_customer_list.get("data"):
+      frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
+
+    else:
+      try:
+        stripe_customer = stripe.Customer.create(
+          name=frappe.db.get_value("Customer", customer, "customer_name"),
+          email=frappe.db.get_value("Contact", customer, "email_id"),
+        )
+
+        frappe.db.set_value("Customer", customer, "stripe_customer_id", stripe_customer.id)
+        if show_success_message:
+          frappe.msgprint(_("Customer <b>{customer}</b> was successfully added to Stripe with id <i>{stripe_customer}</i>").format(customer=customer, stripe_customer=stripe_customer.id))
+
+      except Exception as e:
+        error = str(e)
+        frappe.log_error(f"Error Adding Customer to Stripe: ", str(error))
+        frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{error}"))
 
 @frappe.whitelist()
 def get_bank_account(payment_type, paid_from, paid_to, trigger_change, as_dict=True):

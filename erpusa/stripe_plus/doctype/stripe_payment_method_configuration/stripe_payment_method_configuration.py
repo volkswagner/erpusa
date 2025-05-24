@@ -142,7 +142,7 @@ def fetch_payment_configuration(stripe_settings):
 	stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
 
 	try:
-		configurations = stripe.PaymentMethodConfiguration.list()
+		configurations = stripe.PaymentMethodConfiguration.list(limit=100)
 		configurations_sanitized = []
 
 		if configurations.data:

@@ -25,7 +25,9 @@ def get_context(context):
         if ek_set.issubset(fd_set):
             for key in expected_keys:
                 context[key] = url_parameter[key]
+
             context.to_pay_doctype = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_doctype")
+
             if frappe.db.get_value(context.reference_doctype, context.reference_docname, "status") == "Paid":
                 frappe.redirect_to_message(
                     _("This payment request has been fulfilled."),
@@ -33,6 +35,7 @@ def get_context(context):
                 )
                 frappe.local.flags.redirect_location = frappe.local.response.location
                 raise frappe.Redirect
+            
             else:
                 context.gateway_controller = get_gateway_controller(
                     context.reference_doctype, context.reference_docname, frappe.form_dict["payment_gateway"]
@@ -44,20 +47,25 @@ def get_context(context):
 
                 if settings_company:
                     context.company = settings_company
+
                 else: 
                     context.company = frappe.db.get_value(context.reference_doctype, context.reference_docname, "company")
 
                 if settings_company and settings_header_image:
                     context.header_image = settings_header_image
+
                 else:
                     context.header_image = frappe.db.get_value("Company", context.company, "company_logo")
                 
                 context.to_pay_id = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_name")
+
                 if frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration"):
                     pm_configuration_doc = frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration")
                     context.pm_configuration = frappe.db.get_value("Stripe Payment Method Configuration", pm_configuration_doc, "stripe_configuration_id")
+                
                 else:
                     context.pm_configuration = None
+
                 context.amount_int = context["amount"]
                 context["amount"] = fmt_money(amount=context["amount"], currency=context["currency"])
 
@@ -89,6 +97,7 @@ def create_payment_intent(data, customer_id=None):
                 'docname': data.get('docname')
             }
         )
+
         if frappe.db.exists("Payment Request", data.get('request_name')):
             frappe.db.set_value("Payment Request", data.get('request_name'), "stripe_intent_id", intent['id'])
 
@@ -96,9 +105,24 @@ def create_payment_intent(data, customer_id=None):
             "clientSecret": intent['client_secret'],
             "redirect": ""
         }
+    
     except Exception as e:
         frappe.log_error(f"Stripe Payment Error: {str(e)}", "Stripe API Error")
         return {"error": str(e)}, 403
+
+def check_if_payment_intent_is_valid(payment_intent, expiration_in_seconds=86400):
+    import time
+
+    if payment_intent["status"] in ['succeeded', 'canceled', 'processing', 'requires_capture']:
+        return True
+
+    current_time = int(time.time())
+    age = current_time - payment_intent["created"]
+
+    if age > expiration_in_seconds and payment_intent["status"] in ['requires_payment_method', 'requires_confirmation', 'requires_action']:
+        return False
+    
+    return True
 
 @frappe.whitelist(allow_guest=True)
 def create_fetch_payment_intent():
@@ -112,24 +136,33 @@ def create_fetch_payment_intent():
 
     if stripe_intent_id:
         try:
-            intent = stripe.PaymentIntent.retrieve(stripe_intent_id)
+            payment_intent = stripe.PaymentIntent.retrieve(stripe_intent_id)
             # redirect to message page if success/processing
-            if intent["status"] in ["succeeded", "processing"]:
-                return {
-                    "client_secret": "",
-                    "redirect": f"/message?title=This+payment+request+has+been+fulfilled.&message=The+{data.get('doctype')}+is+already+paid!+Thank+you+for+your+business.&type=success"
-                }
-            # return client secret if incomplete
-            elif intent["status"] in ["requires_action", "requires_capture", "requires_confirmation", "requires_payment_method"]:
-                return {
-                    "clientSecret": intent['client_secret'],
-                    "redirect": ""
-                }
-            # create new intent if cancelled
+
+            if check_if_payment_intent_is_valid(payment_intent):
+                if payment_intent["status"] in ["succeeded", "processing"]:
+                    return {
+                        "client_secret": "",
+                        "redirect": f"/message?title=This+payment+request+has+been+fulfilled.&message=The+{data.get('doctype')}+is+already+paid!+Thank+you+for+your+business.&type=success"
+                    }
+                # return client secret if incomplete
+
+                elif payment_intent["status"] in ["requires_action", "requires_capture", "requires_confirmation", "requires_payment_method"]:
+                    return {
+                        "clientSecret": payment_intent['client_secret'],
+                        "redirect": ""
+                    }
+                # create new intent if cancelled
+                
+                else:
+                    return create_payment_intent(data)
+                
             else:
                 return create_payment_intent(data)
+            
         except Exception as e:
             return {"error": str(e)}, 403
+        
     else:
         # create new intent if no intent id
         return create_payment_intent(data, stripe_customer_id)
