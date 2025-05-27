@@ -93,6 +93,8 @@
   "bt_fee",
   "section_break_fmev",
   "fee_details",
+  "notes_section",
+  "remarks",
   "data_source_section",
   "data_source"
  ],
@@ -572,11 +574,22 @@
    "fieldname": "amount",
    "fieldtype": "Currency",
    "label": "Amount"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Table",
+   "label": "Remarks",
+   "options": "Stripe Transaction Remark"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-23 11:35:55.690949",
+ "modified": "2025-05-27 11:45:04.466244",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Transaction",

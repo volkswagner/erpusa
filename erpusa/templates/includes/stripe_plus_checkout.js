@@ -44,10 +44,9 @@ frappe.ready(function() {
       headers: { 
           "Content-Type": "application/json",
           "X-Frappe-CSRF-Token": frappe.csrf_token
-          // "X-Frappe-CSRF-Token": csrfToken
       },
       body: JSON.stringify({ 
-        "amount": "{{ amount_int }}", 
+        "amount": "{{ amount_float }}", 
         "pm_configuration": "{{ pm_configuration }}"=="None"? null : "{{ pm_configuration }}",
         "doctype": "{{ to_pay_doctype }}",
         "docname": "{{ to_pay_id }}",
@@ -64,7 +63,7 @@ frappe.ready(function() {
     const appearance = {
       theme: 'flat',
       variables: {
-        iconColor: "accentColor",
+        iconColor: accentColor,
         fontLineHeight: '1.5',
         borderRadius: '10px',
         colorBackground: 'rgb(243, 243, 243)',
@@ -98,23 +97,11 @@ frappe.ready(function() {
           color: 'white'
         },
         '.TabIcon': {
-          fill: accentColor
-        },
-        '.TabIcon--selected': {
-          fill: 'white'
-        },
-        '.Tab--selected, .Tab--selected:focus, .Tab--selected:hover': {
-          border: 'none',
-          backgroundColor: accentColor,
-          color: "white",
-          boxShadow: 'none'
+          fill: accentColor,
         },
         '.Label': {
           fontWeight: '500'
         },
-        '.Submit': {
-        content: 'Complete Payment'
-      }
       }
     };
     elements = stripe.elements({ appearance, clientSecret })
@@ -126,12 +113,17 @@ frappe.ready(function() {
         radios: true,
         spacedAccordionItems: false
       },
-      defaultPaymentMethodType: 'us_bank_account',
       paymentMethodOrder: ['us_bank_account', 'card']
     };
   
     const paymentElement = elements.create("payment", paymentElementOptions);
     paymentElement.mount("#payment-element");
+    let selectedPaymentMethodType = null;
+
+    paymentElement.on('ready', () => {
+
+  });
+
   }
   
   async function handleSubmit(e) {

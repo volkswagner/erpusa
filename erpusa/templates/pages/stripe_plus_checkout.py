@@ -8,7 +8,12 @@ import stripe
 import json
 from payments.templates.pages.stripe_checkout import expected_keys, is_a_subscription, get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
-from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import (get_api_key_secret)
+from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import (
+    get_api_key_secret,
+    get_customer_balance,
+    get_customer_funding_instructions,
+    check_if_configuration_has_customer_balance
+)
 
 def get_context(context):
     context.no_cache = 1
@@ -62,11 +67,19 @@ def get_context(context):
                 if frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration"):
                     pm_configuration_doc = frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration")
                     context.pm_configuration = frappe.db.get_value("Stripe Payment Method Configuration", pm_configuration_doc, "stripe_configuration_id")
+                    context.has_customer_balance = check_if_configuration_has_customer_balance(pm_configuration_doc)
                 
                 else:
                     context.pm_configuration = None
 
-                context.amount_int = context["amount"]
+                if context.has_customer_balance:
+                    customer = frappe.db.get_value(context.reference_doctype, context.reference_docname, "party")
+                    customer_stripe_id = frappe.db.get_value("Customer", customer, "stripe_customer_id")
+                    context.customer_balance_float = get_customer_balance(context.gateway_controller, customer_stripe_id)
+                    context.customer_balance = fmt_money(amount=context.customer_balance_float, currency=context.currency)
+
+
+                context.amount_float = float(context["amount"])
                 context["amount"] = fmt_money(amount=context["amount"], currency=context["currency"])
 
                 if is_a_subscription(context.reference_doctype, context.reference_docname):
@@ -88,7 +101,7 @@ def get_context(context):
 def create_payment_intent(data, customer_id=None):
     try:
         intent = stripe.PaymentIntent.create(
-            amount=int(float(data.get('amount')) * 100),
+            amount=int(float(data.get('amount'))) * 100,
             currency='usd',
             customer=customer_id,
             payment_method_configuration=data.get('pm_configuration', None),

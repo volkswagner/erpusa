@@ -144,22 +144,15 @@ def validate_stripe_plus_fields(payment_request, method=None):
           show_success_message=0
         )
 
-      else:
-        if payment_request.payment_method_configuration:
-          pr_payment_methods = frappe.get_all("Stripe Payment Method Multiselect Table", filters={"parent": payment_request.payment_method_configuration}, pluck="payment_method")
-          has_customer_balance = False
-          
-          for method in pr_payment_methods:
-            if get_payment_method_code(method) == "customer_balance":
-              has_customer_balance = True
-              break
-            
-          if has_customer_balance:
-            create_stripe_customer(
-              payment_request.party,
-              stripe_settings=get_gateway_settings_doc(payment_request.payment_gateway),
-              show_success_message=0
-            )
+      if not payment_request.is_new() and payment_request.payment_method_configuration:
+        has_customer_balance = check_if_configuration_has_customer_balance(payment_request.payment_method_configuration)
+        
+        if has_customer_balance:
+          create_stripe_customer(
+            payment_request.party,
+            stripe_settings=get_gateway_settings_doc(payment_request.payment_gateway),
+            show_success_message=0
+          )
 
     if not payment_request.payment_method_configuration:
       if get_default_payment_configuration_doc():
@@ -342,3 +335,64 @@ def get_bank_account(payment_type, paid_from, paid_to, trigger_change, as_dict=T
   
   else:
      return bank_account
+
+@frappe.whitelist()
+def check_if_configuration_has_customer_balance(payment_method_configuration):
+  pr_payment_methods = frappe.get_all(
+    "Stripe Payment Method Multiselect Table",
+    filters={"parent": payment_method_configuration},
+    pluck="payment_method"
+  )
+
+  
+  frappe.log_error(str(pr_payment_methods), "")
+    
+  for method in pr_payment_methods:
+    if get_payment_method_code(method) == "customer_balance":
+      
+      return True
+  
+  return False
+
+
+@frappe.whitelist()
+def get_customer_balance(gateway_controller, customer, currency="usd"):
+  stripe.api_key = get_api_key_secret(gateway_controller=gateway_controller)
+
+  try:
+    customer_balance = stripe.Customer.retrieve_cash_balance(customer)
+
+  except Exception as e:
+    error = str(e)
+    frappe.log_error(f"Error Fetching Customer's Balance: ", str(error))
+
+  if customer_balance:
+    available_balance = customer_balance.get("available")
+
+    if available_balance and available_balance.get(currency):
+      return available_balance.get(currency) / 100
+    
+    return 0.00
+
+  
+@frappe.whitelist()
+def get_customer_funding_instructions(gateway_controller, customer):
+  stripe.api_key = get_api_key_secret(gateway_controller=gateway_controller)
+
+  try:
+    customer_funding_instructions = stripe.Customer.create_funding_instructions(
+      customer,
+      funding_type="bank_transfer",
+      bank_transfer={"type": "us_bank_transfer"},
+      currency="usd",
+    )
+
+  except Exception as e:
+    error = str(e)
+    frappe.log_error(f"Error Fetching Customer's Funding Instructions: ", str(error))
+
+  if customer_funding_instructions:
+    bank_transfer = customer_funding_instructions.get("bank_transfer")
+
+    return bank_transfer.financial_addresses
+
