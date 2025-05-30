@@ -8,6 +8,10 @@
   "enable_stripe_plus",
   "hide_warning",
   "notes",
+  "checkoutpayment_section",
+  "add_new_checkout_customers",
+  "payment_page_company_name",
+  "payment_page_company_logo",
   "webhook_section",
   "webhook_instructions",
   "signing_secret_list",
@@ -19,6 +23,7 @@
   "merchant_fee_cost_center",
   "journal_entry_section",
   "erp_stripe_accounts",
+  "auto_submit_journal",
   "notification_section",
   "turn_on_email_notifications",
   "notification_method",
@@ -61,7 +66,7 @@
    "label": "Hide warning in Payment Request when Stripe Plus is disabled"
   },
   {
-   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks more features such as notifications, events logging and automation.</small>",
+   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks accounting automation (automatic payment entry and payout journal entry) and more features such as notifications and events logging.</small>",
    "fieldname": "webhook_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
@@ -127,12 +132,12 @@
    "fieldname": "journal_entry_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
-   "label": "<small><strong>Journal Entry</strong></small>"
+   "label": "<small><strong>Payout Journal Entry</strong></small>"
   },
   {
    "fieldname": "erp_stripe_accounts",
    "fieldtype": "Table",
-   "label": "ERP-Stripe Accounts",
+   "label": "ERP-Stripe Accounts (Required to automatically create payout journal entry)",
    "options": "Stripe Plus Settings Payout Account"
   },
   {
@@ -153,12 +158,40 @@
    "fieldtype": "Long Text",
    "label": "Notification Recipients",
    "options": "Contact"
+  },
+  {
+   "fieldname": "payment_page_company_name",
+   "fieldtype": "Data",
+   "label": "Payment Page Company Name"
+  },
+  {
+   "depends_on": "eval:doc.payment_page_company_name;",
+   "fieldname": "payment_page_company_logo",
+   "fieldtype": "Attach Image",
+   "label": "Payment Page Company Logo"
+  },
+  {
+   "fieldname": "checkoutpayment_section",
+   "fieldtype": "Section Break",
+   "label": "Checkout/Payment"
+  },
+  {
+   "default": "1",
+   "fieldname": "add_new_checkout_customers",
+   "fieldtype": "Check",
+   "label": "Add new checkout customers to Stripe.com account"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_submit_journal",
+   "fieldtype": "Check",
+   "label": "Automatically submit Payout Journal Entry"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-05-15 12:25:28.542677",
+ "modified": "2025-05-22 10:48:59.892849",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

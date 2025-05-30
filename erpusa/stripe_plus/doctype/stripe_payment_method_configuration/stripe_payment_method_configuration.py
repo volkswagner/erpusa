@@ -9,10 +9,13 @@ from frappe.model.document import Document
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import METHODS_FULLNAME
 
+DOCTYPE = "Stripe Payment Method Configuration"
+
 class StripePaymentMethodConfiguration(Document):
 	def validate(self):
 		if not self.payment_methods:
 			frappe.throw(_("Payment Methods can't be empty"))
+
 		if self.payment_methods:
 			has_dependent_on_card = False
 			has_card = False
@@ -27,6 +30,7 @@ class StripePaymentMethodConfiguration(Document):
 	def on_update(self):
 		stripe_settings = frappe.get_doc('Stripe Settings', self.stripe_settings)
 		stripe.api_key = stripe_settings.get_password('secret_key')
+
 		if not self.stripe_configuration_id:
 			try:
 				configuration = stripe.PaymentMethodConfiguration.create(
@@ -62,12 +66,14 @@ class StripePaymentMethodConfiguration(Document):
 		)
 		
 		methods = query.run(as_dict=True)
+
 		return [method['payment_method_code'] for method in methods]
 
 	def set_payment_methods(self, api_key):
 		# note: commented out payment methods are not enabled because of region limitation
 		stripe.api_key = api_key
 		list = self.get_doc_payment_methods()
+
 		try:
 			stripe.PaymentMethodConfiguration.modify(
 				self.stripe_configuration_id,
@@ -127,53 +133,59 @@ class StripePaymentMethodConfiguration(Document):
 		except Exception as e:
 			frappe.log_error(f"Stripe Payment Error: {str(e)}", "Stripe API Error")
 
+
 @frappe.whitelist()
 def fetch_payment_configuration(stripe_settings):
 	if not stripe_settings:
 		frappe.throw(_("Select a Stripe Settings."))
-	else:
-		stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
-		try:
-			configurations = stripe.PaymentMethodConfiguration.list()
 
-			configurations_sanitized = []
-			if configurations.data:
-				for configuration in configurations.data:
-					if not frappe.db.exists("Stripe Payment Method Configuration", {"stripe_configuration_id": configuration.id}):
-						configurations_sanitized_item = {
-							"stripe_configuration_id": configuration.id,
-							"enabled": configuration.active,
-							"configuration_name": configuration.name,
-							"is_default": configuration.is_default
-						}
-						configurations_sanitized_payment_methods = []
-						configurations_sanitized_payment_methods_code = []
+	stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
 
-						for method_alias, method in configuration.items():
-							if isinstance(method, dict) and method.get("available"):
-								method_name = METHODS_FULLNAME[method_alias] if method_alias in METHODS_FULLNAME else method_alias.title()
+	try:
+		configurations = stripe.PaymentMethodConfiguration.list(limit=100)
+		configurations_sanitized = []
+
+		if configurations.data:
+			for configuration in configurations.data:
+				if not frappe.db.exists(DOCTYPE, {"stripe_configuration_id": configuration.id}):
+					configurations_sanitized_item = {
+						"stripe_configuration_id": configuration.id,
+						"enabled": configuration.active,
+						"configuration_name": configuration.name,
+						"is_default": configuration.is_default
+					}
+					configurations_sanitized_payment_methods = []
+					configurations_sanitized_payment_methods_code = []
+
+					for method_alias, method in configuration.items():
+						if isinstance(method, dict) and method.get("available"):
+							method_name = frappe.db.exists("Stripe Payment Method", {"payment_method_code": method_alias})
+							if method_name:
 								configurations_sanitized_payment_methods_code.append(method_alias)
 								configurations_sanitized_payment_methods.append(method_name)
 
-						configurations_sanitized_item["payment_methods"] = configurations_sanitized_payment_methods
-						configurations_sanitized_item["payment_methods_code"] = configurations_sanitized_payment_methods_code
-						configurations_sanitized_item["payment_methods_joined"] = ", ".join(configurations_sanitized_payment_methods)
+					configurations_sanitized_item["payment_methods"] = configurations_sanitized_payment_methods
+					configurations_sanitized_item["payment_methods_code"] = configurations_sanitized_payment_methods_code
+					configurations_sanitized_item["payment_methods_joined"] = ", ".join(configurations_sanitized_payment_methods)
 
-						configurations_sanitized.append(configurations_sanitized_item)
+					configurations_sanitized.append(configurations_sanitized_item)
 
-				return configurations_sanitized
-		except Exception as e:
-			error = str(e)
-			frappe.log_error(f"Stripe Payment Error: {error}", "Stripe API Error")
-			frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{error}"))
+			return configurations_sanitized
+		
+	except Exception as e:
+		error = str(e)
+		frappe.log_error(f"Stripe API Error: {error}", "Unable to fetch payment configurations.")
+		frappe.throw(_("An error occured while fetching payment method configuration. <br><br/>{error}"))
 
 @frappe.whitelist()
 def import_configurations(configurations, stripe_settings):
 	configurations = json.loads(configurations)
 	created_configurations = []
+
 	for configuration in configurations:
-		if not frappe.db.exists("Stripe Payment Method Configuration", {"stripe_configuration_id": configuration.get("stripe_configuration_id")}) and configuration.get("__checked"):
-			pmc_doc = frappe.new_doc("Stripe Payment Method Configuration")
+		if not frappe.db.exists(DOCTYPE, {"stripe_configuration_id": configuration.get("stripe_configuration_id")}) and \
+		configuration.get("__checked"):
+			pmc_doc = frappe.new_doc(DOCTYPE)
 			pmc_doc.is_user_created = False
 			pmc_doc.stripe_settings = stripe_settings
 			
@@ -190,13 +202,16 @@ def import_configurations(configurations, stripe_settings):
 			try:
 				pmc_doc.save()
 				created_configurations.append(pmc_doc.configuration_name)
+
 			except Exception as e:
 				frappe.log_error(frappe.get_traceback(), _('Error Saving Document'))
 
 	if created_configurations:
 		created_configurations_as_html = ""
+
 		for created_configuration in created_configurations:
 			created_configurations_as_html = created_configurations_as_html + f"<li>{created_configuration}</li>"
+
 		frappe.msgprint(f"""
 			The following payment method configurations was successfully created:
 			</br>
@@ -206,3 +221,48 @@ def import_configurations(configurations, stripe_settings):
 			If you don't see the configurations in the list, refresh the page.
 		"""			
 		)
+
+@frappe.whitelist()
+def resync_payment_method_configuration(configuration_name, stripe_configuration_id, stripe_settings):
+	pmc_doc = frappe.get_doc("Stripe Payment Method Configuration", configuration_name)
+	stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
+
+	try:
+		configuration_data = stripe.PaymentMethodConfiguration.retrieve(stripe_configuration_id)
+		
+	except Exception as e:
+		error = str(e)
+		frappe.log_error(f"Stripe API Error:", "Unable to fetch payment configurations.")
+		frappe.throw(_("An error occured while resyncing with Stripe. <br><br/>{error}"))
+
+	if not pmc_doc.configuration_name == configuration_data.name:
+		frappe.rename_doc(DOCTYPE, pmc_doc.configuration_name, configuration_data.name)
+
+	pmc_doc.configuration_name = configuration_data.name
+	pmc_doc.enabled = configuration_data.active
+	pmc_doc.is_default = configuration_data.is_default
+	pmc_doc.payment_methods = []
+	payment_methods_count = 0
+
+	for method_alias, method in configuration_data.items():
+		if isinstance(method, dict) and method.get("available"):
+			method_name = frappe.db.exists("Stripe Payment Method", {"payment_method_code": method_alias})
+			pmc_doc.append("payment_methods", {
+				"payment_method": method_name 
+			})
+			payment_methods_count = payment_methods_count + 1
+
+	if payment_methods_count == 0:
+		frappe.throw(_("Resyncing failed because the configuration doesn't have any payment method. Modify the configuration in Stripe.com and resync again."))
+
+
+	try:
+		pmc_doc.save()
+		frappe.msgprint(_("Resync Successful"))
+
+		return True
+		
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), _("Error Saving Document"))
+	
+	

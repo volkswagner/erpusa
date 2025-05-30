@@ -28,6 +28,8 @@ frappe.ui.form.on("Payment Request", {
 
         toggle_stripe_plus_section(frm);
 
+        toggle_do_not_create_invoice_checkbox(frm);
+
         if (frm.doc.payment_gateway) {
             frm.set_query("payment_methods", function() {
                 return {
@@ -35,6 +37,14 @@ frappe.ui.form.on("Payment Request", {
                     filters: {"payment_gateway": frm.doc.payment_gateway, "active": 1}
                 };
             });
+        }
+    },
+
+    refresh: function(frm) {
+        if (frm.doc.payment_url) {
+            frm.add_custom_button("Open Payment Page", function() {
+                window.open(frm.doc.payment_url, "_blank");
+            }, "Tools")
         }
     },
 
@@ -87,13 +97,22 @@ function toggle_stripe_plus_section(frm) {
             },
             callback: function (r) {
                 if (r.message) {
-                    frm.set_df_property("stripe_plus_section", "hidden", 0)
+                    frm.set_df_property("stripe_plus_section", "hidden", 0);
                 }
                 else
                 {
-                    frm.set_df_property("stripe_plus_section", "hidden", 1)
+                    frm.set_df_property("stripe_plus_section", "hidden", 1);
                 }
             }
         });
+    }
+}
+
+function toggle_do_not_create_invoice_checkbox(frm) {
+    if (frm.doc.reference_doctype && frm.doc.reference_doctype === "Sales Order") {
+        frm.set_df_property("do_not_create_invoice", "hidden", 0);
+    }
+    else {
+        frm.set_df_property("do_not_create_invoice", "hidden", 1);
     }
 }
