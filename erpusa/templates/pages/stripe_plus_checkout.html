@@ -65,7 +65,7 @@
                     <h3 class="h5 m-0 font-weight-bold">{{ amount }}</h3>
                 </div>
             </div>
-            {% if has_customer_balance %}
+            <!-- {% if has_customer_balance %}
                 {% set alert_color = "success" if amount_float < customer_balance_float else "warning"%}
                 {% set instructions = "You may proceed with the payment." if amount_float < customer_balance_float else "When you click 'Pay now', you will be shown a pop-up with bank accounts. Choose one and transfer funds to the bank account. Once done, close the pop-up. If the transfer was successful, your payment will go through; otherwise, you will be asked to try again." %}
 
@@ -75,7 +75,7 @@
                     </span>
                     <small><strong>Important: </strong>Your current balance is <strong>{{ customer_balance }}</strong>. {{ instructions }}</small>
                 </div>
-            {% endif %}
+            {% endif %} -->
             <hr class="w-100"/>
             <form id="payment-form" class="w-100">
                 

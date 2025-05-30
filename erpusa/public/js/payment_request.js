@@ -38,35 +38,14 @@ frappe.ui.form.on("Payment Request", {
                 };
             });
         }
+    },
 
-        frm.add_custom_button("Hmm", function() {
-            if (frm.doc.payment_gateway) {
-                frappe.call({
-                    method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_customer_funding_instructions",
-                    args: {
-                        payment_gateway: frm.doc.payment_gateway,
-                        customer: "cus_SN1HNK2h5q1PYg"
-                    },
-                    callback: function(r) {
-                        if (r.message) {
-                            console.log(r.message)
-                        }
-                    }
-                })
-                frappe.call({
-                    method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_customer_balance",
-                    args: {
-                        payment_gateway: frm.doc.payment_gateway,
-                        customer: "cus_SN1HNK2h5q1PYg"
-                    },
-                    callback: function(r) {
-                        if (r.message) {
-                            console.log(r.message)
-                        }
-                    }
-                })
-            }
-        })
+    refresh: function(frm) {
+        if (frm.doc.payment_url) {
+            frm.add_custom_button("Open Payment Page", function() {
+                window.open(frm.doc.payment_url, "_blank");
+            }, "Tools")
+        }
     },
 
     payment_method_configuration: function(frm) {

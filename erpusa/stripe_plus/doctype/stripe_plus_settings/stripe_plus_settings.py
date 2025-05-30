@@ -343,9 +343,6 @@ def check_if_configuration_has_customer_balance(payment_method_configuration):
     filters={"parent": payment_method_configuration},
     pluck="payment_method"
   )
-
-  
-  frappe.log_error(str(pr_payment_methods), "")
     
   for method in pr_payment_methods:
     if get_payment_method_code(method) == "customer_balance":
