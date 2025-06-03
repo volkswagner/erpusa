@@ -680,18 +680,18 @@ def notify_user(merchant_payment):
         reference_name = None
 
         if merchant_payment.source:
-            reference_name = merchant_payment.source
-            reference_name = "_" + frappe.db.get_value("Stripe Transaction", merchant_payment.source, "status")
-            
-        frappe.sendmail(
-            recipients=recipients.split(),
-            subject=subject,
-            message=generate_realtime_notification_email_message(
-                title=f"{merchant_payment.customer} sent {fmt_money(merchant_payment.gross_amount)}",
-                description="More information about this payment is shown below.",
-                merchant_payment=merchant_payment
-            ),
-            reference_doctype="Stripe Transaction",
-            reference_name=reference_name,
-            now=True
-        )
+            reference_name = merchant_payment.source + "_notification"
+        
+        if not frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source + "_notification"}):
+            frappe.sendmail(
+                recipients=recipients.split(),
+                subject=subject,
+                message=generate_realtime_notification_email_message(
+                    title=f"{merchant_payment.customer} sent {fmt_money(merchant_payment.gross_amount)}",
+                    description="More information about this payment is shown below.",
+                    merchant_payment=merchant_payment
+                ),
+                reference_doctype="Stripe Transaction",
+                reference_name=reference_name,
+                now=True
+            )
