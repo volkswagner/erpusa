@@ -8,6 +8,7 @@ def get_context(context):
     # all these keys exist in form_dict
     if "reference_docname" in frappe.form_dict or "gateway_controller" in frappe.form_dict:
         context.publishable_key = get_api_key(frappe.form_dict.reference_docname, frappe.form_dict.gateway_controller)
+        context.to_pay_doctype = frappe.form_dict.to_pay_doctype
         context.to_pay_id = frappe.form_dict.to_pay_id
         context.amount = frappe.form_dict.amount
     else:

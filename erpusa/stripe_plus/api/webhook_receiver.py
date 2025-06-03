@@ -280,7 +280,7 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
     if doc.status in ["succeeded", "pending"] and \
         billing_details and billing_details.get("email") and \
         frappe.db.exists("Stripe Transaction", data.get("id")) and \
-        not frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"}):
+        not (frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"}) or frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}"})):
             started_from_pending = frappe.db.count("Stripe Transaction Email Log", filters={"parent": doc.name, "status": "pending"}) and doc.status == "succeeded"
             
             frappe.sendmail(
@@ -682,7 +682,7 @@ def notify_user(merchant_payment):
         if merchant_payment.source:
             reference_name = merchant_payment.source + "_notification"
         
-        if not frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source + "_notification"}):
+        if not (frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source + "_notification"}) or frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source})):
             frappe.sendmail(
                 recipients=recipients.split(),
                 subject=subject,
