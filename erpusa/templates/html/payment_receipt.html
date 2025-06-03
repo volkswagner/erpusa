@@ -12,12 +12,12 @@
 						{{ _("Your payment is still being processed. It may take ") }} {{ processing_days }} {{ _(" business days.") }}
 					</p>
 					<p>
-						{{ _("We'll let you know when the payment goes through.") }}
+						{{ _("We'll let you know when the transaction has been completed.") }}
 					</p>
 				{% elif status == "succeeded" %}
 					<p>
 						<span>{{ _("Here's a link to your ") }}</span>
-						<a href="{{receipt_url}}" target="_blank">Stripe receipt</a>.
+						<a href="{{receipt_url}}" target="_blank">Stripe {{ _("receipt") }}</a>.
 					</p>
 				{% endif %}
 			</td>
@@ -38,4 +38,3 @@
 		</tr>
 	{% endif %}
 </table>
-
