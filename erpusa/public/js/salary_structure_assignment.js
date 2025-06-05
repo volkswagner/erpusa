@@ -62,26 +62,77 @@ frappe.ui.form.on("Salary Structure Assignment", {
                             ? "Salary Slip based on Timesheet"
                             : "Salary Slip Standard";
                         frappe.call({
-                            method: "erpusa.payroll_plus.utils.salary_structure_assignment.test_salary_slip",
+                            method: "erpusa.payroll_plus.utils.salary_structure_assignment.test_salary_slip_printable",
                             args: {
-                                source_name: frm.doc.salary_structure,
+                                salary_structure_assignment: frm.doc.name,
+                                salary_structure: frm.doc.salary_structure,
                                 employee: frm.doc.employee,
-                                posting_date: frm.doc.from_date,
-                                as_print: 1,
-                                print_format: print_format,
-                                for_preview: 1,
-                                base: values.base,
+                                gross_to_date: values.gross_to_date || 0,
+                                base: values.base? values.base : frm.doc.base,
+                                variable: values.variable? values.variable : frm.doc.variable,
                                 start_date: values.start_date,
                                 end_date: values.end_date
                             },
                             callback: function (r) {
-                                const new_window = window.open();
-                                new_window.document.write(r.message);
+                                if (r.message) {
+                                    let dialog = new frappe.ui.Dialog({
+                                        title: __("Test Pay Slip"),
+                                        size: "medium",
+                                        fields: [
+                                            {
+                                                fieldtype: "HTML",
+                                                options: r.message
+                                            }
+                                        ]
+                                    })
+
+                                    dialog.show()
+                                }
                             },
                         });
                     },
                 );
             });
+        }, "Tools");
+
+        frm.add_custom_button("Simulate Salary Slip", () => {
+            let d = new frappe.ui.Dialog({
+                title: "Simulate Salary Slip",
+                fields: [
+                { label: "Start Date", fieldname: "start_date", fieldtype: "Date", reqd: true },
+                { label: "End Date", fieldname: "end_date", fieldtype: "Date", reqd: true },
+                { label: "Override Gross Year To Date", fieldname: "gross_ytd", fieldtype: "Float" }
+                ],
+                primary_action_label: "Simulate",
+                primary_action(values) {
+                frappe.call({
+                    method: "erpusa.payroll_plus.utils.salary_structure_assignment.test_salary_slip",
+                    args: {
+                    docname: frm.doc.name,
+                    start_date: values.start_date,
+                    end_date: values.end_date,
+                    override_gross_ytd: values.gross_ytd || null
+                    },
+                    callback(r) {
+                    console.log(r.message)
+                    if (!r.message) return frappe.msgprint("No result.");
+
+                    let earnings = r.message.earnings.map(e => `<tr><td>${e.component}</td><td>${e.amount}</td></tr>`).join("");
+                    let deductions = r.message.deductions.map(d => `<tr><td>${d.component}</td><td>${d.amount}</td></tr>`).join("");
+
+                    frappe.msgprint(`
+                        <b>Gross YTD used:</b> ${r.message.gross_ytd_used || "N/A"}<br><br>
+                        <b>Earnings</b><br><table class="table table-bordered">${earnings}</table>
+                        <b>Deductions</b><br><table class="table table-bordered">${deductions}</table>
+                        <b>Net Pay:</b> ${r.message.net_pay}
+                    `);
+                    d.hide();
+                    }
+                });
+                }
+            });
+
+            d.show();
         }, "Tools");
     }
 })

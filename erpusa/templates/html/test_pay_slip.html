@@ -1,0 +1,89 @@
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b> Specifics </b>
+		</td>
+	</tr>
+</table>
+<table class="table table-bordered text-medium" cellpadding="0" cellspacing="0" border="0">
+	<thead>
+		<tr>
+			<th> Base Gross Pay</th>
+			<th> Payroll Frequency </th>
+			<th> Gross Pay Multiplier (Based on date and frequency) </th>
+			<th> Gross Pay (After applying multiplier)</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td> {{ frappe.utils.fmt_money(gross_pay_base) }}</td>
+			<td> {{ payroll_frequency }}</td>
+			<td> {{ gross_pay_multiplier }}</td>
+			<td> {{ frappe.utils.fmt_money(gross_pay) }}</td>
+		</tr>
+	</tbody>
+</table>
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b> Earnings </b>
+		</td>
+	</tr>
+</table>
+<table class="table table-bordered text-medium" cellpadding="0" cellspacing="0" border="0">
+	<thead>
+		<tr>
+			<th> Component </th>
+			<th> Amount </th>
+		</tr>
+	</thead>
+	<tbody>
+        {% for abbr, value in earnings.items() %}
+		<tr>
+			<td> {{ component_name_abbr_matrix[abbr] }}</td>
+			<td class="text-right"> {{ frappe.utils.fmt_money(value) }}</td>
+		</tr>
+        {% endfor %}
+        <tr>
+			<td> <b> TOTAL EARNINGS </b></td>
+			<td class="text-right"> {{ frappe.utils.fmt_money(earnings_total) }}</td>
+		</tr>
+	</tbody>
+</table>
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b> Deductions </b>
+		</td>
+	</tr>
+</table>
+<table class="table table-bordered text-medium" cellpadding="0" cellspacing="0" border="0">
+	<thead>
+		<tr>
+			<th> Component </th>
+			<th> Amount </th>
+		</tr>
+	</thead>
+    <tbody>
+        {% for abbr, value in deductions.items() %}
+		<tr>
+			<td> {{ component_name_abbr_matrix[abbr] }}</td>
+			<td class="text-right"> {{ frappe.utils.fmt_money(value) }}</td>
+		</tr>
+        {% endfor %}
+        <tr>
+			<td> <b> TOTAL DEDUCTIONS </b></td>
+			<td class="text-right">{{ frappe.utils.fmt_money(deductions_total) }}</td>
+		</tr>
+	</tbody>
+</table>
+<table class="table table-bordered text-medium" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b> NET PAY </b>
+		</td>
+        <td class="text-right">
+			<b> {{ frappe.utils.fmt_money(earnings_total - deductions_total) }} </b>
+		</td>
+	</tr>
+</table>
