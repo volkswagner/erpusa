@@ -106,6 +106,7 @@ PO_FIELDS = [
     "original_payout",
     "reconciliation_status",
     "reversed_by",
+    "balance_transaction",
 ]
 
 METHOD_PROCESSING_DAYS = {
