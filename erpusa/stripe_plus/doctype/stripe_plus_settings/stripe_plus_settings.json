@@ -111,7 +111,7 @@
    "options": "Account"
   },
   {
-   "description": "<small>The cost center in the Payment Entry is determined by the item with the highest amount in the invoice. If a cost center can\u2019t be determined, the value in this field will be applied.</small>",
+   "description": "<small>\nThe cost center in the Payment Entry is determined by the item with the highest amount in the invoice. If a cost center can\u2019t be determined, the value in this field will be applied.\n<br>\nThe default merchant fee account and cost center will also be used for stripe fee in journal entries.\n</small>",
    "fieldname": "merchant_fee_cost_center",
    "fieldtype": "Link",
    "label": "Default Merchant Fee Cost Center",
@@ -191,7 +191,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-05-22 10:48:59.892849",
+ "modified": "2025-06-07 22:37:22.208993",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

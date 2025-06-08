@@ -400,12 +400,16 @@ def create_update_stripe_payout(data, log_doc, api_key):
     if doc.status == "paid":
         balance_transactions = stripe.BalanceTransaction.list(payout=doc.name, limit=100)
         source_charges = []
+        stripe_fees = []
 
         # store the sources of the payout
         for txn in balance_transactions.auto_paging_iter():
             # add the source if the transaction was accounted for
             if frappe.db.exists("Stripe Transaction", txn.source):
                 source_charges.append(txn.source)
+
+            if txn.type == "stripe_fee":
+                stripe_fees.append(txn)
 
         for charge in source_charges:
             charge_data = get_charge_details(charge, api_key)
@@ -415,7 +419,17 @@ def create_update_stripe_payout(data, log_doc, api_key):
                 create_update_stripe_transaction(charge_data, api_key, remark=charge_remark)
 
         # create journal entry
-        create_journal_entry(doc)
+        je_doc = create_journal_entry(doc, stripe_fees)
+        
+        if je_doc:
+            doc.journal_entry = je_doc.name
+
+        try:
+            doc.flags.ignore_permissions = True
+            doc.save()
+            
+        except Exception as e:
+            frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
 
 def get_charge_details(id, api_key):
     # get Charge object 
@@ -584,7 +598,7 @@ def create_payment_entry(merchant_payment):
             except Exception as e:
                 frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
              
-def create_journal_entry(payout):
+def create_journal_entry(payout, stripe_fees=None):
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
 
     # create a new journal entry based on the Balance Transaction object
@@ -632,11 +646,24 @@ def create_journal_entry(payout):
             je_doc.posting_date = frappe.utils.today()
             je_doc.cheque_no = payout.name
             je_doc.cheque_date = payout.created
+            stripe_fee_total = 0.0
+
+            if stripe_fees:
+                stripe_fee_account = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account")
+                stripe_fee_cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
+                stripe_fee_total = sum(abs(stripe_fee.net) for stripe_fee in stripe_fees)
+
+                je_doc.append("accounts", {
+                    "account": stripe_fee_account,
+                    "bank_account": get_bank_account("Receive", stripe_fee_account, stripe_fee_account, False, as_dict=False),
+                    "credit_in_account_currency": stripe_fee_total,
+                    "cost_center": stripe_fee_cost_center
+                })
 
             je_doc.append("accounts", {
                 "account": credit_account,
                 "bank_account": credit_bank_account,
-                "credit_in_account_currency": abs(payout.amount)
+                "credit_in_account_currency": abs(payout.amount) - stripe_fee_total
             })
 
             je_doc.append("accounts", {
@@ -658,7 +685,9 @@ def create_journal_entry(payout):
 
                 except Exception as e:
                     frappe.log_error(frappe.get_traceback(), _("Error Submitting Journal Entry Document"))
-                
+    
+            return je_doc
+    
 def generate_realtime_notification_email_message(title, description, merchant_payment):
     return frappe.render_template(
         "erpusa/templates/html/realtime.html",
