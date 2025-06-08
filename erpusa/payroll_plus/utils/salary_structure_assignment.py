@@ -1,21 +1,18 @@
 import frappe
 from frappe import _
 from hrms.payroll.doctype.salary_structure.salary_structure import make_salary_slip
-from frappe.utils import getdate
+from frappe.utils import (
+	getdate, add_years
+)
 from datetime import datetime
-
-PERIOD_LENGTHS = {
-    "Weekly": 7,
-    "Fortnightly": 14,
-    "Monthly": 30,
-    "Bimonthly": 60,
-}
+from hrms.payroll.doctype.payroll_entry.payroll_entry import get_end_date, get_start_end_dates
 
 @frappe.whitelist()
 def test_salary_slip_printable(
     salary_structure_assignment,
     salary_structure,
     employee,
+    company,
     gross_to_date=None,
     base=None,
     variable=None,
@@ -23,34 +20,36 @@ def test_salary_slip_printable(
     end_date=None
 ):
     
-    if (start_date and not end_date) or (not start_date and end_date):
-        frappe.throw(_("Both start and end dates should be filled in."))
-
     if float(gross_to_date) < 0.0 or float(base) < 0.0 or float(variable) < 0.0:
         frappe.throw(_("Negative values are not allowed."))
 
     base = float(base)
     variable = float(variable)
     gross_year_to_date = 0.00
-    gross_pay_base = 0.00
     gross_pay = 0.00
-    gross_pay_multiplier = 1
     payroll_frequency = frappe.db.get_value("Salary Structure", salary_structure, "payroll_frequency")
+    
+    if not end_date:
+        dates = get_start_end_dates(payroll_frequency, start_date)
+        start_date, end_date = dates["start_date"], dates["end_date"]
+    
+    else:
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
 
     if frappe.db.count("Salary Slip", filters={"employee": employee}):
-        latest_pay_slip = frappe.get_last_doc("Salary Slip", filters={"employee": employee})
-        gross_year_to_date = frappe.db.get_value("Salary Slip", latest_pay_slip, "gross_year_to_date")
+        start_date_a_year_ago = add_years(start_date, -1)
 
-    if start_date and end_date:
-        start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
-        end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+        salary_slips = frappe.get_all(
+            "Salary Slip",
+            filters={
+                "end_date": ["between", [start_date_a_year_ago, start_date]],
+                "employee": employee
+            },
+            pluck="gross_pay"
+        )
 
-        num_days = (end_date - start_date).days + 1
-
-        if not (num_days % PERIOD_LENGTHS[payroll_frequency] == 0):
-            frappe.throw(_(f"The number of days in date range does not fit in the {payroll_frequency} payroll frequency."))
-        else:
-            gross_pay_multiplier = num_days / PERIOD_LENGTHS[payroll_frequency]
+        gross_year_to_date = sum(salary_slips)
 
     earnings = frappe.get_all(
         "Salary Detail",
@@ -66,9 +65,8 @@ def test_salary_slip_printable(
         order_by="idx asc"
     )
 
-    component_name_abbr_matrix = {}
-    earnings_matrix = {}
-    deductions_matrix = {}
+    earnings_matrix = []
+    deductions_matrix = []
     earnings_total = 0.0
     deductions_total = 0.0
 
@@ -76,7 +74,6 @@ def test_salary_slip_printable(
         exec(f"{earning['abbr']} = 0.0")
 
     for earning in earnings:
-        component_name_abbr_matrix[earning['abbr']] = earning['salary_component']
         value = 0.00
         if not earning['amount_based_on_formula']:
             value = float(earning['amount'])
@@ -87,20 +84,23 @@ def test_salary_slip_printable(
 
         exec(f"{earning['abbr']} = {str(value)}")
 
-        earnings_matrix[earning['abbr']] = value
+        earnings_matrix.append({
+            "abbr": earning['abbr'],
+            "value": value,
+            "name": earning['salary_component'],
+            "formula": earning['formula'].replace("\n", "</br>")
+        })
 
         if not earning['do_not_include_in_total'] and not earning["statistical_component"]:
-            gross_pay_base = gross_pay_base + value
+            gross_pay = gross_pay + value
             earnings_total = earnings_total + value
 
-    gross_pay = gross_pay_base * gross_pay_multiplier
     gross_year_to_date = float(gross_to_date) or (gross_year_to_date + gross_pay)
 
     for deduction in deductions:
         exec(f"{deduction['abbr']} = 0.0")
 
     for deduction in deductions:
-        component_name_abbr_matrix[deduction['abbr']] = deduction['salary_component']
         value = 0.00
         if not deduction['amount_based_on_formula']:
             value = deduction['amount']
@@ -110,7 +110,13 @@ def test_salary_slip_printable(
                 value = float(eval(deduction['formula'].replace("\n", " ")))
 
         exec(f"{deduction['abbr']} = {str(value)}")
-        deductions_matrix[deduction['abbr']] = value
+
+        deductions_matrix.append({
+            "abbr": deduction['abbr'],
+            "value": value,
+            "name": deduction['salary_component'],
+            "formula": deduction['formula'].replace("\n", "</br>")
+        })
 
         if not deduction['do_not_include_in_total'] and not deduction["statistical_component"]:
             deductions_total = deductions_total + value
@@ -118,17 +124,26 @@ def test_salary_slip_printable(
     return frappe.render_template(
         "erpusa/templates/html/test_pay_slip.html",
         {
-            "gross_pay_base": gross_pay_base,
-            "gross_pay": gross_pay,
+            "employee": employee,
+            "company": company,
+            "base": base,
             "payroll_frequency": payroll_frequency,
-            "gross_pay_multiplier": gross_pay_multiplier,
+            "start_date": start_date.strftime("%m-%d-%Y"),
+            "end_date": end_date.strftime("%m-%d-%Y"),
+            "working_days": frappe.utils.date_diff(end_date, start_date) + 1,
+            "payment_days": frappe.utils.date_diff(end_date, start_date) + 1,
             "earnings": earnings_matrix,
             "deductions": deductions_matrix,
             "earnings_total": earnings_total, 
-            "deductions_total": deductions_total, 
-            "component_name_abbr_matrix": component_name_abbr_matrix
+            "deductions_total": deductions_total,
         }
     )
+
+@frappe.whitelist()
+def get_end_date_from_start_date(start_date, salary_structure):
+    payroll_frequency = frappe.db.get_value("Salary Structure", salary_structure, "payroll_frequency")
+
+    return get_end_date(start_date, payroll_frequency)
 
 @frappe.whitelist()
 def test_salary_slip(docname, start_date, end_date, override_gross_ytd=None):

@@ -399,12 +399,16 @@ def create_update_stripe_payout(data, log_doc, api_key):
     if doc.status == "paid":
         balance_transactions = stripe.BalanceTransaction.list(payout=doc.name, limit=100)
         source_charges = []
+        stripe_fees = []
 
         # store the sources of the payout
         for txn in balance_transactions.auto_paging_iter():
             # add the source if the transaction was accounted for
             if frappe.db.exists("Stripe Transaction", txn.source):
                 source_charges.append(txn.source)
+
+            if txn.type == "stripe_fee":
+                stripe_fees.append(txn)
 
         for charge in source_charges:
             charge_data = get_charge_details(charge, api_key)
@@ -414,7 +418,15 @@ def create_update_stripe_payout(data, log_doc, api_key):
                 create_update_stripe_transaction(charge_data, api_key, remark=charge_remark)
 
         # create journal entry
-        create_journal_entry(doc)
+        je_doc = create_journal_entry(doc, stripe_fees)
+        doc.journal_entry = je_doc.name
+
+        try:
+            doc.flags.ignore_permissions = True
+            doc.save()
+            
+        except Exception as e:
+            frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
 
 def get_charge_details(id, api_key):
     # get Charge object 
@@ -583,7 +595,7 @@ def create_payment_entry(merchant_payment):
             except Exception as e:
                 frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
              
-def create_journal_entry(payout):
+def create_journal_entry(payout, stripe_fees=None):
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
 
     # create a new journal entry based on the Balance Transaction object

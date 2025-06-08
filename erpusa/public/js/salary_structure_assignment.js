@@ -42,56 +42,62 @@ frappe.ui.form.on("Salary Structure Assignment", {
                 {
                     label: "Start Date",
                     fieldname: "start_date",
-                    fieldtype: "Date"
+                    fieldtype: "Date",
+                    onchange: function () {
+                        frappe.call({
+                            method: "erpusa.payroll_plus.utils.salary_structure_assignment.get_end_date_from_start_date",
+                            args: {
+                                salary_structure: frm.doc.salary_structure,
+                                start_date: prompt.get_value("start_date")
+                            },
+                            callback: function (r) {
+                                if (r.message) {
+                                    prompt.set_value("end_date", r.message.end_date)
+                                }
+                            },
+                        });
+                    }
                 },
                 {
                     label: "End Date",
                     fieldname: "end_date",
-                    fieldtype: "Date"
+                    fieldtype: "Date",
+                    read_only: 1
                 }
             ]);
 
             prompt.set_title(__("Test Salary Slip"));
             prompt.set_primary_action(__("View Salary Slip"), function (values) {
-                frappe.db.get_value(
-                    "Salary Structure",
-                    frm.doc.salary_structure,
-                    "salary_slip_based_on_timesheet",
-                    (r) => {
-                        const print_format = r.salary_slip_based_on_timesheet
-                            ? "Salary Slip based on Timesheet"
-                            : "Salary Slip Standard";
-                        frappe.call({
-                            method: "erpusa.payroll_plus.utils.salary_structure_assignment.test_salary_slip_printable",
-                            args: {
-                                salary_structure_assignment: frm.doc.name,
-                                salary_structure: frm.doc.salary_structure,
-                                employee: frm.doc.employee,
-                                gross_to_date: values.gross_to_date || 0,
-                                base: values.base? values.base : frm.doc.base,
-                                variable: values.variable? values.variable : frm.doc.variable,
-                                start_date: values.start_date,
-                                end_date: values.end_date
-                            },
-                            callback: function (r) {
-                                if (r.message) {
-                                    let dialog = new frappe.ui.Dialog({
-                                        title: __("Test Pay Slip"),
-                                        size: "medium",
-                                        fields: [
-                                            {
-                                                fieldtype: "HTML",
-                                                options: r.message
-                                            }
-                                        ]
-                                    })
-
-                                    dialog.show()
-                                }
-                            },
-                        });
+                frappe.call({
+                    method: "erpusa.payroll_plus.utils.salary_structure_assignment.test_salary_slip_printable",
+                    args: {
+                        salary_structure_assignment: frm.doc.name,
+                        salary_structure: frm.doc.salary_structure,
+                        employee: frm.doc.employee,
+						company: frm.doc.company,
+                        gross_to_date: values.gross_to_date || 0,
+                        base: values.base? values.base : frm.doc.base,
+                        variable: values.variable? values.variable : frm.doc.variable,
+                        start_date: values.start_date || frm.doc.from_date,
+                        end_date: values.end_date
                     },
-                );
+                    callback: function (r) {
+                        if (r.message) {
+                            let dialog = new frappe.ui.Dialog({
+                                title: __("Test Pay Slip"),
+                                size: "medium",
+                                fields: [
+                                    {
+                                        fieldtype: "HTML",
+                                        options: r.message
+                                    }
+                                ]
+                            })
+
+                            dialog.show()
+                        }
+                    },
+                });
             });
         }, "Tools");
 
