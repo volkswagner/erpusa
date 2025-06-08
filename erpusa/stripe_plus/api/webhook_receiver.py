@@ -106,6 +106,7 @@ PO_FIELDS = [
     "original_payout",
     "reconciliation_status",
     "reversed_by",
+    "balance_transaction",
 ]
 
 METHOD_PROCESSING_DAYS = {
@@ -280,7 +281,7 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
     if doc.status in ["succeeded", "pending"] and \
         billing_details and billing_details.get("email") and \
         frappe.db.exists("Stripe Transaction", data.get("id")) and \
-        not frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"}):
+        not (frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"}) or frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}"})):
             started_from_pending = frappe.db.count("Stripe Transaction Email Log", filters={"parent": doc.name, "status": "pending"}) and doc.status == "succeeded"
             
             frappe.sendmail(
@@ -419,7 +420,9 @@ def create_update_stripe_payout(data, log_doc, api_key):
 
         # create journal entry
         je_doc = create_journal_entry(doc, stripe_fees)
-        doc.journal_entry = je_doc.name
+        
+        if je_doc:
+            doc.journal_entry = je_doc.name
 
         try:
             doc.flags.ignore_permissions = True
@@ -643,11 +646,24 @@ def create_journal_entry(payout, stripe_fees=None):
             je_doc.posting_date = frappe.utils.today()
             je_doc.cheque_no = payout.name
             je_doc.cheque_date = payout.created
+            stripe_fee_total = 0.0
+
+            if stripe_fees:
+                stripe_fee_account = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account")
+                stripe_fee_cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
+                stripe_fee_total = sum(abs(stripe_fee.net) for stripe_fee in stripe_fees)
+
+                je_doc.append("accounts", {
+                    "account": stripe_fee_account,
+                    "bank_account": get_bank_account("Receive", stripe_fee_account, stripe_fee_account, False, as_dict=False),
+                    "credit_in_account_currency": stripe_fee_total,
+                    "cost_center": stripe_fee_cost_center
+                })
 
             je_doc.append("accounts", {
                 "account": credit_account,
                 "bank_account": credit_bank_account,
-                "credit_in_account_currency": abs(payout.amount)
+                "credit_in_account_currency": abs(payout.amount) - stripe_fee_total
             })
 
             je_doc.append("accounts", {
@@ -669,7 +685,9 @@ def create_journal_entry(payout, stripe_fees=None):
 
                 except Exception as e:
                     frappe.log_error(frappe.get_traceback(), _("Error Submitting Journal Entry Document"))
-                
+    
+            return je_doc
+    
 def generate_realtime_notification_email_message(title, description, merchant_payment):
     return frappe.render_template(
         "erpusa/templates/html/realtime.html",
@@ -694,7 +712,7 @@ def notify_user(merchant_payment):
         if merchant_payment.source:
             reference_name = merchant_payment.source + "_notification"
         
-        if not frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source + "_notification"}):
+        if not (frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source + "_notification"}) or frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source})):
             frappe.sendmail(
                 recipients=recipients.split(),
                 subject=subject,
