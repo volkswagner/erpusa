@@ -2,7 +2,7 @@ import frappe
 
 from urllib.parse import urlencode
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import StripeSettings
-from frappe.utils import call_hook_method, cint, flt, get_url
+from frappe.utils import get_url
 
 class StripeSettingsOverride(StripeSettings):
     def get_payment_url(self, **kwargs):

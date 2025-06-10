@@ -20,7 +20,6 @@ METHODS_FULLNAME = {
   "blik": "BLIK",
   "card": "Card Payments",
   "cashapp": "Cash App Pay",
-  "customer_balance": "Customer Balance",
   "eps": "EPS",
   "giropay": "Giropay",
   "google_pay": "Google Pay",
@@ -143,16 +142,6 @@ def validate_stripe_plus_fields(payment_request, method=None):
           stripe_settings=get_gateway_settings_doc(payment_request.payment_gateway),
           show_success_message=0
         )
-
-      if not payment_request.is_new() and payment_request.payment_method_configuration:
-        has_customer_balance = check_if_configuration_has_customer_balance(payment_request.payment_method_configuration)
-        
-        if has_customer_balance:
-          create_stripe_customer(
-            payment_request.party,
-            stripe_settings=get_gateway_settings_doc(payment_request.payment_gateway),
-            show_success_message=0
-          )
 
     if not payment_request.payment_method_configuration:
       if get_default_payment_configuration_doc():
@@ -335,42 +324,6 @@ def get_bank_account(payment_type, paid_from, paid_to, trigger_change, as_dict=T
   
   else:
      return bank_account
-
-@frappe.whitelist()
-def check_if_configuration_has_customer_balance(payment_method_configuration):
-  pr_payment_methods = frappe.get_all(
-    "Stripe Payment Method Multiselect Table",
-    filters={"parent": payment_method_configuration},
-    pluck="payment_method"
-  )
-    
-  for method in pr_payment_methods:
-    if get_payment_method_code(method) == "customer_balance":
-      
-      return True
-  
-  return False
-
-
-@frappe.whitelist()
-def get_customer_balance(gateway_controller, customer, currency="usd"):
-  stripe.api_key = get_api_key_secret(gateway_controller=gateway_controller)
-
-  try:
-    customer_balance = stripe.Customer.retrieve_cash_balance(customer)
-
-  except Exception as e:
-    error = str(e)
-    frappe.log_error(f"Error Fetching Customer's Balance: ", str(error))
-
-  if customer_balance:
-    available_balance = customer_balance.get("available")
-
-    if available_balance and available_balance.get(currency):
-      return available_balance.get(currency) / 100
-    
-    return 0.00
-
   
 @frappe.whitelist()
 def get_customer_funding_instructions(gateway_controller, customer):

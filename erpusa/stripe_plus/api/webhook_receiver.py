@@ -111,7 +111,6 @@ PO_FIELDS = [
 
 METHOD_PROCESSING_DAYS = {
     "us_bank_account": "3-5",
-    "customer_balance": "3-5",
     "sepa_debit": "5-7",
     "bacs_debit": "3"
 }
