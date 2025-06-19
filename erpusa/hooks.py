@@ -136,7 +136,8 @@ after_install = "erpusa.post_installation.create_docs.create_docs_payment_method
 # Override standard doctype classes
 
 override_doctype_class = {
-	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride"
+	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride",
+	"Payment Request": "erpusa.stripe_plus.overrides.payment_request_override.PaymentRequestOverride"
 }
 
 # Document Events
