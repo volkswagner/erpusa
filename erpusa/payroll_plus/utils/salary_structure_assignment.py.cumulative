@@ -25,10 +25,8 @@ def test_salary_slip_printable(
 
     base = float(base)
     variable = float(variable)
-    gross_pay = 0.00
-    gross_pay_temp = 0.00
-    prev_gross_ytd = 0.00
     gross_year_to_date = 0.00
+    gross_pay = 0.00
     payroll_frequency = frappe.db.get_value("Salary Structure", salary_structure, "payroll_frequency")
     
     if not end_date:
@@ -38,9 +36,23 @@ def test_salary_slip_printable(
     else:
         start_date = datetime.strptime(start_date, "%Y-%m-%d")
         end_date = datetime.strptime(end_date, "%Y-%m-%d")
-        
-    gross_year_to_date = find_prev_gross_ytd(employee, start_date)
-    prev_gross_ytd = find_prev_gross_ytd(employee, start_date)
+
+    if frappe.db.count("Salary Slip", filters={"employee": employee}):
+        start_date_a_year_ago = add_years(start_date, -1)
+
+        salary_slips = frappe.get_all(
+            "Salary Slip",
+            filters={
+                "end_date": ["between", [start_date_a_year_ago, start_date]],
+                "employee": employee
+            },
+            pluck="gross_pay"
+        )
+
+        gross_year_to_date = sum(salary_slips)
+    
+    if gross_to_date:
+        gross_year_to_date = float(gross_to_date)
 
     earnings = frappe.get_all(
         "Salary Detail",
@@ -61,19 +73,17 @@ def test_salary_slip_printable(
     earnings_total = 0.0
     deductions_total = 0.0
 
-    for component in (earnings + deductions):
-        exec(f"{component['abbr']} = 0.0")
+    for earning in earnings:
+        exec(f"{earning['abbr']} = 0.0")
 
     for earning in earnings:
         value = 0.00
-        
         if not earning['amount_based_on_formula']:
             value = float(earning['amount'])
 
         else:
             if earning['formula']:
                 formula_condition = f"{earning['formula']} if {earning['condition']} else 0" if earning['condition'] else earning['formula']
-                
                 try:
                     value = eval(formula_condition.replace("\n", " "))
                     
@@ -84,50 +94,24 @@ def test_salary_slip_printable(
 
         exec(f"{earning['abbr']} = {str(value)}")
 
-        if not earning['do_not_include_in_total'] and not earning["statistical_component"]:
-            gross_pay_temp = gross_pay_temp + value
-
-    gross_pay = gross_pay_temp
-
-    if not float(gross_to_date):
-        gross_year_to_date = gross_year_to_date + gross_pay
-        
-    else:
-        gross_year_to_date = float(gross_to_date)
-
-    for earning in earnings:
-        value = 0.00
-        
-        if not earning['amount_based_on_formula']:
-            value = float(earning['amount'])
-
-        else:
-            if earning['formula']:
-                formula_condition = f"{earning['formula']} if {earning['condition']} else 0" if earning['condition'] else earning['formula']
-                
-                try:
-                    value = eval(formula_condition.replace("\n", " "))
-                    
-                except Exception as e:
-                    print(f"There's an error with the condition/formula of {earning['salary_component']}: {e}")
-                
-                value = float(value)
-
-        exec(f"{earning['abbr']} = {str(value)}")
-        
         earnings_matrix.append({
             "abbr": earning['abbr'],
             "value": value,
             "name": earning['salary_component'],
             "amount": earning['amount'],
             "condition": earning['condition'],
-            "formula": earning['formula'].replace("\n", "</br>"),
-            "do_not_include_in_total": earning['do_not_include_in_total'],
-            "statistical_component": earning["statistical_component"]
+            "formula": earning['formula'].replace("\n", "</br>")
         })
-        
+
         if not earning['do_not_include_in_total'] and not earning["statistical_component"]:
+            gross_pay = gross_pay + value
             earnings_total = earnings_total + value
+
+            if not gross_to_date:
+                gross_year_to_date = gross_year_to_date + gross_pay
+
+    for deduction in deductions:
+        exec(f"{deduction['abbr']} = 0.0")
 
     for deduction in deductions:
         value = 0.00
@@ -154,9 +138,7 @@ def test_salary_slip_printable(
             "name": deduction['salary_component'],
             "amount": deduction['amount'],
             "condition": deduction['condition'],
-            "formula": deduction['formula'].replace("\n", "</br>"),
-            "do_not_include_in_total": deduction['do_not_include_in_total'],
-            "statistical_component": deduction["statistical_component"]
+            "formula": deduction['formula'].replace("\n", "</br>")
         })
 
         if not deduction['do_not_include_in_total'] and not deduction["statistical_component"]:
@@ -169,7 +151,7 @@ def test_salary_slip_printable(
             "company": company,
             "base": base,
             "payroll_frequency": payroll_frequency,
-            "gross_year_to_date": gross_year_to_date,
+            "gross_year_to_date": gross_to_date,
             "start_date": start_date.strftime("%m-%d-%Y"),
             "end_date": end_date.strftime("%m-%d-%Y"),
             "working_days": frappe.utils.date_diff(end_date, start_date) + 1,
@@ -220,40 +202,3 @@ def test_salary_slip(docname, start_date, end_date, override_gross_ytd=None):
     }
 
     return result
-
-@frappe.whitelist()
-def get_prev_gross_ytd(employee):
-    prev_gross_ytd = 0.0
-    if frappe.db.count("Salary Slip", filters={"employee": employee, "docstatus": 1}):
-        last_doc = frappe.get_last_doc("Salary Slip", filters={"employee": employee, "docstatus": 1})
-        
-        if last_doc:
-            prev_gross_ytd = last_doc.gross_year_to_date
-
-    return prev_gross_ytd
-
-@frappe.whitelist()
-def populate_prev_gross_ytd(salary_slip, method=None):
-    salary_slip.prev_gross_ytd = get_prev_gross_ytd(salary_slip.employee)
-    
-@frappe.whitelist()
-def find_prev_gross_ytd(employee, start_date):
-    gross_ytd = 0.00
-    if frappe.db.count("Salary Slip", filters={"employee": employee, "docstatus": 1}):
-        start_date_a_year_ago = add_years(start_date, -1)
-
-        salary_slips = frappe.get_all(
-            "Salary Slip",
-            filters={
-                "end_date": ["between", [start_date_a_year_ago, start_date]],
-                "employee": employee,
-                "docstatus": 1
-            },
-            pluck="gross_pay"
-        )
-
-        gross_ytd = sum(salary_slips)
-        
-    return gross_ytd
-    
-    

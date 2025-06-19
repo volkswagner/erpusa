@@ -1,14 +1,15 @@
 <style>
-  th {
-    vertical-align: top !important;
-  }
+	th, td {
+		vertical-align: top !important;
+	}
     .accordion .card {
       border: none;
       border-radius: 0;
+      background-color: transparent !important;
     }
 
     .accordion .card-header {
-      background-color: transparent;
+      background-color: transparent !important;
       border-bottom: none;
       padding: 0;
     }
@@ -39,6 +40,12 @@
     .accordion .collapse.show {
       border-top: none;
     }
+
+	sup {
+		display: inline-block;
+		opacity: 0.55;
+		scale: 0.85;
+	}
 </style>
 
 <table border="0" cellpadding="0" cellspacing="0" width="100%">
@@ -60,7 +67,11 @@
 			</p>
 			<p>
 				<b> Payroll Frequency </b><br/>
-				{{ payroll_frequency}}
+				{{ payroll_frequency }}
+			</p>
+			<p>
+				<b> Gross Year to Date </b><br/>
+				{{ frappe.utils.fmt_money(gross_year_to_date) }}
 			</p>
 		</td>
 	</tr>
@@ -110,7 +121,7 @@
 		</td>
 	</tr>
 </table>
-<table class="table table-bordered text-medium my-2" cellpadding="0" cellspacing="0" border="0">
+<table class="table table-bordered table-striped text-medium my-3" cellpadding="0" cellspacing="0" border="0">
 	<thead>
 		<tr>
 			<th> Component </th>
@@ -125,17 +136,29 @@
 					<div class="card">
 					<div class="card-header p-0" id="{{ earning['abbr'] }}">
 						<h2 class="mb-0">
-						<button class="btn btn-link" type="button" data-toggle="collapse" data-target="#{{ earning['abbr'] }}-content"
+						<button class="btn btn-link px-1" type="button" data-toggle="collapse" data-target="#{{ earning['abbr'] }}-content"
 								aria-expanded="true" aria-controls="collapseOne">
 							{{ earning['name'] }}
+							{% if earning['do_not_include_in_total'] %}<sup>*</sup>{% endif %}
+							{% if earning['statistical_component'] %}<sup>**</sup>{% endif %}
 						</button>
 						</h2>
 					</div>
 
 					<div id="{{ earning['abbr'] }}-content" class="collapse" aria-labelledby="headingOne" data-parent="#{{ earning['abbr'] }}-accordion">
 						<div class="card-body">
-							<div><small><b>Formula</b></small></div>
-							{{ earning['formula'] }}
+							{% if earning['amount'] %}
+								<div><small><b>Amount</b></small></div>
+								<div>{{ earning['amount'] }}</div>
+							{% endif %}
+							{% if earning['condition'] %}
+								<div><small><b>Condition</b></small></div>
+								<div>{{ earning['condition'] }}</div>
+							{% endif %}
+							{% if earning['formula'] %}
+								<div><small><b>Formula</b></small></div>
+								<div>{{ earning['formula'] }}</div>
+							{% endif %}
 						</div>
 					</div>
 					</div>
@@ -145,7 +168,7 @@
 		</tr>
         {% endfor %}
         <tr>
-			<td> <b> TOTAL EARNINGS </b></td>
+			<td> <b class="px-1"> TOTAL EARNINGS </b></td>
 			<td class="text-right"> {{ frappe.utils.fmt_money(earnings_total) }}</td>
 		</tr>
 	</tbody>
@@ -157,7 +180,7 @@
 		</td>
 	</tr>
 </table>
-<table class="table table-bordered text-medium my-2" cellpadding="0" cellspacing="0" border="0">
+<table class="table table-bordered table-striped text-medium my-3" cellpadding="0" cellspacing="0" border="0">
 	<thead>
 		<tr>
 			<th> Component </th>
@@ -172,17 +195,29 @@
 					<div class="card">
 					<div class="card-header p-0" id="{{ deduction['abbr'] }}">
 						<h2 class="mb-0">
-						<button class="btn btn-link" type="button" data-toggle="collapse" data-target="#{{ deduction['abbr'] }}-content"
+						<button class="btn btn-link px-1" type="button" data-toggle="collapse" data-target="#{{ deduction['abbr'] }}-content"
 								aria-expanded="true" aria-controls="collapseOne">
 							{{ deduction['name'] }}
+							{% if deduction['do_not_include_in_total'] %}<sup>*</sup>{% endif %}
+							{% if deduction['statistical_component'] %}<sup>**</sup>{% endif %}
 						</button>
 						</h2>
 					</div>
 
 					<div id="{{ deduction['abbr'] }}-content" class="collapse" aria-labelledby="headingOne" data-parent="#{{ deduction['abbr'] }}-accordion">
 						<div class="card-body">
-							<div><small><b>Formula</b></small></div>
-							{{ deduction['formula'] }}
+							{% if deduction['amount'] %}
+								<div><small><b>Amount</b></small></div>
+								<div>{{ deduction['amount'] }}</div>
+							{% endif %}
+							{% if deduction['condition'] %}
+								<div><small><b>Condition</b></small></div>
+								<div>{{ deduction['condition'] }}</div>
+							{% endif %}
+							{% if deduction['formula'] %}
+								<div><small><b>Formula</b></small></div>
+								<div>{{ deduction['formula'] }}</div>
+							{% endif %}
 						</div>
 					</div>
 					</div>
@@ -192,15 +227,24 @@
 		</tr>
         {% endfor %}
         <tr>
-			<td> <b> TOTAL DEDUCTIONS </b></td>
+			<td> <b class="px-1"> TOTAL DEDUCTIONS </b></td>
 			<td class="text-right">{{ frappe.utils.fmt_money(deductions_total) }}</td>
 		</tr>
 	</tbody>
 </table>
-<table class="table table-bordered text-medium" border="0" cellpadding="0" cellspacing="0" width="100%">
+<table class="report-title my-3" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td class="text-center">
+			<small>
+				A single asterisk (<b>*</b>) indicates the component is not included in the total; a double asterisk (<b>*</b>) indicates a statistical estimate; a triple asterisk (<b>*</b>) indicates both.
+			</small>
+		</td>
+	</tr>
+</table>
+<table class="table table-bordered text-medium my-3" border="0" cellpadding="0" cellspacing="0" width="100%">
 	<tr>
 		<td>
-			<b> NET PAY </b>
+			<b class="px-1"> NET PAY </b>
 		</td>
         <td class="text-right">
 			<b> {{ frappe.utils.fmt_money(earnings_total - deductions_total) }} </b>

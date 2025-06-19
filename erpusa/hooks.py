@@ -49,7 +49,8 @@ doctype_js = {
     "Payment Request" : "public/js/payment_request.js",
     "Payment Entry" : "public/js/payment_entry.js",
 	"Customer" : "public/js/customer.js",
-    "Salary Structure Assignment": "public/js/salary_structure_assignment.js"
+    "Salary Structure Assignment": "public/js/salary_structure_assignment.js",
+    # "Salary Slip": "public/js/salary_slip.js"
 }
 doctype_list_js = {
     "Sales Invoice" : "public/js/sales_invoice_list.js"
@@ -139,7 +140,8 @@ after_install = "erpusa.post_installation.create_docs.create_docs_payment_method
 # Override standard doctype classes
 
 override_doctype_class = {
-	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride"
+	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride",
+	"Salary Slip": "erpusa.payroll_plus.overrides.salary_slip_override.SalarySlipOverride"
 }
 
 # Document Events
@@ -149,6 +151,9 @@ override_doctype_class = {
 doc_events = {
 	"Payment Request": {
         "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_stripe_plus_fields"
+	},
+	"Salary Slip": {
+		"validate": "erpusa.payroll_plus.utils.salary_structure_assignment.populate_prev_gross_ytd"
 	}
 }
 
