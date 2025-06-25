@@ -310,7 +310,7 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
         frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{error}"))
 
 @frappe.whitelist()
-def get_bank_account(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
+def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
   account = paid_to if payment_type == "Receive" else paid_from
   bank_account = None
 
@@ -324,6 +324,23 @@ def get_bank_account(payment_type, paid_from, paid_to, trigger_change, as_dict=T
   
   else:
      return bank_account
+   
+@frappe.whitelist()
+def get_bank_account_for_payment_request(mode_of_payment, company):
+  bank_account = None
+  payment_gateway_account = None
+  
+  if mode_of_payment and company:
+    account = frappe.db.get_value("Mode of Payment Account", {"parent": mode_of_payment, "company": company}, "default_account")
+    
+    if account:
+      bank_account = frappe.db.get_value("Bank Account", {"account": account}, "name")
+      payment_gateway_account = frappe.db.get_value("Payment Gateway Account", {"payment_account": account}, "name")
+      
+  return {
+    "bank_account": bank_account,
+    "payment_gateway_account": payment_gateway_account
+  }
   
 @frappe.whitelist()
 def get_customer_funding_instructions(gateway_controller, customer):

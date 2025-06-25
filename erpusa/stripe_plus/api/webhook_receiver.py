@@ -1,11 +1,12 @@
 import datetime
 import json
 import frappe
+import frappe.utils
 import stripe
 from frappe import _
 from frappe.utils import fmt_money
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
-from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_bank_account
+from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_bank_account_for_payment_entry
 
 ST_FIELDS = [
     "stripe_transaction_id",
@@ -275,16 +276,23 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
         frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Transaction Document"))
 
     # get the recipient email and send a payment feedback to user
-    billing_details = data.get("billing_details")
+    metadata = data.get("metadata")
+    payment_request_docname = frappe.db.exists("Payment Request", {"reference_name": metadata.get("docname")})
+    payment_request_email_to = ""
+    
+    if payment_request_docname:
+        payment_request_email_to = frappe.db.get_value("Payment Request", payment_request_docname, "email_to")
+    
+    frappe.log_error("", str(frappe.utils.split_emails(payment_request_email_to)))
 
-    if doc.status in ["succeeded", "pending"] and \
-        billing_details and billing_details.get("email") and \
+    if doc.object == "charge" and doc.status in ["succeeded", "pending"] and \
+        payment_request_docname and payment_request_email_to and \
         frappe.db.exists("Stripe Transaction", data.get("id")) and \
         not (frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"}) or frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}"})):
             started_from_pending = frappe.db.count("Stripe Transaction Email Log", filters={"parent": doc.name, "status": "pending"}) and doc.status == "succeeded"
             
             frappe.sendmail(
-                recipients=[ billing_details.get("email") ],
+                recipients=frappe.utils.split_emails(payment_request_email_to),
                 subject="Your payment was successfully processed" if started_from_pending else "Thank you for your payment",
                 message=frappe.render_template(
                     "erpusa/templates/html/payment_receipt.html",
@@ -571,8 +579,8 @@ def create_payment_entry(merchant_payment):
         })
         
         # set the bank account
-        if get_bank_account(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False):
-            pe_doc.bank_account = get_bank_account(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False)
+        if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False):
+            pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False)
 
         try:
             pe_doc.flags.ignore_permissions = True
@@ -654,7 +662,7 @@ def create_journal_entry(payout, stripe_fees=None):
 
                 je_doc.append("accounts", {
                     "account": stripe_fee_account,
-                    "bank_account": get_bank_account("Receive", stripe_fee_account, stripe_fee_account, False, as_dict=False),
+                    "bank_account": get_bank_account_for_payment_entry("Receive", stripe_fee_account, stripe_fee_account, False, as_dict=False),
                     "credit_in_account_currency": stripe_fee_total,
                     "cost_center": stripe_fee_cost_center
                 })

@@ -260,9 +260,8 @@
   },
   {
    "fieldname": "reason",
-   "fieldtype": "Select",
-   "label": "Reason",
-   "options": "\nhighest_risk_level\nelevated_risk_level\nrule"
+   "fieldtype": "Data",
+   "label": "Reason"
   },
   {
    "fieldname": "risk_level",
@@ -602,7 +601,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-29 07:05:40.350624",
+ "modified": "2025-06-23 11:49:51.913658",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Transaction",

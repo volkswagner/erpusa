@@ -27,12 +27,11 @@
                         <span class="help"></span>
                     </div>
                     <div class="control-input-wrapper">
-                        <div class="control-input" style="">
-                            <input type="text" autocomplete="off" class="input-with-feedback form-control p-1 p-xl-5 focus-whiten" 
-                                data-fieldtype="Data" data-fieldname="name" placeholder="" value="{{ payer_name }}">
+                        <div class="control-input-wrapper">
+                            <div class="control-input" style="display: none;"></div>
+                            <div class="control-value like-disabled-input" style="">{{ payer_name }}</div>
+                            <p class="help-box small text-muted"></p>
                         </div>
-                        <div class="control-value like-disabled-input" style="display: none;">$ 0.00</div>
-                        <p class="help-box small text-muted"></p>
                     </div>
                 </div>
                 <div class="form-group w-100">
@@ -41,11 +40,11 @@
                         <span class="help"></span>
                     </div>
                     <div class="control-input-wrapper">
-                        <div class="control-input" style="">
-                            <input type="text" autocomplete="off" class="input-with-feedback form-control p-1 p-xl-5 focus-whiten" data-fieldtype="Data" 
-                                id="receipt-email" data-fieldname="receipt_email" placeholder="" value="{{ payer_email }}">
+                        <div class="control-input-wrapper">
+                            <div class="control-input" style="display: none;"></div>
+                            <div class="control-value like-disabled-input" style="">{{ payer_email }}</div>
+                            <p class="help-box small text-muted"></p>
                         </div>
-                        <div class="control-value like-disabled-input" style="display: none;">$ 0.00</div>
                         <p id="email-help-box" class="help-box small text-muted">
                             
                         </p>

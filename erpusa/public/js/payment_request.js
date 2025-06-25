@@ -85,6 +85,10 @@ frappe.ui.form.on("Payment Request", {
 
     payment_gateway: function(frm) {
         toggle_stripe_plus_section(frm);
+    },
+
+    mode_of_payment: function (frm) {
+        set_bank_and_payment_gateway_accounts(frm)
     }
 })
 
@@ -115,4 +119,24 @@ function toggle_do_not_create_invoice_checkbox(frm) {
     else {
         frm.set_df_property("do_not_create_invoice", "hidden", 1);
     }
+}
+
+function set_bank_and_payment_gateway_accounts(frm) {
+    frappe.call({
+        method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_bank_account_for_payment_request",
+        args: {
+            mode_of_payment: frm.doc.mode_of_payment,
+            company: frm.doc.company
+        },
+        callback: function(r) {
+            if (r.message && r.message.bank_account) {
+                frm.set_value("payment_gateway_account", r.message.payment_gateway_account)
+                frm.set_value("bank_account", r.message.bank_account)
+            }
+            else {
+                frm.set_value("bank_account", null)
+                frm.set_value("payment_gateway_account", null)
+            }
+        }
+    })
 }
