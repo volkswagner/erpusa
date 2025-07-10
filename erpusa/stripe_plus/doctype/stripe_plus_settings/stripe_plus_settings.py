@@ -143,17 +143,26 @@ def validate_stripe_plus_fields(payment_request, method=None):
           show_success_message=0
         )
 
-    if not payment_request.payment_method_configuration:
-      if get_default_payment_configuration_doc():
-        payment_request.payment_method_configuration = get_default_payment_configuration_doc()
-        
-      payment_request.methods_included = get_default_pm_configuration_methods(payment_request.payment_gateway)
+      if not payment_request.payment_method_configuration:
+        if get_default_payment_configuration_doc():
+          payment_request.payment_method_configuration = get_default_payment_configuration_doc()
+          
+        payment_request.methods_included = get_default_pm_configuration_methods(payment_request.payment_gateway)
 
     if payment_request.docstatus == 2:
       payment_request.stripe_intent_id = None
 
   else:
     return
+  
+def validate_auto_repeat_stripe_plus_fields(auto_repeat, method=None):
+  if auto_repeat.send_payment_request_instead:
+    if auto_repeat.reference_doctype in ["Sales Order", "Sales Invoice"] and (not auto_repeat.mode_of_payment or not auto_repeat.payment_gateway_account):
+      frappe.throw(_("Select a Mode of Payment or a Payment Gateway Account"))
+    if not auto_repeat.submit_on_creation:
+      frappe.throw(_("Enable 'Submit on creation' to allow Payment Request."))
+    if not auto_repeat.notify_by_email:
+      frappe.throw(_("Enable 'Notify by email' to allow Payment Request."))
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
@@ -326,9 +335,12 @@ def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, trigger
      return bank_account
    
 @frappe.whitelist()
-def get_bank_account_for_payment_request(mode_of_payment, company):
+def get_bank_account_for_payment_request(mode_of_payment, reference_doctype=None, reference_docname=None, company=None):
   bank_account = None
   payment_gateway_account = None
+  
+  if not company:
+    company = frappe.db.get_value(reference_doctype, reference_docname, "company")
   
   if mode_of_payment and company:
     account = frappe.db.get_value("Mode of Payment Account", {"parent": mode_of_payment, "company": company}, "default_account")
@@ -362,4 +374,23 @@ def get_customer_funding_instructions(gateway_controller, customer):
     bank_transfer = customer_funding_instructions.get("bank_transfer")
 
     return bank_transfer.financial_addresses
+  
+@frappe.whitelist()
+def test_pr():
+  from erpnext.accounts.doctype.payment_request.payment_request import make_payment_request
+  doc = make_payment_request(**{
+    'dt': "Sales Order",
+    'dn': "SAL-ORD-2025-00050",
+    'order_type': "Sales",
+    'party_type': "Customer",
+    'party': "Marky Mark",
+    'party_name': "Marky Mark",
+    'mode_of_payment': "Cash",
+    'recipient_id': "",
+    'loyalty_points': 0,
+    'submit_doc': False,
+    'return_doc': False
+  })
+  
+  return doc
 

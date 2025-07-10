@@ -282,8 +282,6 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
     
     if payment_request_docname:
         payment_request_email_to = frappe.db.get_value("Payment Request", payment_request_docname, "email_to")
-    
-    frappe.log_error("", str(frappe.utils.split_emails(payment_request_email_to)))
 
     if doc.object == "charge" and doc.status in ["succeeded", "pending"] and \
         payment_request_docname and payment_request_email_to and \
@@ -566,7 +564,13 @@ def create_payment_entry(merchant_payment):
             cost_center = max_si_item.cost_center if max_si_item.cost_center else frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
 
         pe_doc = pr_doc.create_payment_entry(submit=False)
-        pe_doc.payment_method = frappe.get_value("Payment Request", merchant_payment.associated_payment_entry, "mode_of_payment")
+        
+        # sets the actual amount paid by the user
+        for index, reference in enumerate(pe_doc.references):
+            if reference.reference_name == pr_doc.reference_name:
+                pe_doc.references[index].allocated_amount = merchant_payment.gross_amount
+                
+        pe_doc.payment_method = frappe.get_value("Payment Request", merchant_payment.associated_payment_request, "mode_of_payment") 
         pe_doc.reference_no = frappe.get_value("Stripe Transaction", merchant_payment.source, "payment_intent")
         pe_doc.paid_amount = merchant_payment.net_amount
 
@@ -583,8 +587,7 @@ def create_payment_entry(merchant_payment):
             pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False)
 
         try:
-            pe_doc.flags.ignore_permissions = True
-            pe_doc.save()
+            pe_doc.save(ignore_permissions=True)
 
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
@@ -596,7 +599,7 @@ def create_payment_entry(merchant_payment):
 
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
-
+            
         # submit Payment Entry doc according to settings
         if frappe.db.get_single_value("Stripe Plus Settings", "auto_submit_payment"):
             try:

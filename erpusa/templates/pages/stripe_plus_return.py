@@ -3,6 +3,7 @@ from frappe import _
 
 from payments.templates.pages.stripe_checkout import get_api_key
 
+no_cache = 1
 
 def get_context(context):
     # all these keys exist in form_dict

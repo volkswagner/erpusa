@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils import fmt_money
 import stripe
 import json
+from decimal import Decimal, ROUND_DOWN
 from payments.templates.pages.stripe_checkout import expected_keys, is_a_subscription, get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import (
@@ -89,9 +90,12 @@ def get_context(context):
         raise frappe.Redirect
 
 def create_payment_intent(data, customer_id=None):
+    amount_in_decimal = (Decimal(data.get('amount')) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
+    amount_in_int = int(amount_in_decimal)
+    
     try:
         intent = stripe.PaymentIntent.create(
-            amount=int(float(data.get('amount'))) * 100,
+            amount=amount_in_int,
             currency='usd',
             customer=customer_id,
             payment_method_configuration=data.get('pm_configuration', None),

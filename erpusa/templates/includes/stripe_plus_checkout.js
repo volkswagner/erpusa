@@ -92,11 +92,6 @@ frappe.ready(function() {
   
     const paymentElement = elements.create("payment", paymentElementOptions);
     paymentElement.mount("#payment-element");
-    let selectedPaymentMethodType = null;
-
-    paymentElement.on('ready', () => {
-
-  });
 
   }
   
@@ -110,6 +105,11 @@ frappe.ready(function() {
       confirmParams: {
         // Make sure to change this to your payment completion page
         return_url: "{{ frappe.utils.get_url() }}/stripe_plus_return?reference_docname={{ reference_docname }}&gateway_controller={{ gateway_controller }}&to_pay_id={{ to_pay_id }}&to_pay_doctype={{ to_pay_doctype }}&amount={{ amount }}",
+        payment_method_data: {
+          billing_details: {
+            name: "{{ payer_name }}"
+          }
+        }
       },
     });
   

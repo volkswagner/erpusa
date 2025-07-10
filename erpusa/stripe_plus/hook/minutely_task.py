@@ -68,17 +68,17 @@ def send_daily_digest():
                 )
                 if count:
                     recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
-                    label = schedule_detail["label"] if schedule_detail["label"] else schedule_detail["date_end"].strftime("%H:%M")
+                    label = schedule_detail["label"] if schedule_detail["label"] else schedule_detail["date_end"].strftime("%I:%M %p")
                     
                     if schedule_index == 0:
-                        description = f'You have <b id="count">{count}</b> new transaction(s) that occurred before {schedule_detail["date_end"].strftime("%H:%M")}'
+                        description = f'You have <b id="count">{count}</b> new transaction(s) that occurred before {schedule_detail["date_end"].strftime("%I:%M %p")} today.'
                     else:
-                        description = f'You have <b id="count">{count}</b> new transaction(s) since the last digest'
+                        description = f'You have <b id="count">{count}</b> new transaction(s) since the last digest.'
                     
                     
                     frappe.sendmail(
                         recipients=recipients.split(),
-                        subject=f"Your {label} daily digest",
+                        subject=f"New Stripe Transactions - Stripe Plus",
                         message=generate_digest_notification_message(
                             schedule_detail,
                             description

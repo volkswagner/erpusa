@@ -48,7 +48,8 @@ required_apps = [
 doctype_js = {
     "Payment Request" : "public/js/payment_request.js",
     "Payment Entry" : "public/js/payment_entry.js",
-	"Customer" : "public/js/customer.js"
+	"Customer" : "public/js/customer.js",
+ 	"Auto Repeat": "public/js/auto_repeat.js"
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -137,7 +138,8 @@ after_install = "erpusa.post_installation.create_docs.create_docs_payment_method
 
 override_doctype_class = {
 	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride",
-	"Payment Request": "erpusa.stripe_plus.overrides.payment_request_override.PaymentRequestOverride"
+	"Payment Request": "erpusa.stripe_plus.overrides.payment_request_override.PaymentRequestOverride",
+	"Auto Repeat": "erpusa.stripe_plus.overrides.auto_repeat_override.AutoRepeatOverride"
 }
 
 # Document Events
@@ -147,6 +149,9 @@ override_doctype_class = {
 doc_events = {
 	"Payment Request": {
         "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_stripe_plus_fields"
+	},
+	"Auto Repeat": {
+		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_auto_repeat_stripe_plus_fields"
 	}
 }
 
