@@ -46,9 +46,6 @@ class StripePlusSettings(Document):
     if self.signing_secret_list:
       if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center:
         frappe.throw(_("Fields User to Authorize, Merchant Fee Account and Cost Centers are empty. Fill them out to enable auto-creation of Payment Entry."))
-        
-      if frappe.db.get_value("Account", self.merchant_fee_account, "is_group"):
-        frappe.throw(_("The selected Merchant Fee Account is a group account and group accounts can't be used in transactions."))
 
     if self.turn_on_email_notifications:
       if not self.signing_secret_list:
@@ -374,23 +371,3 @@ def get_customer_funding_instructions(gateway_controller, customer):
     bank_transfer = customer_funding_instructions.get("bank_transfer")
 
     return bank_transfer.financial_addresses
-  
-@frappe.whitelist()
-def test_pr():
-  from erpnext.accounts.doctype.payment_request.payment_request import make_payment_request
-  doc = make_payment_request(**{
-    'dt': "Sales Order",
-    'dn': "SAL-ORD-2025-00050",
-    'order_type': "Sales",
-    'party_type': "Customer",
-    'party': "Marky Mark",
-    'party_name': "Marky Mark",
-    'mode_of_payment': "Cash",
-    'recipient_id': "",
-    'loyalty_points': 0,
-    'submit_doc': False,
-    'return_doc': False
-  })
-  
-  return doc
-

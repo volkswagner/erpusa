@@ -16,9 +16,10 @@
   "webhook_instructions",
   "signing_secret_list",
   "payment_entry_section",
+  "column_break_eaxn",
   "user_to_authorize",
   "auto_submit_payment",
-  "column_break_iyoc",
+  "column_break_kidh",
   "merchant_fee_account",
   "merchant_fee_cost_center",
   "journal_entry_section",
@@ -50,7 +51,7 @@
    "fieldname": "notification_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
-   "label": "<small><strong>Email Notification</strong></small>"
+   "label": "Email Notification"
   },
   {
    "default": "0",
@@ -94,7 +95,7 @@
    "fieldname": "payment_entry_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
-   "label": "<small><strong>Payment Entry</strong></small>"
+   "label": "Payment Entry"
   },
   {
    "default": "Administrator",
@@ -102,12 +103,14 @@
    "fieldname": "user_to_authorize",
    "fieldtype": "Link",
    "label": "User to Authorize Payment Entry Creation (must be an Accounts Manager or someone with a higher position)",
-   "options": "User"
+   "options": "User",
+   "width": "100%"
   },
   {
    "fieldname": "merchant_fee_account",
    "fieldtype": "Link",
    "label": "Default Merchant Fee Account",
+   "link_filters": "[[\"Account\",\"is_group\",\"=\",0]]",
    "options": "Account"
   },
   {
@@ -116,10 +119,6 @@
    "fieldtype": "Link",
    "label": "Default Merchant Fee Cost Center",
    "options": "Cost Center"
-  },
-  {
-   "fieldname": "column_break_iyoc",
-   "fieldtype": "Column Break"
   },
   {
    "default": "0",
@@ -132,7 +131,7 @@
    "fieldname": "journal_entry_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
-   "label": "<small><strong>Payout Journal Entry</strong></small>"
+   "label": "Payout Journal Entry"
   },
   {
    "fieldname": "erp_stripe_accounts",
@@ -186,12 +185,21 @@
    "fieldname": "auto_submit_journal",
    "fieldtype": "Check",
    "label": "Automatically submit Payout Journal Entry"
+  },
+  {
+   "fieldname": "column_break_eaxn",
+   "fieldtype": "Column Break",
+   "width": "100%"
+  },
+  {
+   "fieldname": "column_break_kidh",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-06-07 22:37:22.208993",
+ "modified": "2025-07-11 09:05:59.835562",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

@@ -30,6 +30,7 @@ frappe.ui.form.on("Stripe Plus Settings", {
             });
         }
     },
+
     refresh: function(frm) {
         frm.set_query('user_to_authorize', function() {
             return {
@@ -37,19 +38,6 @@ frappe.ui.form.on("Stripe Plus Settings", {
             };
           });
     },
-    fetch_bank_accounts: function(frm) {
-        frappe.call({
-            method: "frappe.client.get_list",
-            args: {
-                doctype: "Bank Account"
-            },
-            callback: function(r) {
-                if (r.message) {
-                    console.log(r.message)
-                }
-            }
-        })
-    }
 });
 
 frappe.ui.form.on('Stripe Plus Settings Notification Schedule', {
