@@ -94,7 +94,7 @@ class StripePaymentMethodConfiguration(Document):
 				# boleto={"display_preference": {"preference": "on" if "boleto" in list else "off"}},
 				card={"display_preference": {"preference": "on" if "card" in list else "off"}},
 				cashapp={"display_preference": {"preference": "on" if "cashapp" in list else "off"}},
-				customer_balance={"display_preference": {"preference": "on" if "customer_balance" in list else "off"}},
+				# customer_balance={"display_preference": {"preference": "on" if "customer_balance" in list else "off"}},
 				eps={"display_preference": {"preference": "on" if "eps" in list else "off"}},
 				#fpx={"display_preference": {"preference": "on" if "fpx" in list else "off"}},
 				giropay={"display_preference": {"preference": "on" if "giropay" in list else "off"}},

@@ -20,7 +20,6 @@ METHODS_FULLNAME = {
   "blik": "BLIK",
   "card": "Card Payments",
   "cashapp": "Cash App Pay",
-  "customer_balance": "Customer Balance",
   "eps": "EPS",
   "giropay": "Giropay",
   "google_pay": "Google Pay",
@@ -47,9 +46,6 @@ class StripePlusSettings(Document):
     if self.signing_secret_list:
       if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center:
         frappe.throw(_("Fields User to Authorize, Merchant Fee Account and Cost Centers are empty. Fill them out to enable auto-creation of Payment Entry."))
-        
-      if frappe.db.get_value("Account", self.merchant_fee_account, "is_group"):
-        frappe.throw(_("The selected Merchant Fee Account is a group account and group accounts can't be used in transactions."))
 
     if self.turn_on_email_notifications:
       if not self.signing_secret_list:
@@ -144,27 +140,26 @@ def validate_stripe_plus_fields(payment_request, method=None):
           show_success_message=0
         )
 
-      if not payment_request.is_new() and payment_request.payment_method_configuration:
-        has_customer_balance = check_if_configuration_has_customer_balance(payment_request.payment_method_configuration)
-        
-        if has_customer_balance:
-          create_stripe_customer(
-            payment_request.party,
-            stripe_settings=get_gateway_settings_doc(payment_request.payment_gateway),
-            show_success_message=0
-          )
-
-    if not payment_request.payment_method_configuration:
-      if get_default_payment_configuration_doc():
-        payment_request.payment_method_configuration = get_default_payment_configuration_doc()
-        
-      payment_request.methods_included = get_default_pm_configuration_methods(payment_request.payment_gateway)
+      if not payment_request.payment_method_configuration:
+        if get_default_payment_configuration_doc():
+          payment_request.payment_method_configuration = get_default_payment_configuration_doc()
+          
+        payment_request.methods_included = get_default_pm_configuration_methods(payment_request.payment_gateway)
 
     if payment_request.docstatus == 2:
       payment_request.stripe_intent_id = None
 
   else:
     return
+  
+def validate_auto_repeat_stripe_plus_fields(auto_repeat, method=None):
+  if auto_repeat.send_payment_request_instead:
+    if auto_repeat.reference_doctype in ["Sales Order", "Sales Invoice"] and (not auto_repeat.mode_of_payment or not auto_repeat.payment_gateway_account):
+      frappe.throw(_("Select a Mode of Payment or a Payment Gateway Account"))
+    if not auto_repeat.submit_on_creation:
+      frappe.throw(_("Enable 'Submit on creation' to allow Payment Request."))
+    if not auto_repeat.notify_by_email:
+      frappe.throw(_("Enable 'Notify by email' to allow Payment Request."))
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
@@ -321,7 +316,7 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
         frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{error}"))
 
 @frappe.whitelist()
-def get_bank_account(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
+def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
   account = paid_to if payment_type == "Receive" else paid_from
   bank_account = None
 
@@ -335,42 +330,26 @@ def get_bank_account(payment_type, paid_from, paid_to, trigger_change, as_dict=T
   
   else:
      return bank_account
-
+   
 @frappe.whitelist()
-def check_if_configuration_has_customer_balance(payment_method_configuration):
-  pr_payment_methods = frappe.get_all(
-    "Stripe Payment Method Multiselect Table",
-    filters={"parent": payment_method_configuration},
-    pluck="payment_method"
-  )
-    
-  for method in pr_payment_methods:
-    if get_payment_method_code(method) == "customer_balance":
-      
-      return True
+def get_bank_account_for_payment_request(mode_of_payment, reference_doctype=None, reference_docname=None, company=None):
+  bank_account = None
+  payment_gateway_account = None
   
-  return False
-
-
-@frappe.whitelist()
-def get_customer_balance(gateway_controller, customer, currency="usd"):
-  stripe.api_key = get_api_key_secret(gateway_controller=gateway_controller)
-
-  try:
-    customer_balance = stripe.Customer.retrieve_cash_balance(customer)
-
-  except Exception as e:
-    error = str(e)
-    frappe.log_error(f"Error Fetching Customer's Balance: ", str(error))
-
-  if customer_balance:
-    available_balance = customer_balance.get("available")
-
-    if available_balance and available_balance.get(currency):
-      return available_balance.get(currency) / 100
+  if not company:
+    company = frappe.db.get_value(reference_doctype, reference_docname, "company")
+  
+  if mode_of_payment and company:
+    account = frappe.db.get_value("Mode of Payment Account", {"parent": mode_of_payment, "company": company}, "default_account")
     
-    return 0.00
-
+    if account:
+      bank_account = frappe.db.get_value("Bank Account", {"account": account}, "name")
+      payment_gateway_account = frappe.db.get_value("Payment Gateway Account", {"payment_account": account}, "name")
+      
+  return {
+    "bank_account": bank_account,
+    "payment_gateway_account": payment_gateway_account
+  }
   
 @frappe.whitelist()
 def get_customer_funding_instructions(gateway_controller, customer):
@@ -392,4 +371,3 @@ def get_customer_funding_instructions(gateway_controller, customer):
     bank_transfer = customer_funding_instructions.get("bank_transfer")
 
     return bank_transfer.financial_addresses
-
