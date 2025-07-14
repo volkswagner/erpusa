@@ -3,6 +3,7 @@ import json
 import frappe
 import frappe.utils
 import stripe
+from decimal import Decimal, ROUND_HALF_UP
 from frappe import _
 from frappe.utils import fmt_money
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
@@ -482,7 +483,7 @@ def create_update_merchant_payment(stripe_transaction, api_key):
         mp_doc.status = balance_transaction.get("status").title()
         mp_doc.created = datetime.datetime.fromtimestamp(balance_transaction.get("created"))
         mp_doc.available_on = datetime.datetime.fromtimestamp(balance_transaction.get("available_on"))
-        mp_doc.associated_payment_request = frappe.db.exists("Payment Request", {"reference_name": metadata.get("docname")})
+        mp_doc.associated_payment_request = frappe.db.exists("Payment Request", {"reference_name": metadata.get("docname"), "docstatus": ["!=", 2]})
         
         if metadata and metadata.get("doctype") and metadata.get("docname"):
             mp_doc.customer = frappe.db.get_value(metadata.get("doctype"), metadata.get("docname"), "customer")
@@ -661,19 +662,19 @@ def create_journal_entry(payout, stripe_fees=None):
             if stripe_fees:
                 stripe_fee_account = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account")
                 stripe_fee_cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
-                stripe_fee_total = sum(abs(stripe_fee.net) for stripe_fee in stripe_fees)
+                stripe_fee_total = sum(abs(stripe_fee.net) for stripe_fee in stripe_fees) / 100
 
                 je_doc.append("accounts", {
                     "account": stripe_fee_account,
                     "bank_account": get_bank_account_for_payment_entry("Receive", stripe_fee_account, stripe_fee_account, False, as_dict=False),
-                    "credit_in_account_currency": stripe_fee_total,
+                    "debit_in_account_currency": stripe_fee_total,
                     "cost_center": stripe_fee_cost_center
                 })
 
             je_doc.append("accounts", {
                 "account": credit_account,
                 "bank_account": credit_bank_account,
-                "credit_in_account_currency": abs(payout.amount) - stripe_fee_total
+                "credit_in_account_currency": abs(payout.amount) + stripe_fee_total
             })
 
             je_doc.append("accounts", {
