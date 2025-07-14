@@ -14,7 +14,6 @@ def create_docs_payment_methods():
         "blik": "BLIK",
         "card": "Card Payments",
         "cashapp": "Cash App Pay",
-        "customer_balance": "Customer Balance",
         "eps": "EPS",
         "giropay": "Giropay",
         "google_pay": "Google Pay",

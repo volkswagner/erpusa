@@ -8,17 +8,23 @@
   "enable_stripe_plus",
   "hide_warning",
   "notes",
+  "checkoutpayment_section",
+  "add_new_checkout_customers",
+  "payment_page_company_name",
+  "payment_page_company_logo",
   "webhook_section",
   "webhook_instructions",
   "signing_secret_list",
   "payment_entry_section",
+  "column_break_eaxn",
   "user_to_authorize",
   "auto_submit_payment",
-  "column_break_iyoc",
+  "column_break_kidh",
   "merchant_fee_account",
   "merchant_fee_cost_center",
   "journal_entry_section",
   "erp_stripe_accounts",
+  "auto_submit_journal",
   "notification_section",
   "turn_on_email_notifications",
   "notification_method",
@@ -45,7 +51,7 @@
    "fieldname": "notification_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
-   "label": "<small><strong>Email Notification</strong></small>"
+   "label": "Email Notification"
   },
   {
    "default": "0",
@@ -61,7 +67,7 @@
    "label": "Hide warning in Payment Request when Stripe Plus is disabled"
   },
   {
-   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks more features such as notifications, events logging and automation.</small>",
+   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks accounting automation (automatic payment entry and payout journal entry) and more features such as notifications and events logging.</small>",
    "fieldname": "webhook_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
@@ -89,7 +95,7 @@
    "fieldname": "payment_entry_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
-   "label": "<small><strong>Payment Entry</strong></small>"
+   "label": "Payment Entry"
   },
   {
    "default": "Administrator",
@@ -97,24 +103,22 @@
    "fieldname": "user_to_authorize",
    "fieldtype": "Link",
    "label": "User to Authorize Payment Entry Creation (must be an Accounts Manager or someone with a higher position)",
-   "options": "User"
+   "options": "User",
+   "width": "100%"
   },
   {
    "fieldname": "merchant_fee_account",
    "fieldtype": "Link",
    "label": "Default Merchant Fee Account",
+   "link_filters": "[[\"Account\",\"is_group\",\"=\",0]]",
    "options": "Account"
   },
   {
-   "description": "<small>The cost center in the Payment Entry is determined by the item with the highest amount in the invoice. If a cost center can\u2019t be determined, the value in this field will be applied.</small>",
+   "description": "<small>\nThe cost center in the Payment Entry is determined by the item with the highest amount in the invoice. If a cost center can\u2019t be determined, the value in this field will be applied.\n<br>\nThe default merchant fee account and cost center will also be used for stripe fee in journal entries.\n</small>",
    "fieldname": "merchant_fee_cost_center",
    "fieldtype": "Link",
    "label": "Default Merchant Fee Cost Center",
    "options": "Cost Center"
-  },
-  {
-   "fieldname": "column_break_iyoc",
-   "fieldtype": "Column Break"
   },
   {
    "default": "0",
@@ -127,12 +131,12 @@
    "fieldname": "journal_entry_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
-   "label": "<small><strong>Journal Entry</strong></small>"
+   "label": "Payout Journal Entry"
   },
   {
    "fieldname": "erp_stripe_accounts",
    "fieldtype": "Table",
-   "label": "ERP-Stripe Accounts",
+   "label": "ERP-Stripe Accounts (Required to automatically create payout journal entry)",
    "options": "Stripe Plus Settings Payout Account"
   },
   {
@@ -153,12 +157,49 @@
    "fieldtype": "Long Text",
    "label": "Notification Recipients",
    "options": "Contact"
+  },
+  {
+   "fieldname": "payment_page_company_name",
+   "fieldtype": "Data",
+   "label": "Payment Page Company Name"
+  },
+  {
+   "depends_on": "eval:doc.payment_page_company_name;",
+   "fieldname": "payment_page_company_logo",
+   "fieldtype": "Attach Image",
+   "label": "Payment Page Company Logo"
+  },
+  {
+   "fieldname": "checkoutpayment_section",
+   "fieldtype": "Section Break",
+   "label": "Checkout/Payment"
+  },
+  {
+   "default": "1",
+   "fieldname": "add_new_checkout_customers",
+   "fieldtype": "Check",
+   "label": "Add new checkout customers to Stripe.com account"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_submit_journal",
+   "fieldtype": "Check",
+   "label": "Automatically submit Payout Journal Entry"
+  },
+  {
+   "fieldname": "column_break_eaxn",
+   "fieldtype": "Column Break",
+   "width": "100%"
+  },
+  {
+   "fieldname": "column_break_kidh",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-05-15 12:25:28.542677",
+ "modified": "2025-07-11 09:05:59.835562",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

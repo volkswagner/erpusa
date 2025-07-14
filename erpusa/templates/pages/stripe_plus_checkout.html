@@ -14,9 +14,10 @@
         <div class="col-12 col-md-5 w-100 h-100">
             <div class="d-flex flex-column p-1 p-xl-5 w-100 h-100 d-flex align-items-center justify-content-start">
                 {% if header_image %}
-                    <img src="{{ header_image }}" width="150">
+                    <img src="{{ header_image }}" alt="{{ company }} logo" width="150">
+                    <small class="font-weight-bold mt-3" style="font-family: Georgia, serif;">{{ company }}</small>
                 {% else %}
-                    <h2 class="h3 font-weight-bold" style="font-family: Georgia, serif;">{{ company }}</h2>
+                    <h2 class="h3 font-weight-bold" alt="{{ company }} logo" style="font-family: Georgia, serif;">{{ company }}</h2>
                 {% endif %}
                 <h1 class="h5 mb-5">{{ description }}</h1>
                 <hr class="w-100"/>
@@ -26,12 +27,11 @@
                         <span class="help"></span>
                     </div>
                     <div class="control-input-wrapper">
-                        <div class="control-input" style="">
-                            <input type="text" autocomplete="off" class="input-with-feedback form-control p-1 p-xl-5 focus-whiten" 
-                                data-fieldtype="Data" data-fieldname="name" placeholder="" value="{{ payer_name }}">
+                        <div class="control-input-wrapper">
+                            <div class="control-input" style="display: none;"></div>
+                            <div class="control-value like-disabled-input" style="">{{ payer_name }}</div>
+                            <p class="help-box small text-muted"></p>
                         </div>
-                        <div class="control-value like-disabled-input" style="display: none;">$ 0.00</div>
-                        <p class="help-box small text-muted"></p>
                     </div>
                 </div>
                 <div class="form-group w-100">
@@ -40,11 +40,11 @@
                         <span class="help"></span>
                     </div>
                     <div class="control-input-wrapper">
-                        <div class="control-input" style="">
-                            <input type="text" autocomplete="off" class="input-with-feedback form-control p-1 p-xl-5 focus-whiten" data-fieldtype="Data" 
-                                id="receipt-email" data-fieldname="receipt_email" placeholder="" value="{{payer_email}}">
+                        <div class="control-input-wrapper">
+                            <div class="control-input" style="display: none;"></div>
+                            <div class="control-value like-disabled-input" style="">{{ payer_email }}</div>
+                            <p class="help-box small text-muted"></p>
                         </div>
-                        <div class="control-value like-disabled-input" style="display: none;">$ 0.00</div>
                         <p id="email-help-box" class="help-box small text-muted">
                             
                         </p>

@@ -1,16 +1,40 @@
 <table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
-	<tr>
-		<td>
-			<b>We received your payment through Stripe.</b>
-		</td>
-	</tr>
-	<tr>
-		<td>
-			<p>
-				<span>{{ _("Here's a link to your ") }}</span>
-				<a href="{{receipt_url}}" target="_blank">Stripe receipt</a>.
-			</p>
-		</td>
-	</tr>
+	{% if not started_from_pending %}
+		<tr>
+			<td>
+				<b>{{ _("We received your payment through Stripe.") }}</b>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				{% if status == "pending" %}
+					<p>
+						{{ _("Your payment is still being processed. It may take ") }} {{ processing_days }} {{ _(" business days.") }}
+					</p>
+					<p>
+						{{ _("We'll let you know when the transaction is complete.") }}
+					</p>
+				{% elif status == "succeeded" %}
+					<p>
+						<span>{{ _("Here's a link to your ") }}</span>
+						<a href="{{receipt_url}}" target="_blank">Stripe {{ _("receipt") }}</a>.
+					</p>
+				{% endif %}
+			</td>
+		</tr>
+	{% else %}
+		<tr>
+			<td>
+				<b>{{ _("We have an update about your payment.") }}</b>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<p>
+					<span>{{ _("Here's a link to your ") }}</span>
+					<a href="{{receipt_url}}" target="_blank">Stripe receipt</a>.
+				</p>
+			</td>
+		</tr>
+	{% endif %}
 </table>
-

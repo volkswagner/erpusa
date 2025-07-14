@@ -19,10 +19,11 @@ const InfoIcon =
 // ------- UI helpers -------
 function setPaymentDetails(intent) {
   let statusText = "Something went wrong, please try again.";
-  let paymentDescriptionBase = "Your payment for {{ to_pay_id }} amounting {{ amount }}";
-  let paymentDescription = ""
+  let paymentDescriptionBase = "Your {{ amount }} payment for {{ to_pay_doctype }} number {{ to_pay_id }}";
   let iconColor = "#DF1B41";
+  let shadowColor = "rgba(177, 48, 48, 0.25)";
   let icon = ErrorIcon;
+  let paymentDescription = " didn't go through.";
 
   
   if (!intent) {
@@ -36,7 +37,7 @@ function setPaymentDetails(intent) {
       icon = SuccessIcon;
       iconColor = "#30B130";
       shadowColor = "rgba(48, 177, 48, 0.25)"
-      paymentDescription = " went through."
+      paymentDescription = " was successful."
       break;
     case "processing":
       statusText = "Processing Payment";
@@ -47,7 +48,7 @@ function setPaymentDetails(intent) {
       break;
     case "requires_payment_method":
       statusText = "Payment Failed. Please try again.";
-      paymentDescription = " didn't go through."
+      paymentDescription = " failed."
       break;
     default:
       break;

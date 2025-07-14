@@ -93,8 +93,12 @@
   "bt_fee",
   "section_break_fmev",
   "fee_details",
+  "email_history_section",
+  "email_log",
   "data_source_section",
-  "data_source"
+  "data_source",
+  "notes_section",
+  "remarks"
  ],
  "fields": [
   {
@@ -161,9 +165,8 @@
   },
   {
    "fieldname": "customer",
-   "fieldtype": "Link",
-   "label": "Customer",
-   "options": "Customer"
+   "fieldtype": "Data",
+   "label": "Customer"
   },
   {
    "fieldname": "description",
@@ -257,15 +260,14 @@
   },
   {
    "fieldname": "reason",
-   "fieldtype": "Select",
-   "label": "Reason",
-   "options": "\nhighest_risk_level\nelevated_risk_level\nrule"
+   "fieldtype": "Data",
+   "label": "Reason"
   },
   {
    "fieldname": "risk_level",
    "fieldtype": "Select",
    "label": "Risk Level",
-   "options": "normal\nelevated\nhighest"
+   "options": "normal\nelevated\nhighest\nnot_assessed\nunknown"
   },
   {
    "fieldname": "seller_message",
@@ -482,7 +484,7 @@
   {
    "fieldname": "data_source_section",
    "fieldtype": "Section Break",
-   "label": "History"
+   "label": "Update History"
   },
   {
    "fieldname": "data_source",
@@ -573,11 +575,33 @@
    "fieldname": "amount",
    "fieldtype": "Currency",
    "label": "Amount"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Table",
+   "label": "Remarks",
+   "options": "Stripe Transaction Remark"
+  },
+  {
+   "fieldname": "email_history_section",
+   "fieldtype": "Section Break",
+   "label": "Email History"
+  },
+  {
+   "fieldname": "email_log",
+   "fieldtype": "Table",
+   "label": "Email Log",
+   "options": "Stripe Transaction Email Log"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-19 05:58:26.848327",
+ "modified": "2025-06-23 11:49:51.913658",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Transaction",

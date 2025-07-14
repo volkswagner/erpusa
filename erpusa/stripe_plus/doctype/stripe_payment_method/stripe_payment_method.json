@@ -20,13 +20,12 @@
   {
    "fieldname": "payment_method_code",
    "fieldtype": "Data",
-   "label": "Payment Method Code",
-   "options": "acss_debit\naffirm\nafterpay_clearpay\nalipay\nalma\namazon_pay\napple_pay\napple_pay_later\nau_becs_debit\nbacs_debit\nbancontact\nbillie\nblik\nboleto\ncard\ncard_present\ncashapp\ncustomer_balance\neps\nfpx\ngiropay\ngoogle_pay\ngrabpay\nideal\ninterac_present\nkakao_pay\nklarna\nkonbini\nkr_card\nlink\nmobilepay\nmultibanco\nnaver_pay\nnz_bank_account\noxxo\np24\npay_by_bank\npayco\npaynow\npaypal\npix\npromptpay\nrevolut_pay\nsamsung_pay\nsatispay\nsepa_debit\nsofort\nswish\ntwint\nus_bank_account\nwechat_pay\nzip"
+   "label": "Payment Method Code"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-08 11:53:17.574056",
+ "modified": "2025-06-09 20:55:41.522095",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Payment Method",

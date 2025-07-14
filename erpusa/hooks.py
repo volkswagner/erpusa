@@ -2,7 +2,7 @@ app_name = "erpusa"
 app_title = "ERPUSA"
 app_publisher = "VolksWagner"
 app_description = "An add-on to ERPNext that tailors and expands features more suitable for American users and companies."
-app_email = "ewagner@itgetit.com"
+app_email = "apps@itgetit.com"
 app_license = "mit"
 
 # Apps
@@ -28,7 +28,7 @@ required_apps = [
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/erpusa/css/erpusa.css"
+app_include_css = "/assets/erpusa/css/stripe_plus.css"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpusa/css/erpusa.css"
@@ -48,7 +48,8 @@ required_apps = [
 doctype_js = {
     "Payment Request" : "public/js/payment_request.js",
     "Payment Entry" : "public/js/payment_entry.js",
-	"Customer" : "public/js/customer.js"
+	"Customer" : "public/js/customer.js",
+ 	"Auto Repeat": "public/js/auto_repeat.js"
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -136,7 +137,9 @@ after_install = "erpusa.post_installation.create_docs.create_docs_payment_method
 # Override standard doctype classes
 
 override_doctype_class = {
-	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride"
+	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride",
+	"Payment Request": "erpusa.stripe_plus.overrides.payment_request_override.PaymentRequestOverride",
+	"Auto Repeat": "erpusa.stripe_plus.overrides.auto_repeat_override.AutoRepeatOverride"
 }
 
 # Document Events
@@ -146,6 +149,9 @@ override_doctype_class = {
 doc_events = {
 	"Payment Request": {
         "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_stripe_plus_fields"
+	},
+	"Auto Repeat": {
+		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_auto_repeat_stripe_plus_fields"
 	}
 }
 
