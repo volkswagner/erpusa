@@ -49,9 +49,12 @@ doctype_js = {
     "Payment Request" : "public/js/payment_request.js",
     "Payment Entry" : "public/js/payment_entry.js",
 	"Customer" : "public/js/customer.js",
+    "Salary Structure Assignment": "public/js/salary_structure_assignment.js"
+}
+doctype_list_js = {
+    "Sales Invoice" : "public/js/sales_invoice_list.js",
  	"Auto Repeat": "public/js/auto_repeat.js"
 }
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
