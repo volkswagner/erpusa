@@ -52,7 +52,7 @@ doctype_js = {
     "Salary Structure Assignment": "public/js/salary_structure_assignment.js"
 }
 doctype_list_js = {
-    # "Sales Invoice" : "public/js/sales_invoice_list.js",
+    "Sales Invoice" : "public/js/sales_invoice_list.js",
  	"Auto Repeat": "public/js/auto_repeat.js"
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
