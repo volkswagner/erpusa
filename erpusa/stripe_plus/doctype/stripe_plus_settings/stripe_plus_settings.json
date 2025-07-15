@@ -35,6 +35,7 @@
  "fields": [
   {
    "default": "Daily Digest",
+   "description": "<small>Note: Error messages will always be sent Realtime.</small>",
    "fieldname": "notification_method",
    "fieldtype": "Select",
    "label": "Notification Method",
@@ -199,7 +200,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-07-11 09:05:59.835562",
+ "modified": "2025-07-15 07:43:07.948325",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",
