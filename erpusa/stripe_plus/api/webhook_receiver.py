@@ -1,11 +1,9 @@
 import datetime
 import json
 import frappe
-import frappe.utils
 import stripe
-from decimal import Decimal, ROUND_HALF_UP
 from frappe import _
-from frappe.utils import fmt_money
+from frappe.utils import fmt_money, get_url_to_form, today, now, split_emails
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_bank_account_for_payment_entry
 
@@ -153,7 +151,7 @@ def receive_stripe_events():
             else:
                 log_doc = frappe.get_doc("Stripe Log", sl_doc_name)
 
-            log_doc.datetime_received = frappe.utils.now()
+            log_doc.datetime_received = now()
             log_doc.name = id
             log_doc.event_id = id
             log_doc.event_type = type
@@ -291,7 +289,7 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
             started_from_pending = frappe.db.count("Stripe Transaction Email Log", filters={"parent": doc.name, "status": "pending"}) and doc.status == "succeeded"
             
             frappe.sendmail(
-                recipients=frappe.utils.split_emails(payment_request_email_to),
+                recipients=split_emails(payment_request_email_to),
                 subject="Your payment was successfully processed" if started_from_pending else "Thank you for your payment",
                 message=frappe.render_template(
                     "erpusa/templates/html/payment_receipt.html",
@@ -402,40 +400,65 @@ def create_update_stripe_payout(data, log_doc, api_key):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
     
-    # update charges involved in payout
+    # update the charges and compute the involved in payout
     if doc.status == "paid":
         balance_transactions = stripe.BalanceTransaction.list(payout=doc.name, limit=100)
-        source_charges = []
-        stripe_fees = []
+        charges = 0.0
+        stripe_fees = 0.0
+        refunds = 0.0
+        adjustments = 0.0
 
-        # store the sources of the payout
+        # update charges involved in payout
         for txn in balance_transactions.auto_paging_iter():
-            # add the source if the transaction was accounted for
             if frappe.db.exists("Stripe Transaction", txn.source):
-                source_charges.append(txn.source)
+                charge_data = get_charge_details(txn.source, api_key)
+                charge_remark = f'Updated {doc.created.strftime("%B %d, %Y")} through payout {doc.name}.'
 
-            if txn.type == "stripe_fee":
-                stripe_fees.append(txn)
-
-        for charge in source_charges:
-            charge_data = get_charge_details(charge, api_key)
-            charge_remark = f'Updated {doc.created.strftime("%B %d, %Y")} through payout {doc.name}.'
-
-            if charge_data:
-                create_update_stripe_transaction(charge_data, api_key, remark=charge_remark)
-
-        # create journal entry
-        je_doc = create_journal_entry(doc, stripe_fees)
+                if charge_data:
+                    create_update_stripe_transaction(charge_data, api_key, remark=charge_remark)
         
-        if je_doc:
-            doc.journal_entry = je_doc.name
-
-        try:
-            doc.flags.ignore_permissions = True
-            doc.save()
+        # total the charges, stripe_fees, refunds and adjustments         
+        for txn in balance_transactions.auto_paging_iter():
+            if txn.type == "charge" and frappe.db.exists("Stripe Transaction", txn.source):
+                charges = charges + (txn.net / 100)
+                
+            if txn.type == "stripe_fee":
+                stripe_fees = stripe_fees + (txn.net / 100)
+                
+            if txn.type == "refund":
+                refunds = refunds + (txn.net / 100)
+                
+            if txn.type == "adjustment":
+                adjustments = adjustments + (txn.net / 100)
+                
+        total = charges + stripe_fees
+        
+        # refunds and adjustments are not handled at the moment, error message will be sent via email
+        if refunds or adjustments or (total != doc.amount):
+            notify_error_to_user(
+                doc.name,
+                charges,
+                stripe_fees,
+                refunds,
+                adjustments,
+                total,
+                doc.amount,
+                refunds or adjustments
+            )
             
-        except Exception as e:
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
+        else:
+            # create journal entry
+            je_doc = create_journal_entry(doc, stripe_fees)
+            
+            if je_doc:
+                doc.journal_entry = je_doc.name
+
+            try:
+                doc.flags.ignore_permissions = True
+                doc.save()
+                
+            except Exception as e:
+                frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
 
 def get_charge_details(id, api_key):
     # get Charge object 
@@ -460,6 +483,43 @@ def get_balance_transaction_details(id, api_key):
         
         except Exception as e:
             return {"Error getting Balance Transaction Details": str(e)}, 403
+        
+def notify_error_to_user(
+        payout_id,
+        charges,
+        stripe_fees,
+        refunds,
+        adjustments,
+        total,
+        stripe_total,
+        has_refunds_or_adjusments
+    ):
+    payout_url = get_url_to_form("Stripe Payout", payout_id)
+    recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+    message = frappe.render_template(
+        "erpusa/templates/html/journal_entry_errors.html", {
+            "payout_id": payout_id,
+            "payout_url": payout_url,
+            "charges": charges,
+            "stripe_fees": stripe_fees,
+            "refunds": refunds,
+            "adjustments": adjustments,
+            "total": total,
+            "stripe_total": stripe_total,
+            "has_refunds_or_adjusments": has_refunds_or_adjusments
+        }
+    )
+    
+    if recipients and not frappe.db.exists("Email Queue", {"reference_doctype": "Stripe Payout", "reference_name": payout_id}):
+        frappe.sendmail(
+            recipients=recipients.split(),
+            subject=_("Can’t create journal entry for {0}").format(payout_id),
+            message=message,
+            reference_doctype="Stripe Payout",
+            reference_name=payout_id,
+            now=True
+        )
+    
 
 def create_update_merchant_payment(stripe_transaction, api_key):
     mp_doc_name = frappe.db.exists("Merchant Payment", {"source": stripe_transaction.stripe_transaction_id})
@@ -654,7 +714,7 @@ def create_journal_entry(payout, stripe_fees=None):
 
             je_doc = frappe.new_doc("Journal Entry")
             je_doc.entry_type = "Journal Entry"
-            je_doc.posting_date = frappe.utils.today()
+            je_doc.posting_date = today()
             je_doc.cheque_no = payout.name
             je_doc.cheque_date = payout.created
             stripe_fee_total = 0.0
@@ -662,12 +722,11 @@ def create_journal_entry(payout, stripe_fees=None):
             if stripe_fees:
                 stripe_fee_account = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account")
                 stripe_fee_cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
-                stripe_fee_total = sum(abs(stripe_fee.net) for stripe_fee in stripe_fees) / 100
 
                 je_doc.append("accounts", {
                     "account": stripe_fee_account,
                     "bank_account": get_bank_account_for_payment_entry("Receive", stripe_fee_account, stripe_fee_account, False, as_dict=False),
-                    "debit_in_account_currency": stripe_fee_total,
+                    "debit_in_account_currency": stripe_fees,
                     "cost_center": stripe_fee_cost_center
                 })
 
