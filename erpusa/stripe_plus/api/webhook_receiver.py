@@ -276,7 +276,7 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
 
     # get the recipient email and send a payment feedback to user
     metadata = data.get("metadata")
-    payment_request_docname = frappe.db.exists("Payment Request", {"reference_name": metadata.get("docname")})
+    payment_request_docname = frappe.db.exists("Payment Request", {"reference_name": metadata.get("docname"), "docstatus": ["!=", 2]})
     payment_request_email_to = ""
     
     if payment_request_docname:
