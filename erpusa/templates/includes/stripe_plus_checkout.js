@@ -43,7 +43,7 @@ frappe.ready(function() {
         "request_name": "{{ reference_docname }}"
     })
     });
-    const { message: { customerSessionClientSecret } } = await response.json();
+    const { message: { customerSessionClientSecret } } = await customerSessionResponse.json();
 
     if (redirect) {
         window.location.href = redirect;
