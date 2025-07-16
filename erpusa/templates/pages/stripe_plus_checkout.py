@@ -98,7 +98,7 @@ def create_payment_intent(data, customer_id=None):
             amount=amount_in_int,
             currency='usd',
             customer=customer_id,
-            setup_future_usage="on_session"
+            setup_future_usage="on_session",
             payment_method_configuration=data.get('pm_configuration', None),
             metadata={
                 'doctype': data.get('doctype'),
