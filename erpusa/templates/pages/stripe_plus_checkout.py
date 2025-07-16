@@ -98,6 +98,7 @@ def create_payment_intent(data, customer_id=None):
             amount=amount_in_int,
             currency='usd',
             customer=customer_id,
+            setup_future_usage="on_session"
             payment_method_configuration=data.get('pm_configuration', None),
             metadata={
                 'doctype': data.get('doctype'),
@@ -173,3 +174,30 @@ def create_fetch_payment_intent():
     else:
         # create new intent if no intent id
         return create_payment_intent(data, stripe_customer_id)
+    
+@frappe.whitelist(allow_guest=True)
+def create_customer_session():
+    data = json.loads(frappe.request.data)
+    stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
+
+    payment_request_customer = frappe.db.get_value("Payment Request", data.get('request_name'), "party")
+    stripe_customer_id = frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id")
+
+    customerSession = stripe.CustomerSession.create(
+        customer=stripe_customer_id,
+        components={
+            "payment_element": {
+                "enabled": True,
+                "features": {
+                    "payment_method_redisplay": "enabled",
+                    "payment_method_save": "enabled",
+                    "payment_method_save_usage": "on_session",
+                    "payment_method_remove": "enabled",
+                },
+            },
+        },
+    )
+
+    return {
+        "customerSessionClientSecret": customerSession.client_secret,
+    }

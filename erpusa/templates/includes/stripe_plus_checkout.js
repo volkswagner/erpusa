@@ -30,6 +30,21 @@ frappe.ready(function() {
     });
     const { message: { clientSecret, redirect } } = await response.json();
 
+    const customerSessionResponse = await fetch("/api/method/erpusa.templates.pages.stripe_plus_checkout.create_customer_session", {
+      method: "POST",
+      headers: { 
+          "Content-Type": "application/json",
+          "X-Frappe-CSRF-Token": frappe.csrf_token
+      },
+      body: JSON.stringify({ 
+        "doctype": "{{ to_pay_doctype }}",
+        "docname": "{{ to_pay_id }}",
+        "gateway_controller": "{{ gateway_controller }}",
+        "request_name": "{{ reference_docname }}"
+    })
+    });
+    const { message: { customerSessionClientSecret } } = await response.json();
+
     if (redirect) {
         window.location.href = redirect;
     }
@@ -78,7 +93,7 @@ frappe.ready(function() {
         },
       }
     };
-    elements = stripe.elements({ appearance, clientSecret })
+    elements = stripe.elements({ appearance, clientSecret, customerSessionClientSecret })
   
     const paymentElementOptions = {
       layout: {
