@@ -63,7 +63,7 @@
                 <td class="text-right">{{ frappe.utils.fmt_money(stripe_total) }}</td>
             </tr>
             <tr {{ highlight }}>
-                <td><b>{{ _("DifferenceTotal") }}</b></td>
+                <td><b>{{ _("Difference") }}</b></td>
                 <td class="text-right">{{ frappe.utils.fmt_money(total - stripe_total) }}</td>
             </tr>
         {% endif %}

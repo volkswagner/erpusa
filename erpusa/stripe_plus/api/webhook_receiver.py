@@ -513,7 +513,7 @@ def notify_error_to_user(
     if recipients and not frappe.db.exists("Email Queue", {"reference_doctype": "Stripe Payout", "reference_name": payout_id}):
         frappe.sendmail(
             recipients=recipients.split(),
-            subject=_("Can’t create journal entry for {0}").format(payout_id),
+            subject=_("Stripe Payout Journal Entry failed"),
             message=message,
             reference_doctype="Stripe Payout",
             reference_name=payout_id,
