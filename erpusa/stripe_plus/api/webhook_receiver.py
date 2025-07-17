@@ -257,6 +257,7 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
             for fee_detail in balance_transaction["fee_details"]:
                 fee_detail_temp = fee_detail
                 fee_detail_temp["currency"] = fee_detail_temp["currency"].upper()
+                fee_detail_temp["amount"] = fee_detail_temp["amount"]/100
                 doc.append("fee_details", fee_detail_temp)
     
     # update history
@@ -419,7 +420,7 @@ def create_update_stripe_payout(data, log_doc, api_key):
         
         # total the charges, stripe_fees, refunds and adjustments         
         for txn in balance_transactions.auto_paging_iter():
-            if txn.type == "charge" and frappe.db.exists("Stripe Transaction", txn.source):
+            if txn.type in ["charge", "payment"] and frappe.db.exists("Stripe Transaction", txn.source):
                 charges = charges + (txn.net / 100)
                 
             if txn.type == "stripe_fee":
@@ -443,7 +444,7 @@ def create_update_stripe_payout(data, log_doc, api_key):
                 adjustments,
                 total,
                 doc.amount,
-                refunds or adjustments
+                True if (refunds or adjustments) else False
             )
             
         else:
@@ -461,7 +462,7 @@ def create_update_stripe_payout(data, log_doc, api_key):
                 frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
 
 def get_charge_details(id, api_key):
-    # get Charge object 
+    # get Charge object
     if id:
         stripe.api_key = api_key
 
@@ -470,7 +471,8 @@ def get_charge_details(id, api_key):
             return charge
         
         except Exception as e:
-            return {"Error getting Charge Details": str(e)}, 403
+            frappe.log_error("Error getting Charge Details", str(e))
+            return None
 
 def get_balance_transaction_details(id, api_key):
     # get Balance Transaction object 
@@ -506,7 +508,7 @@ def notify_error_to_user(
             "adjustments": adjustments,
             "total": total,
             "stripe_total": stripe_total,
-            "has_refunds_or_adjusments": has_refunds_or_adjusments
+            "has_refunds_or_adjustments": has_refunds_or_adjusments
         }
     )
     
