@@ -2,6 +2,7 @@ import datetime
 import json
 import frappe
 import stripe
+from decimal import Decimal
 from frappe import _
 from frappe.utils import fmt_money, get_url_to_form, today, now, split_emails
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
@@ -177,7 +178,7 @@ def receive_stripe_events():
         except stripe.error.SignatureVerificationError:
             continue
 
-def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
+def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, payout=None):
     # check if transaction is already recorded; return id if yes, otherwise create new doc
     st_doc_name = frappe.db.exists("Stripe Transaction", data.get("id"))
 
@@ -192,6 +193,9 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None):
         doc.append("remarks", {
             "remark": remark
         })
+    
+    if payout:
+        doc.payout = payout
     
     # set common field values
     for field in ST_FIELDS:
@@ -404,6 +408,7 @@ def create_update_stripe_payout(data, log_doc, api_key):
     # update the charges and compute the involved in payout
     if doc.status == "paid":
         balance_transactions = stripe.BalanceTransaction.list(payout=doc.name, limit=100)
+        sources = []
         charges = 0.0
         stripe_fees = 0.0
         refunds = 0.0
@@ -411,45 +416,56 @@ def create_update_stripe_payout(data, log_doc, api_key):
 
         # update charges involved in payout
         for txn in balance_transactions.auto_paging_iter():
-            if frappe.db.exists("Stripe Transaction", txn.source):
+            if txn.type in ["charge", "payment"] and frappe.db.exists("Stripe Transaction", txn.source):
                 charge_data = get_charge_details(txn.source, api_key)
                 charge_remark = f'Updated {doc.created.strftime("%B %d, %Y")} through payout {doc.name}.'
+                sources.append({
+                    "source_id": txn.source,
+                    "net_amount": txn.net,
+                    "currency": txn.currency,
+                    "fee_details": txn.fee_details,
+                    "merchant_payment": frappe.db.exists("Merchant Payment", {"source": txn.source})
+                })
 
                 if charge_data:
-                    create_update_stripe_transaction(charge_data, api_key, remark=charge_remark)
+                    create_update_stripe_transaction(charge_data, api_key, remark=charge_remark, payout=doc.name)
         
         # total the charges, stripe_fees, refunds and adjustments         
         for txn in balance_transactions.auto_paging_iter():
             if txn.type in ["charge", "payment"] and frappe.db.exists("Stripe Transaction", txn.source):
-                charges = charges + (txn.net / 100)
+                charges = charges + txn.net
                 
             if txn.type == "stripe_fee":
-                stripe_fees = stripe_fees + (txn.net / 100)
+                stripe_fees = stripe_fees + txn.net
                 
             if txn.type == "refund":
-                refunds = refunds + (txn.net / 100)
+                refunds = refunds + txn.net
                 
             if txn.type == "adjustment":
-                adjustments = adjustments + (txn.net / 100)
+                adjustments = adjustments + txn.net
                 
         total = charges + stripe_fees
+        frappe.log_error("charges", str(charges))
+        frappe.log_error("stripe_fees", str(stripe_fees))
+        frappe.log_error("total", str(total))
+        frappe.log_error("doc.amount", str(doc.amount))
         
         # refunds and adjustments are not handled at the moment, error message will be sent via email
-        if refunds or adjustments or (total != doc.amount):
+        if refunds or adjustments or (Decimal(total) / Decimal('100') != Decimal(str(doc.amount))):
             notify_error_to_user(
                 doc.name,
-                charges,
-                stripe_fees,
-                refunds,
-                adjustments,
-                total,
+                charges/100,
+                stripe_fees/100,
+                refunds/100,
+                adjustments/100,
+                total/100,
                 doc.amount,
                 True if (refunds or adjustments) else False
             )
             
         else:
             # create journal entry
-            je_doc = create_journal_entry(doc, stripe_fees)
+            je_doc = create_journal_entry(doc, sources, stripe_fees/100)
             
             if je_doc:
                 doc.journal_entry = je_doc.name
@@ -671,7 +687,7 @@ def create_payment_entry(merchant_payment):
             except Exception as e:
                 frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
              
-def create_journal_entry(payout, stripe_fees=None):
+def create_journal_entry(payout, sources=None, stripe_fees=None):
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
 
     # create a new journal entry based on the Balance Transaction object
@@ -680,20 +696,6 @@ def create_journal_entry(payout, stripe_fees=None):
         frappe.db.exists("Stripe Plus Settings Payout Account", {"payout_account": payout.destination}):
 
         frappe.set_user(user_to_authorize)
-        balance_transactions = stripe.BalanceTransaction.list(payout=payout.name, limit=100)
-        sources = []
-
-        # store the Stripe Transactions involved in Stripe Payout
-        for txn in balance_transactions.auto_paging_iter():
-            if frappe.db.exists("Stripe Transaction", txn.source):
-                sources.append({
-                    "source_id": txn.source,
-                    "net_amount": txn.net,
-                    "currency": txn.currency,
-                    "fee_details": txn.fee_details,
-                    "merchant_payment": frappe.db.exists("Merchant Payment", {"source": txn.source})
-                })
-                frappe.set_value("Stripe Transaction", txn.source, "payout", payout.name)
 
         # loop through the sources to create journal entry
         if sources:
