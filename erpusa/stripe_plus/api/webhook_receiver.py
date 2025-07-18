@@ -255,14 +255,18 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, p
 
         for key, value in balance_transaction.items():
             if "bt_" + key in BT_FIELDS:
-                doc.set("bt_" + key, value)
+                if "bt_" + key in ["bt_net", "bt_amount", "bt_fee"]:
+                    doc.set("bt_" + key, value/100)
+                else:
+                    doc.set("bt_" + key, value)
 
         if balance_transaction["fee_details"]:
             for fee_detail in balance_transaction["fee_details"]:
-                fee_detail_temp = fee_detail
-                fee_detail_temp["currency"] = fee_detail_temp["currency"].upper()
-                fee_detail_temp["amount"] = fee_detail_temp["amount"]/100
-                doc.append("fee_details", fee_detail_temp)
+                if not frappe.db.exists("Stripe Fee Detail", {"parent": data.get('id'), "description": fee_detail["description"]}):
+                    fee_detail_temp = fee_detail
+                    fee_detail_temp["currency"] = fee_detail_temp["currency"].upper()
+                    fee_detail_temp["amount"] = fee_detail_temp["amount"]/100
+                    doc.append("fee_details", fee_detail_temp)
     
     # update history
     if log_doc:
@@ -383,13 +387,18 @@ def create_update_stripe_payout(data, log_doc, api_key):
 
         for key, value in balance_transaction.items():
             if "bt_" + key in BT_FIELDS:
-                doc.set("bt_" + key, value)
+                if "bt_" + key in ["bt_net", "bt_amount", "bt_fee"]:
+                    doc.set("bt_" + key, value/100)
+                else:
+                    doc.set("bt_" + key, value)
 
         if balance_transaction["fee_details"]:
             for fee_detail in balance_transaction["fee_details"]:
-                fee_detail_temp = fee_detail
-                fee_detail_temp["currency"] = fee_detail_temp["currency"].upper()
-                doc.append("fee_details", fee_detail_temp)
+                if not frappe.db.exists("Stripe Fee Detail", {"parent": data.get('id'), "description": fee_detail["description"]}):
+                    fee_detail_temp = fee_detail
+                    fee_detail_temp["currency"] = fee_detail_temp["currency"].upper()
+                    fee_detail_temp["amount"] = fee_detail_temp["amount"]/100
+                    doc.append("fee_details", fee_detail_temp)
     
     # update history
     doc.append("data_source", {
