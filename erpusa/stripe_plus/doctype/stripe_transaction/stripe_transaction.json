@@ -522,17 +522,17 @@
   },
   {
    "fieldname": "bt_amount",
-   "fieldtype": "Int",
+   "fieldtype": "Currency",
    "label": "BT Amount"
   },
   {
    "fieldname": "bt_fee",
-   "fieldtype": "Int",
+   "fieldtype": "Currency",
    "label": "BT Fee"
   },
   {
    "fieldname": "bt_net",
-   "fieldtype": "Int",
+   "fieldtype": "Currency",
    "label": "BT Net"
   },
   {
@@ -601,7 +601,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-23 11:49:51.913658",
+ "modified": "2025-07-18 12:18:39.005231",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Transaction",
