@@ -89,7 +89,7 @@ def get_context(context):
         frappe.local.flags.redirect_location = frappe.local.response.location
         raise frappe.Redirect
 
-def create_payment_intent(data, customer_id=None):
+def create_payment_intent(data, customer_id):
     amount_in_decimal = (Decimal(data.get('amount')) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
     amount_in_int = int(amount_in_decimal)
     
@@ -118,20 +118,6 @@ def create_payment_intent(data, customer_id=None):
         frappe.log_error(f"Stripe Payment Error: {str(e)}", "Stripe API Error")
         return {"error": str(e)}, 403
 
-def check_if_payment_intent_is_valid(payment_intent, expiration_in_seconds=86400):
-    import time
-
-    if payment_intent["status"] in ['succeeded', 'canceled', 'processing', 'requires_capture']:
-        return True
-
-    current_time = int(time.time())
-    age = current_time - payment_intent["created"]
-
-    if age > expiration_in_seconds and payment_intent["status"] in ['requires_payment_method', 'requires_confirmation', 'requires_action']:
-        return False
-    
-    return True
-
 @frappe.whitelist(allow_guest=True)
 def create_fetch_payment_intent():
     data = json.loads(frappe.request.data)
@@ -147,27 +133,23 @@ def create_fetch_payment_intent():
             payment_intent = stripe.PaymentIntent.retrieve(stripe_intent_id)
             # redirect to message page if success/processing
 
-            if check_if_payment_intent_is_valid(payment_intent):
-                if payment_intent["status"] in ["succeeded", "processing"]:
-                    return {
-                        "client_secret": "",
-                        "redirect": f"/message?title=This+payment+request+has+been+fulfilled.&message=The+{data.get('doctype')}+is+already+paid!+Thank+you+for+your+business.&type=success"
-                    }
-                # return client secret if incomplete
+            if payment_intent["status"] in ["succeeded", "processing"]:
+                return {
+                    "client_secret": "",
+                    "redirect": f"/message?title=This+payment+request+has+been+fulfilled.&message=The+{data.get('doctype')}+is+already+paid!+Thank+you+for+your+business.&type=success"
+                }
+            # return client secret if incomplete
 
-                elif payment_intent["status"] in ["requires_action", "requires_capture", "requires_confirmation", "requires_payment_method"]:
-                    return {
-                        "clientSecret": payment_intent['client_secret'],
-                        "redirect": ""
-                    }
-                # create new intent if cancelled
-                
-                else:
-                    return create_payment_intent(data)
-                
+            elif payment_intent["status"] in ["requires_action", "requires_capture", "requires_confirmation", "requires_payment_method"]:
+                return {
+                    "clientSecret": payment_intent['client_secret'],
+                    "redirect": ""
+                }
+            # create new intent if cancelled
+    
             else:
-                return create_payment_intent(data)
-            
+                return create_payment_intent(data, stripe_customer_id)
+        
         except Exception as e:
             return {"error": str(e)}, 403
         
