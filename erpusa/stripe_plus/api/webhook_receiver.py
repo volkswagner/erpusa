@@ -730,7 +730,6 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
             je_doc.posting_date = today()
             je_doc.cheque_no = payout.name
             je_doc.cheque_date = payout.created
-            stripe_fee_total = 0.0
 
             if stripe_fees:
                 stripe_fee_account = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account")
@@ -746,7 +745,7 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
             je_doc.append("accounts", {
                 "account": credit_account,
                 "bank_account": credit_bank_account,
-                "credit_in_account_currency": abs(payout.amount) + stripe_fee_total
+                "credit_in_account_currency": abs(payout.amount) + abs(stripe_fees)
             })
 
             je_doc.append("accounts", {
