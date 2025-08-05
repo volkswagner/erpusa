@@ -1,0 +1,14 @@
+{% extends "templates/web.html" %}
+
+{% block title %} Payment Result {% endblock %}
+{%- block header -%}
+    <link rel="stylesheet" href="stripe_plus_style.css">
+{% endblock %}
+{% block script %}
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>{% include "templates/includes/stripe_plus_return.js" %}</script>
+{% endblock %}
+{% block page_content %}
+    <div id="checkout">
+    </div>
+{% endblock %}

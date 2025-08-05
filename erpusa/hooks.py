@@ -152,6 +152,9 @@ doc_events = {
 	},
 	"Auto Repeat": {
 		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_auto_repeat_stripe_plus_fields"
+	},
+	"Subscription": {
+        "on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.setup_stripe_subscription_registration"
 	}
 }
 

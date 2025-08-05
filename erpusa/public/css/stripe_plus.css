@@ -1,6 +1,7 @@
 div[data-page-route="Stripe Plus Settings"] div[data-fieldname="payment_entry_section"] .section-head,
 div[data-page-route="Stripe Plus Settings"] div[data-fieldname="journal_entry_section"] .section-head,
-div[data-page-route="Stripe Plus Settings"] div[data-fieldname="notification_section"] .section-head {
+div[data-page-route="Stripe Plus Settings"] div[data-fieldname="notification_section"] .section-head,
+div[data-page-route="Stripe Plus Settings"] div[data-fieldname="subscription_section"] .section-head {
     font-size: var(--text-base) !important;
     margin: 15px 0 10px 0;
     padding-left: 20px;

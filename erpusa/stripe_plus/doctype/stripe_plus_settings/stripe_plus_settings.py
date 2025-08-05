@@ -4,8 +4,10 @@
 import frappe
 from frappe import _
 from frappe.utils import cint
+from urllib.parse import urlencode
 from frappe.model.document import Document
 import stripe
+from jinja2 import Template
 
 METHODS_FULLNAME = {
   "acss_debit": "Pre-authorized Debit Payments",
@@ -313,7 +315,7 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
       except Exception as e:
         error = str(e)
         frappe.log_error(f"Error Adding Customer to Stripe: ", str(error))
-        frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{error}"))
+        frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{0}").format(error))
 
 @frappe.whitelist()
 def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
@@ -371,3 +373,158 @@ def get_customer_funding_instructions(gateway_controller, customer):
     bank_transfer = customer_funding_instructions.get("bank_transfer")
 
     return bank_transfer.financial_addresses
+
+def create_stripe_product(item, stripe_settings=None):
+  if not frappe.db.get_value("Item", item, "stripe_product_id"):
+    stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
+    stripe_product_id = None
+    
+    try:
+      matching_product_list = stripe.Product.search(query=f"metadata['erp_item_name']:'{item}'")
+
+    except Exception as e:
+      matching_product_list = None
+      error = str(e)
+      frappe.log_error(f"Error Fetching Price: ", str(error))
+    
+    if matching_product_list and matching_product_list.get("data"):
+      stripe_product_id = matching_product_list["data"][0]["id"]
+        
+    else:
+      try:
+        stripe_product = stripe.Product.create(
+          active=True,
+          name=frappe.db.get_value("Item", item, "item_name"),
+          description=frappe.db.get_value("Item", item, "description"),
+          metadata={
+            'erp_item_name': item
+          }
+        )
+        
+        stripe_product_id = stripe_product.id
+
+      except Exception as e:
+        error = str(e)
+        frappe.log_error(f"Error Adding Product to Stripe: ", str(error))
+        frappe.throw(_("An error occured while adding the product to stripe. <br><br/>{0}").format(error))
+        
+    if stripe_product_id:
+      frappe.db.set_value("Item", item, "stripe_product_id", stripe_product_id)
+
+def create_stripe_price(subscription_plan, item, stripe_product_id, stripe_settings=None):
+  stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
+  stripe_price_id = None
+  
+  try:
+    matching_price_list = stripe.Price.search(query=f"metadata['erp_subscription_plan_name']:'{subscription_plan}'")
+
+  except Exception as e:
+    matching_price_list = None
+    error = str(e)
+    frappe.log_error(f"Error Fetching Price: ", str(error))
+  
+  if matching_price_list and matching_price_list.get("data"):
+    stripe_price_id = matching_price_list["data"][0]["id"]
+    
+  else:
+    if not frappe.db.get_value("Subscription Plan", subscription_plan, "cost"):
+      price = frappe.db.get_value(
+        "Item Price",
+        {
+            "item_code": item,
+            "price_list": frappe.db.get_value("Subscription Plan", subscription_plan, "price_list")
+        },
+        "price_list_rate"
+      ) * 100
+    
+    else:
+      price = frappe.db.get_value("Subscription Plan", subscription_plan, "cost") * 100
+      
+    try:
+      stripe_price = stripe.Price.create(
+        active=True,
+        unit_amount=int(price),
+        currency=frappe.db.get_value("Subscription Plan", subscription_plan, "currency").lower(),
+        product=stripe_product_id,
+        nickname=subscription_plan,
+        recurring={
+          "interval": frappe.db.get_value("Subscription Plan", subscription_plan, "billing_interval").lower(),
+          "interval_count": frappe.db.get_value("Subscription Plan", subscription_plan, "billing_interval_count")
+        },
+        metadata={
+          "erp_subscription_plan_name": subscription_plan
+        }
+      )
+      
+      stripe_price_id = stripe_price.id
+
+    except Exception as e:
+      error = str(e)
+      frappe.log_error(f"Error Adding Price to Stripe: ", str(error))
+      frappe.throw(_("An error occured while adding the price to stripe. <br><br/>{error}"))
+      
+  if stripe_price_id:
+    frappe.db.set_value("Subscription Plan", subscription_plan, "stripe_price_id", stripe_price_id)
+
+def setup_stripe_subscription_registration(subscription, method=None):
+  if subscription.autocharge_with_stripe:
+    stripe_settings = get_gateway_settings_doc(subscription.payment_gateway)
+    if not subscription.stripe_subscription_id:
+      stripe_customer_id = frappe.db.get_value("Customer", subscription.party, "stripe_customer_id")
+      
+      if not stripe_customer_id:
+        create_stripe_customer(customer=subscription.party, stripe_settings=stripe_settings)
+        
+      stripe_customer_id = frappe.db.get_value("Customer", subscription.party, "stripe_customer_id")
+      
+      for plan in subscription.plans:
+        plan_item = frappe.db.get_value("Subscription Plan", plan.plan, "item")
+        create_stripe_product(plan_item, stripe_settings)
+        stripe_product_id = frappe.db.get_value("Item", plan_item, "stripe_product_id")
+        
+        if stripe_product_id:
+          frappe.log_error("stripe_product", str(frappe.db.get_value("Item", plan_item, "stripe_product_id")))
+          create_stripe_price(plan.plan, plan_item, stripe_product_id, stripe_settings)
+          frappe.log_error("stripe_price", frappe.db.set_value("Subscription Plan", plan.plan, "stripe_price_id"))
+      
+      params = {
+        'subscription_name': subscription.name,
+        'payment_gateway': subscription.payment_gateway,
+        'payment_configuration': subscription.payment_method_configuration
+      }
+      payment_url = urlencode(f"/stripe_plus_subs_checkout?{urlencode(params)}")
+      recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+      subject = frappe.db.get_single_value("Stripe Plus Settings", "subscription_email_subject") or _("Request to Subscribe and Initiate Payment via Stripe")
+      message = frappe.db.get_single_value("Stripe Plus Settings", "subscription_email_message") or _("{{ '{{' }} payment_url {{ '}}' }}'}")
+      subject_template = Template(subject)
+      message_template = Template(message)
+      subscription_plan_list = []
+      subscription_plan_table = frappe.render_template(
+          "erpusa/templates/html/subscription_plan_table.html", {
+            "content": subscription_plan_list
+          }
+        )
+      
+      frappe.db.set_value("Subscription", subscription.name, "payment_url", payment_url)
+      try:
+        frappe.sendmail(
+          subject=subject_template.render(name=subscription.name, start_date=subscription.start_date, end_date=subscription.end_date),
+          message=frappe.render_template(
+            "erpusa/templates/html/subscription.html", {
+              "content": message_template.render(
+                name=f"<b>{subscription.name}<b/>",
+                start_date=subscription.start_date,
+                end_date=subscription.end_date,
+                payment_url=f'<span> <a href="{frappe.utils.get_url() + payment_url}" target="_blank">payment link</a> </span>',
+                subscription_plan_table=subscription_plan_table
+              )
+            }
+          ),
+          recipients=recipients.replace(" ", "").split(","),
+          now=True,
+        )
+        
+      except Exception as e:
+        frappe.log_error
+        
+      subscription.is_email_sent = 1

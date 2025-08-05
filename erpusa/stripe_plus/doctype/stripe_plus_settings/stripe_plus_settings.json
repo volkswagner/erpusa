@@ -30,7 +30,11 @@
   "notification_method",
   "notification_recipients",
   "section_break_eaam",
-  "notification_schedule"
+  "notification_schedule",
+  "subscription_section",
+  "subscription_email_content_instructions",
+  "subscription_email_subject",
+  "subscription_email_message"
  ],
  "fields": [
   {
@@ -68,7 +72,7 @@
    "label": "Hide warning in Payment Request when Stripe Plus is disabled"
   },
   {
-   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks accounting automation (automatic payment entry and payout journal entry) and more features such as notifications and events logging.</small>",
+   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks <b>accounting automation</b> (automatic payment entry and payout journal entry), <b>subscriptions</b> and more features such as <b>notifications and events logging</b>.</small>",
    "fieldname": "webhook_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
@@ -90,7 +94,8 @@
    "depends_on": "eval: doc.notification_method==\"Daily Digest\"",
    "description": "<small>There can be up to 24 timeslots and each timeslot can have hour and minute.</small>",
    "fieldname": "section_break_eaam",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "hide_border": 1
   },
   {
    "fieldname": "payment_entry_section",
@@ -195,12 +200,33 @@
   {
    "fieldname": "column_break_kidh",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "subscription_section",
+   "fieldtype": "Section Break",
+   "label": "Subscription"
+  },
+  {
+   "fieldname": "subscription_email_subject",
+   "fieldtype": "Data",
+   "label": "Email Subject"
+  },
+  {
+   "fieldname": "subscription_email_message",
+   "fieldtype": "Text Editor",
+   "label": "Email Message"
+  },
+  {
+   "fieldname": "subscription_email_content_instructions",
+   "fieldtype": "HTML",
+   "label": "Email Content Instructions",
+   "options": "<small>\n <span>Instructions</span>\n <p>Subscription info can be inserted in the email subject and message. To insert a subscription info, write the info code enclosed in parentheses, like so: </p><code> {{ name }}</code>. The list below enumerates all the supported Subscription Info.<p></p>\n <ol>\n  <li><b>name</b>. The name of the subscription.</li>\n  <li><b>start_date</b>. The date when the subscription will begin.</li>\n  <li><b>end_date</b>. The date when the subscription will end.</li>\n  <li><b>subscription_plan_table</b>. A tabulation of the subscription plans included. (email message only)</li>\n  <li><b>payment_url</b>. The link where the customer can pay. (email message only, mandatory)</li>\n  <li><b>total</b>. The total cost of the subscription.</li>\n </ol>\n</small>"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-07-15 07:43:07.948325",
+ "modified": "2025-07-28 07:29:42.274391",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",
