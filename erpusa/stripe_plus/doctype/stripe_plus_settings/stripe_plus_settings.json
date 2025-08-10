@@ -105,7 +105,7 @@
   },
   {
    "default": "Administrator",
-   "description": "<small>Because Accounting data is sensitive, an admin must authorize the creation of Payment Entry. Leaving this empty won't automatically create a Payment Entry.</small>",
+   "description": "<small>Because Accounting data is sensitive, an admin must authorize the creation of Payment Entry. Leaving this empty won't automatically create a Payment Entry. For subscriptions, a System Manager is required.</small>",
    "fieldname": "user_to_authorize",
    "fieldtype": "Link",
    "label": "User to Authorize Payment Entry Creation (must be an Accounts Manager or someone with a higher position)",
@@ -207,6 +207,7 @@
    "label": "Subscription"
   },
   {
+   "description": "If empty, defaults to: Request to Subscribe and Initiate Payment via Stripe",
    "fieldname": "subscription_email_subject",
    "fieldtype": "Data",
    "label": "Email Subject"
@@ -220,13 +221,13 @@
    "fieldname": "subscription_email_content_instructions",
    "fieldtype": "HTML",
    "label": "Email Content Instructions",
-   "options": "<small>\n <span>Instructions</span>\n <p>Subscription info can be inserted in the email subject and message. To insert a subscription info, write the info code enclosed in parentheses, like so: </p><code> {{ name }}</code>. The list below enumerates all the supported Subscription Info.<p></p>\n <ol>\n  <li><b>name</b>. The name of the subscription.</li>\n  <li><b>start_date</b>. The date when the subscription will begin.</li>\n  <li><b>end_date</b>. The date when the subscription will end.</li>\n  <li><b>subscription_plan_table</b>. A tabulation of the subscription plans included. (email message only)</li>\n  <li><b>payment_url</b>. The link where the customer can pay. (email message only, mandatory)</li>\n  <li><b>total</b>. The total cost of the subscription.</li>\n </ol>\n</small>"
+   "options": "<small>\n <span>Instructions</span>\n <p>Subscription info can be inserted in the email subject and message. To insert a subscription info, write the info code enclosed in parentheses, like so: <code>&#123;&#123; name &#125;&#125;</code>. The list below enumerates all the supported Subscription Info.</p><p></p>\n <ol>\n  <li><b>name</b>. The name of the subscription.</li>\n  <li><b>customer</b></li>\n  <li><b>company</b></li>\n  <li><b>start_date</b>. The date when the subscription will begin.</li>\n  <li><b>end_date</b>. The date when the subscription will end.</li>\n  <li><b>subscription_plan_table</b>. A tabulation of the subscription plans included. (email message only)</li>\n  <li><b>payment_url</b>. The link where the customer can pay. (email message only, mandatory)</li>\n </ol>\n</small>"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-07-28 07:29:42.274391",
+ "modified": "2025-08-07 21:04:49.856410",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

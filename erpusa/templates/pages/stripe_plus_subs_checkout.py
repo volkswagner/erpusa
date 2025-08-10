@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils import fmt_money
 import stripe
 import json
+import datetime
 from decimal import Decimal, ROUND_DOWN
 from payments.templates.pages.stripe_checkout import expected_keys, is_a_subscription, get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
@@ -23,6 +24,14 @@ def get_context(context):
         context.subscription = frappe.form_dict["subscription_name"]
         context.customer = frappe.form_dict["customer"]
         context.payment_configuration = frappe.form_dict["payment_configuration"]
+        
+        if frappe.db.get_value("Subscription", context.subscription, "stripe_subscription_id"):
+            frappe.redirect_to_message(
+                _("Payment has already been initiated.").format(context.subscription),
+                _("Subscription <b>{}</b> is already {}. Thank you for your business!").format(context.subscription, frappe.db.get_value("Subscription", context.subscription, "stripe_subscription_status").lower()),
+            )
+            frappe.local.flags.redirect_location = frappe.local.response.location
+            raise frappe.Redirect
 
 @frappe.whitelist(allow_guest=True)
 def create_checkout_session():

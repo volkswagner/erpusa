@@ -1,20 +1,24 @@
 <table class="table table-bordered text-medium" cellpadding="0" cellspacing="0" border="0">
 	<thead>
 		<tr>
-			<th> ID </th>
-			<th> Merchant </th>
-			<th> Merchant Transaction ID </th>
-			<th> Customer </th>
-			<th class="text-right"> Gross Amount </th>
+			<th> Plan </th>
+			<th class="text-right"> Price </th>
+			<th> Qty </th>
+			<th class="text-right"> Amount </th>
 		</tr>
 	</thead>
 	<tbody>
+		{% for plan in subscription_plan_list %}
+			<tr>
+				<td> {{ plan.plan }}</td>
+				<td class="text-right"> {{ frappe.utils.fmt_money(plan.price) }}</td>
+				<td> {{ plan.qty }}</td>
+				<td class="text-right"> {{ frappe.utils.fmt_money(plan.amount) }}</td>
+			</tr>
+		{% endfor %}
 		<tr>
-			<td> {{ id }}</td>
-			<td> {{ merchant }}</td>
-			<td> {{ merchant_transaction_id }}</td>
-			<td> {{ customer }}</td>
-			<td class="text-right"> {{ gross_amount }}</td>
+			<td colspan="3"><b>Total</b></td>
+			<td class="text-right"> {{ frappe.utils.fmt_money(subscription_plan_grand_total) }}</td>
 		</tr>
 	</tbody>
 </table>

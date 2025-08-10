@@ -49,7 +49,8 @@ doctype_js = {
     "Payment Request" : "public/js/payment_request.js",
     "Payment Entry" : "public/js/payment_entry.js",
 	"Customer" : "public/js/customer.js",
- 	"Auto Repeat": "public/js/auto_repeat.js"
+ 	"Auto Repeat": "public/js/auto_repeat.js",
+ 	"Subscription": "public/js/subscription.js"
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -154,6 +155,7 @@ doc_events = {
 		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_auto_repeat_stripe_plus_fields"
 	},
 	"Subscription": {
+        "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_subscription_stripe_plus_fields",
         "on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.setup_stripe_subscription_registration"
 	}
 }

@@ -5,9 +5,26 @@ div[data-page-route="Stripe Plus Settings"] div[data-fieldname="subscription_sec
     font-size: var(--text-base) !important;
     margin: 15px 0 10px 0;
     padding-left: 20px;
+}
+
+html[data-theme="light"] div[data-page-route="Stripe Plus Settings"] div[data-fieldname="payment_entry_section"] .section-head,
+html[data-theme="light"] div[data-page-route="Stripe Plus Settings"] div[data-fieldname="journal_entry_section"] .section-head,
+html[data-theme="light"] div[data-page-route="Stripe Plus Settings"] div[data-fieldname="notification_section"] .section-head,
+html[data-theme="light"] div[data-page-route="Stripe Plus Settings"] div[data-fieldname="subscription_section"] .section-head {
     background: linear-gradient(180deg, var(--gray-200) 49%, var(--gray-200) 50%);
+    text-shadow: -3px -2px 0 white, 2px -2px 0 white, -2px 2px 0 white, 2px 2px 0 white;
     background-size: 99% 1px;
     background-repeat: no-repeat;
     background-position: center;
-    text-shadow: -3px -2px 0 white, 2px -2px 0 white, -2px 2px 0 white, 2px 2px 0 white;
+}
+
+html[data-theme="dark"] div[data-page-route="Stripe Plus Settings"] div[data-fieldname="payment_entry_section"] .section-head,
+html[data-theme="dark"] div[data-page-route="Stripe Plus Settings"] div[data-fieldname="journal_entry_section"] .section-head,
+html[data-theme="dark"] div[data-page-route="Stripe Plus Settings"] div[data-fieldname="notification_section"] .section-head,
+html[data-theme="dark"] div[data-page-route="Stripe Plus Settings"] div[data-fieldname="subscription_section"] .section-head {
+    background: linear-gradient(180deg, var(--gray-700) 49%, var(--gray-700) 50%);
+    text-shadow: -3px -2px 0 var(--gray-900), 2px -2px 0 var(--gray-900), -2px 2px 0 var(--gray-900), 2px 2px 0 var(--gray-900);
+    background-size: 99% 1px;
+    background-repeat: no-repeat;
+    background-position: center;
 }
