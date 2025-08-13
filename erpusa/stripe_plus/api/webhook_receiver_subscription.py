@@ -26,7 +26,6 @@ def receive_stripe_subscription_events(data):
 def process_stripe_subscription_events(data):
     if data.get("object") == "subscription":
         metadata = data.get("metadata")
-        
         if metadata and metadata.get("erp_subscription_name"):
             frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id", data.get("id"))
             
@@ -72,4 +71,5 @@ def process_stripe_subscription_events(data):
                     })
 
                     user.save()
-            
+        
+    # if data.get("object") == "invoice":
