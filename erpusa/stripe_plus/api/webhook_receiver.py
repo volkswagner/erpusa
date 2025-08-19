@@ -9,6 +9,7 @@ from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_bank_account_for_payment_entry
 from erpusa.stripe_plus.api.webhook_receiver_subscription import receive_stripe_subscription_events
 
+# stripe transaction fields
 ST_FIELDS = [
     "stripe_transaction_id",
     "created",
@@ -74,6 +75,7 @@ ST_FIELDS = [
     "data_source",
 ]
 
+# balance transaction fields
 BT_FIELDS = [
     "bt_status",
     "bt_type",
@@ -83,6 +85,7 @@ BT_FIELDS = [
     "bt_fee",
 ]
 
+# stripe payout fields
 PO_FIELDS = [
     "stripe_payout_id",
     "created",
@@ -111,6 +114,7 @@ PO_FIELDS = [
     "balance_transaction",
 ]
 
+# payment completion estimate (for pending payment email)
 METHOD_PROCESSING_DAYS = {
     "us_bank_account": "3-5",
     "sepa_debit": "5-7",
@@ -123,6 +127,7 @@ def receive_stripe_events():
     validators = frappe.db.get_all("Stripe Plus Settings Webhook Validator", pluck="name")
     sig_header = frappe.request.headers.get("Stripe-Signature")
     
+    # verify if signing secret matches an entry in Stripe Plus Settings
     for validator in validators:
         stripe_settings_doc = frappe.get_doc("Stripe Plus Settings Webhook Validator", validator)
         secret = stripe_settings_doc.get_password("signing_secret")
@@ -139,15 +144,13 @@ def receive_stripe_events():
             data = json.loads(payload)
 
             # store the id, data and attached object in the event
-
             id = data.get("id")
             type = data.get("type")
             data = data.get("data")["object"]
-            
-            sl_doc_name =  frappe.db.exists("Stripe Log", {"event_id": data.get("id")})
 
             # create or update a Stripe Log using the event details
-
+            sl_doc_name =  frappe.db.exists("Stripe Log", {"event_id": data.get("id")})
+            
             if not sl_doc_name:
                 log_doc = frappe.new_doc("Stripe Log")
             else:
@@ -166,14 +169,15 @@ def receive_stripe_events():
             except Exception as e:
                 frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Log Document"))
 
-             # create transaction or payout doc
-
+            # create transaction doc
             if data.get("object") in ["charge", "payment_intent", "setup_intent", "refund"]:
                 create_update_stripe_transaction(data, api_key, log_doc)
-
+                
+            # create payout doc
             elif data.get("object") == "payout":
                 create_update_stripe_payout(data, log_doc, api_key)
-                
+            
+            # create payout doc    
             elif data.get("object") in ["invoice", "customer", "subscription"]:
                 receive_stripe_subscription_events(data)
 
@@ -735,6 +739,7 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
             je_doc.cheque_no = payout.name
             je_doc.cheque_date = payout.created
 
+            # add credit row if there are stripe fees
             if stripe_fees:
                 stripe_fee_account = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account")
                 stripe_fee_cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
@@ -746,12 +751,14 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
                     "cost_center": stripe_fee_cost_center
                 })
 
+            # fill credit row
             je_doc.append("accounts", {
                 "account": credit_account,
                 "bank_account": credit_bank_account,
                 "credit_in_account_currency": abs(payout.amount) + abs(stripe_fees)
             })
 
+            # fill debit row
             je_doc.append("accounts", {
                 "account": frappe.db.get_value("Stripe Plus Settings Payout Account", debit_accounts_name, "erp_account"),
                 "bank_account": frappe.db.get_value("Stripe Plus Settings Payout Account", debit_accounts_name, "erp_bank_account"),
@@ -804,7 +811,7 @@ def notify_user(merchant_payment):
                 subject=subject,
                 message=generate_realtime_notification_email_message(
                     title=f"{merchant_payment.customer} sent {fmt_money(merchant_payment.gross_amount)}",
-                    description="More information about this payment is shown below.",
+                    description=_("More information about this payment is shown below."),
                     merchant_payment=merchant_payment
                 ),
                 reference_doctype="Stripe Transaction",

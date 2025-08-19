@@ -2,16 +2,30 @@ import frappe
 from frappe import _
 
 from payments.templates.pages.stripe_checkout import get_api_key
+from payments.payment_gateways.doctype.stripe_settings.stripe_settings import get_gateway_controller
+from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_customer_contact,  get_representative_email_address
+from erpusa.templates.pages.stripe_plus_subs_checkout import get_session_status
 
 no_cache = 1
 
+expected_keys = (
+	"subscription_name",
+	"payment_gateway",
+	"session_id",
+)
+
 def get_context(context):
-    # all these keys exist in form_dict
-    if "reference_docname" in frappe.form_dict or "gateway_controller" in frappe.form_dict:
-        context.publishable_key = get_api_key(frappe.form_dict.reference_docname, frappe.form_dict.gateway_controller)
-        context.to_pay_doctype = frappe.form_dict.to_pay_doctype
-        context.to_pay_id = frappe.form_dict.to_pay_id
-        context.amount = frappe.form_dict.amount
+    if not (set(expected_keys) - set(list(frappe.form_dict))):
+        gateway_controller = get_gateway_controller(
+            "Subscription", frappe.form_dict["subscription_name"], frappe.form_dict["payment_gateway"]
+        )
+        # context.publishable_key = get_api_key("Subscription", context.gateway_controller)
+        subscription = frappe.form_dict["subscription_name"]
+        contact = get_customer_contact(frappe.db.get_value("Subscription", subscription, "party"))
+        context.customer_email = get_representative_email_address(contact),
+        context.payment_url = frappe.db.get_value("Subscription", subscription, "payment_url")
+        context.session_status = get_session_status(frappe.form_dict["session_id"], gateway_controller)
+        
     else:
         frappe.redirect_to_message(
             _("Some information is missing"),

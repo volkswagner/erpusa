@@ -6,8 +6,12 @@
 	</tr>
 	<tr>
 		<td>
-			<p>{{ _("Your payment was successful. Thank you for subscribing!") }}</p>
-            <p>{{ _("You’ll receive a separate email shortly with your invitation to join the website. In the website, you can manage your subscriptions and account. You can change your subscription payment method or your plan, and update your login credentials.") }}</p>
+			<p>{{ _("Your payment was successful. Thank you for subscribing to {}!").format(subscription) }}</p>
+			{% if user_exists %}
+            	<p>{{ _("You can manage your subscription by logging in to {}").format(frappe.utils.get_url()) }}</p>
+			{% else %}
+				<p>{{ _("You’ll receive a separate email shortly with your invitation to join the website. In the website, you can manage your subscriptions and account. You can change your subscription payment method or your plan, and update your login credentials.") }}</p>
+			{% endif %}
 		</td>
 	</tr>
 </table>

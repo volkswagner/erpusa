@@ -10,6 +10,17 @@ const stripe_subscription_status_color = {
 }
 
 frappe.ui.form.on("Subscription", {
+    setup: function (frm) {
+        frm.set_query("user_account_representative", function (doc) {
+			return {
+				query: "erpnext.selling.doctype.customer.customer.get_customer_primary_contact",
+				filters: {
+					customer: doc.party,
+				},
+			};
+		});
+    },
+
     refresh: function(frm) {
         if (frm.doc.stripe_subscription_id) {
             frm.set_intro(__(
@@ -21,9 +32,82 @@ frappe.ui.form.on("Subscription", {
                 </div>`
                 
             ), stripe_subscription_status_color[frm.doc.stripe_subscription_status]);
-            frm.set_df_property("autocharge_with_stripe", "read_only", true)
-            frm.set_df_property("payment_gateway_account", "read_only", true)
-            frm.set_df_property("payment_method_configuration", "read_only", true)
+
+            ["autocharge_with_stripe","payment_gateway_account", "payment_method_configuration"].forEach(function(field) {
+                frm.set_df_property(field, "read_only", true);
+            })
+
         }
+        
+        frm.events.toggle_create_invoice_at(frm);
+        frm.events.toggle_stripe_plus_fields_read_only(frm);
+        let reload_button = frm.add_custom_button("Reload Doc", function() {
+            frappe.dom.freeze("Reloading Doc");
+
+            frm.reload_doc().then(() => {
+                frappe.dom.unfreeze();
+            });
+        });
+        reload_button.html(`
+            <svg class="es-icon es-line  icon-sm" style="" aria-hidden="true">
+                <use class="" href="#es-line-reload"></use>
+            </svg>
+        `);
+    },
+
+    autocharge_with_stripe: function(frm) {
+        frm.events.set_user_account_representative(frm);
+        frm.events.toggle_create_invoice_at(frm);
+        frm.events.toggle_stripe_plus_fields_read_only(frm);
+    },
+
+    party_type: function (frm) {
+        if (frm.doc.party_type !== "Customer") {
+            frm.set_value("autocharge_with_stripe", 0);
+        }
+    },
+
+    party: function (frm) {
+        frm.events.set_user_account_representative(frm);
+    },
+
+    set_user_account_representative: function (frm) {
+        if (frm.doc.autocharge_with_stripe && frm.doc.party) {
+            frappe.call({
+                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_customer_contact",
+                args: {
+                    customer: frm.doc.party
+                },
+                callback: function (r) {
+                    if (r.message) {
+                        frm.set_value("user_account_representative", r.message)
+                    }
+                }
+            });
+        }
+    },
+
+    toggle_create_invoice_at: function (frm) {
+        if (frm.doc.autocharge_with_stripe) {
+            frm.set_value("generate_invoice_at", "Beginning of the current subscription period")
+            frm.set_df_property("generate_invoice_at", "read_only", 1)
+            frm.set_df_property(
+                "generate_invoice_at",
+                "description",
+                `<div class="alert alert-warning p-2 mt-2" role="alert">
+                        <small>Field is locked because Stripe only supports generating invoices at the beginning of the period.</small>
+                </div>`
+            );
+        }
+
+        else {
+            frm.set_df_property("generate_invoice_at", "read_only", 0);
+            frm.set_df_property("generate_invoice_at", "description", null);
+        }
+    },
+
+    toggle_stripe_plus_fields_read_only: function (frm) {
+        frm.set_df_property("payment_gateway_account", "reqd", frm.doc.autocharge_with_stripe);
+        frm.set_df_property("user_account_representative", "reqd", frm.doc.autocharge_with_stripe);
     }
 })

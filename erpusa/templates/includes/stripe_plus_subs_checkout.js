@@ -7,7 +7,7 @@ frappe.ready(function() {
   // Create a Checkout Session
   async function initialize() {
     const fetchClientSecret = async () => {
-      const response = await fetch("/api/method/erpusa.templates.pages.stripe_plus_subs_checkout.create_checkout_session", {
+      const response = await fetch("/api/method/erpusa.templates.pages.stripe_plus_subs_checkout.create_fetch_checkout_session", {
         method: "POST",
         headers: { 
             "Content-Type": "application/json",
