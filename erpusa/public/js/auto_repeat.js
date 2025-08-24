@@ -9,7 +9,7 @@ frappe.ui.form.on("Auto Repeat", {
     },
 
     refresh: function (frm) {
-        toggle_notification_section(frm.doc.send_payment_request_instead && frm.doc.notify_by_email);
+        collapse_notification_section(frm.doc.send_payment_request_instead && frm.doc.notify_by_email);
     },
 
     send_payment_request_instead: function (frm) {
@@ -21,15 +21,13 @@ frappe.ui.form.on("Auto Repeat", {
             }
 
             frappe.after_ajax(function () {
-                toggle_notification_section(true);
+                collapse_notification_section(true);
             })
         }
 
         else {
-            frm.set_value("submit_on_creation", 0);
-            frm.set_value("notify_by_email", 0);
             frappe.after_ajax(function () {
-                toggle_notification_section(false);
+                collapse_notification_section(false);
             })
         }
 
@@ -73,7 +71,7 @@ function set_bank_and_payment_gateway_accounts(frm) {
 }
 
 
-function toggle_notification_section(show) {
+function collapse_notification_section(show) {
     $('div[data-fieldname="notification"]').each(function() {
         const section = $(this);
         const accordion_head = section.find('.section-head').first();
