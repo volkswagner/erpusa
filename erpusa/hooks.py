@@ -276,7 +276,10 @@ fixtures = [
          "dt": "Custom Field", 
          "filters":[
              [
-                "module", "in", ["Stripe Plus", "ERPUSA"]
+                "module", "in", ["Stripe Plus", "ERPUSA"],
+			 ],
+             [
+                "dt", "not in", ["Subscription", "Subscription Plan"]
 			 ]
         ]
       },
