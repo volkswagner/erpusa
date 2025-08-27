@@ -28,7 +28,7 @@ def process_stripe_subscription_events(data):
         if metadata and metadata.get("erp_subscription_name"):
             frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id", data.get("id"))
             
-            if frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"):
+            if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"):
                 import stripe
                 stripe.api_key = get_api_key_secret(payment_gateway=frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "payment_gateway"))
                 stripe.Subscription.modify(
@@ -44,7 +44,8 @@ def process_stripe_subscription_events(data):
                 representative = frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "user_account_representative")
                 email_address = get_representative_email_address(
                     representative=representative,
-                    log_title=f"Failed to send a welcome email for {metadata.get('erp_subscription_name')}."
+                    log_title=f"Failed to send a welcome email for {metadata.get('erp_subscription_name')}.",
+                    as_dict=False
                 )
                 
                 if not email_address:
@@ -65,7 +66,7 @@ def process_stripe_subscription_events(data):
                     ),
                     now=True,
                     reference_doctype="Subscription",
-                    reference_name=f"{metadata.get("erp_subscription_name")}_welcome"
+                    reference_name=f"{metadata.get('erp_subscription_name')}_welcome"
                 )
                 frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
 
@@ -83,4 +84,4 @@ def process_stripe_subscription_events(data):
 
                     user.save()
         
-    # if data.get("object") == "invoice":
+    # if data.get("object") == "invoice" and 

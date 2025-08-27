@@ -166,7 +166,7 @@ def validate_auto_repeat_stripe_plus_fields(auto_repeat, method=None):
 
 @frappe.whitelist()
 def get_customer_contact(customer):
-  for contact_type in ("is_primary_contact", "is_billing_contact"):
+  for contact_type in ("is_billing_contact", "is_primary_contact"):
     contact_list = get_customer_primary_contact(
       "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1}
     )
@@ -176,8 +176,8 @@ def get_customer_contact(customer):
       
   return None
 
-def get_representative_email_address(representative, log_title=None):
-  email_address = frappe.db.get_value("Contact", representative, "email_id", as_dict=True)
+def get_representative_email_address(representative, as_dict=True, log_title=None):
+  email_address = frappe.db.get_value("Contact", representative, "email_id", as_dict=as_dict)
   
   if not email_address:
       email_list = frappe.db.get_all("Contact Email", filters={"parent": representative}, pluck="email_id")
@@ -532,6 +532,7 @@ def setup_stripe_subscription_registration(subscription, method=None):
       payment_url = frappe.utils.get_url() + f"/stripe_plus_subs_checkout?{urlencode(params)}"
       recipient = get_representative_email_address(
           representative=subscription.user_account_representative,
+          as_dict=False,
           log_title=f"Failed to send payment URL for {subscription.name}",
       )
       email_now = False
@@ -610,7 +611,7 @@ def setup_stripe_subscription_registration(subscription, method=None):
         )
         
       except Exception as e:
-        frappe.log_error
+        frappe.log_error("Error Sending Subscription Payment", str(e))
 
       frappe.db.set_value("Subscription", subscription.name, "payment_url", payment_url)
       frappe.db.set_value("Subscription", subscription.name, "email_queue", frappe.db.exists("Subscription", {"reference_doctype": "Subscription", "reference_name": subscription.name}))
