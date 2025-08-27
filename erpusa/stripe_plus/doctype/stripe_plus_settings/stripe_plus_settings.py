@@ -6,6 +6,7 @@ from frappe import _
 from frappe.utils import cint
 from frappe.model.document import Document
 import stripe
+from erpnext.selling.doctype.customer.customer import get_customer_primary_contact
 
 METHODS_FULLNAME = {
   "acss_debit": "Pre-authorized Debit Payments",
@@ -160,6 +161,18 @@ def validate_auto_repeat_stripe_plus_fields(auto_repeat, method=None):
       frappe.throw(_("Enable 'Submit on creation' to allow Payment Request."))
     if not auto_repeat.notify_by_email:
       frappe.throw(_("Enable 'Notify by email' to allow Payment Request."))
+
+@frappe.whitelist()
+def get_customer_contact(customer):
+  for contact_type in ("is_billing_contact", "is_primary_contact"):
+    contact_list = get_customer_primary_contact(
+      "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1}
+    )
+    
+    if contact_list:
+      return contact_list[0][0]
+      
+  return None
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
