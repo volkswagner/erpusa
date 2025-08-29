@@ -19,6 +19,7 @@ frappe.ui.form.on("Customer", {
                         freeze: true,
                         freeze_message: __("Adding Customer to Stripe"),
                         callback: function(r) {
+                            frm.refresh();
                         }
                     });
                 })

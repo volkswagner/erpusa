@@ -140,7 +140,7 @@ def validate_stripe_plus_fields(payment_request, method=None):
         create_stripe_customer(
           payment_request.party,
           stripe_settings=get_gateway_settings_doc(payment_request.payment_gateway),
-          show_success_message=0
+          show_success_message=frappe.db.get_single_value("Stripe Plus Settings", "show_error_message")
         )
 
       if not payment_request.payment_method_configuration:
@@ -163,6 +163,46 @@ def validate_auto_repeat_stripe_plus_fields(auto_repeat, method=None):
       frappe.throw(_("Enable 'Submit on creation' to allow Payment Request."))
     if not auto_repeat.notify_by_email:
       frappe.throw(_("Enable 'Notify by email' to allow Payment Request."))
+      
+def update_stripe_customer_info(contact, method=None):
+  if contact.links and \
+    (contact.has_value_changed("email_id") or \
+    contact.has_value_changed("is_billing_contact") or \
+    contact.has_value_changed("is_primary_contact")):
+
+    for link in contact.links:
+      if link.link_doctype == "Customer" and frappe.db.get_value("Customer", link.link_name, "stripe_customer_id"):
+        update_stripe_customer(
+          frappe.db.get_value("Customer", link.link_name, "stripe_customer_id"),
+          frappe.db.get_value("Customer", link.link_name, "stripe_settings"),
+          get_representative_email_address(contact.name, as_dict=False, log_title=None, email_id_override=contact.email_id) or ""
+        )
+
+@frappe.whitelist()
+def get_customer_contact(customer):
+  for contact_type in ("is_billing_contact", "is_primary_contact"):
+    contact_list = get_customer_primary_contact(
+      "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1}
+    )
+    
+    if contact_list:
+      return contact_list[0][0]
+      
+  return None
+
+def get_representative_email_address(representative, as_dict=True, log_title=None, email_id_override=None):
+  # email_id_override is for when the old value is needed
+  email_address = email_id_override or frappe.db.get_value("Contact", representative, "email_id", as_dict=as_dict)
+  
+  if not email_address:
+      email_list = frappe.db.get_all("Contact Email", filters={"parent": representative}, pluck="email_id")
+      
+      if email_list:
+          email_address = email_list[0]
+      elif log_title:
+          frappe.log_error(log_title, f"No email address was found for its representative {representative}.")
+
+  return email_address
 
 @frappe.whitelist()
 def get_customer_contact(customer):
@@ -314,44 +354,67 @@ def find_customer_configuration(customer, payment_gateway):
   
 @frappe.whitelist()
 def create_stripe_customer(customer, stripe_settings=None, show_success_message=0):
-  if frappe.db.get_value("Customer", customer, "stripe_customer_id"):
-    if show_success_message:
-      
-      frappe.throw(_("Customer already added to Stripe with id {stripe_customer}").format(stripe_customer=frappe.db.get_value("Customer", customer, "stripe_customer_id")))
-    return
+  if frappe.db.get_value("Customer", customer, "stripe_customer_id") and show_success_message:
+    frappe.throw(_("Customer already added to Stripe with id {stripe_customer}").format(stripe_customer=frappe.db.get_value("Customer", customer, "stripe_customer_id")))
   
-  elif not stripe_settings:
+  if not stripe_settings:
     frappe.throw(_("Select a Stripe Settings."))
 
-  else:
+  stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
+
+  try:
+    matching_customer_list = stripe.Customer.search(query=f"metadata['erp_customer_name']:'{customer}'")
+
+  except Exception as e:
+    frappe.log_error(f"Error Fetching Customers: ", str(e))
+    if show_success_message:
+      frappe.throw(_("An error occured while looking for customer in stripe.com. <br><br/>{}").format(str(e)))
+
+  if matching_customer_list and matching_customer_list.get("data"):
+    frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
+
+  customer_contact = get_customer_contact(customer)
+  if show_success_message and not customer_contact:
+    frappe.throw(_("A preferred contact information does not exist for {}.").format(customer))
+    
+  customer_email_address = get_representative_email_address(customer_contact, as_dict=False)
+  if show_success_message and not customer_email_address:
+    frappe.throw(_("{} doesn't have an email address.").format(customer_contact))
+    
+  try:
+    stripe_customer = stripe.Customer.create(
+      name=frappe.db.get_value("Customer", customer, "customer_name"),
+      email=customer_email_address,
+    )
+
+    frappe.db.set_value("Customer", customer, "stripe_customer_id", stripe_customer.id)
+    frappe.db.set_value("Customer", customer, "stripe_settings", stripe_settings)
+    if show_success_message:
+      frappe.msgprint(_("Customer <b>{customer}</b> was successfully added to Stripe with id <i>{stripe_customer}</i>").format(customer=customer, stripe_customer=stripe_customer.id))
+
+  except Exception as e:
+    frappe.log_error(f"Error Adding Customer to Stripe: ", str(e))
+    if show_success_message:
+      frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{}").format(str(e)))
+      
+def update_stripe_customer(stripe_customer_id, stripe_settings, email_address):
+  if stripe_settings:
     stripe.api_key = get_api_key_secret(gateway_controller=stripe_settings)
 
     try:
-      matching_customer_list = stripe.Customer.search(query=f"metadata['erp_customer_name']:'{customer}'")
+      stripe_customer = stripe.Customer.retrieve(stripe_customer_id)
 
     except Exception as e:
-      error = str(e)
-      frappe.log_error(f"Error Fetching Customers: ", str(error))
-      frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{error}"))
+      frappe.log_error(f"Can't find customer in stripe.com", str(e))
+      
+    try:
+      stripe_customer = stripe.Customer.modify(
+        stripe_customer_id,
+        email=email_address
+      )
 
-    if matching_customer_list and matching_customer_list.get("data"):
-      frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
-
-    else:
-      try:
-        stripe_customer = stripe.Customer.create(
-          name=frappe.db.get_value("Customer", customer, "customer_name"),
-          email=frappe.db.get_value("Contact", customer, "email_id"),
-        )
-
-        frappe.db.set_value("Customer", customer, "stripe_customer_id", stripe_customer.id)
-        if show_success_message:
-          frappe.msgprint(_("Customer <b>{customer}</b> was successfully added to Stripe with id <i>{stripe_customer}</i>").format(customer=customer, stripe_customer=stripe_customer.id))
-
-      except Exception as e:
-        error = str(e)
-        frappe.log_error(f"Error Adding Customer to Stripe: ", str(error))
-        frappe.throw(_("An error occured while adding the customer to stripe. <br><br/>{0}").format(error))
+    except Exception as e:
+      frappe.log_error(f"Can't update customer in stripe.com", str(e))
 
 @frappe.whitelist()
 def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
