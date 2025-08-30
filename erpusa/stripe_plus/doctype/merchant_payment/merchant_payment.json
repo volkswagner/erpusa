@@ -37,8 +37,7 @@
    "fieldname": "merchant_transaction_id",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Merchant Transaction ID",
-   "reqd": 1
+   "label": "Merchant Transaction ID"
   },
   {
    "fieldname": "customer",
@@ -138,7 +137,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-13 17:24:41.966356",
+ "modified": "2025-08-21 05:49:04.512656",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Merchant Payment",
@@ -181,5 +180,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

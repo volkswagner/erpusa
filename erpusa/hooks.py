@@ -155,6 +155,9 @@ doc_events = {
 	},
 	"Auto Repeat": {
 		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_auto_repeat_stripe_plus_fields"
+	},
+	"Contact": {
+		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.update_stripe_customer_info"
 	}
 }
 
@@ -271,7 +274,10 @@ fixtures = [
          "dt": "Custom Field", 
          "filters":[
              [
-                "module", "in", ["Stripe Plus", "ERPUSA"]
+                "module", "in", ["Stripe Plus", "ERPUSA"],
+			 ],
+             [
+                "dt", "not in", ["Subscription", "Subscription Plan"]
 			 ]
         ]
       },

@@ -14,13 +14,13 @@
         <td>
             <p>
                 {% if has_refunds_or_adjustments %}
-                    <span>{{ _("It appears that the payout has refunds and adjustments—transactions the automation does not account for. ") }}</span>
+                    <span>{{ _("It appears that the payout has refunds and/or adjustments—transactions the automation does not account for. ") }}</span>
                 {% else %}
                     <span>{{ _("It appears that the computed total does not match the total received from Stripe. ") }}</span>
                 {% endif %}
                 <span>{{ _("More details on this issue are provided below. ") }}</span>
                 <span>{{ _("We recommend checking your ") }}</span>
-                <a href="https://dashboard.stripe.com/test/payouts/{{payout_id}}" target="_blank">stripe.com</a>
+                <a href="https://dashboard.stripe.com/payouts/{{payout_id}}" target="_blank">stripe.com</a>
                 <span>{{ _(" dashboard to verify the discrepancy and apply any necessary changes.") }}</span>
             </p>
         </td>
@@ -38,25 +38,25 @@
             <td><b>{{ _("Charges") }}</b></td>
             <td class="text-right">{{ frappe.utils.fmt_money(charges) }}</td>
         </tr>
-        <tr {% if has_refunds_or_adjustments %} {{ highlight }} {% endif %}>
+        <tr>
             <td><b>{{ _("Stripe Fees") }}</b></td>
             <td class="text-right">{{ frappe.utils.fmt_money(stripe_fees) }}</td>
         </tr>
-        <tr {% if has_refunds_or_adjustments %} {{ highlight }} {% endif %}>
+        <tr {% if has_refunds_or_adjustments and refunds%} {{ highlight }} {% endif %}>
             <td><b>{{ _("Refunds") }}</b></td>
             <td class="text-right">{{ frappe.utils.fmt_money(refunds) }}</td>
         </tr>
-        <tr>
+        <tr {% if has_refunds_or_adjustments and adjustments %} {{ highlight }} {% endif %}>
             <td><b>{{ _("Adjustments") }}</b></td>
             <td class="text-right">{{ frappe.utils.fmt_money(adjustments) }}</td>
-        </tr>
-        <tr {% if not has_refunds_or_adjustments %} {{ highlight }} {% endif %}>
-            <td><b>{{ _("Computed Total") }}</b></td>
-            <td class="text-right">{{ frappe.utils.fmt_money(total) }}</td>
         </tr>
         {% if not has_refunds_or_adjustments %}
             <tr>
                 <td colspan="2"></td>
+            </tr>
+            <tr {{ highlight }}>
+                <td><b>{{ _("Computed Total") }}</b></td>
+                <td class="text-right">{{ frappe.utils.fmt_money(total) }}</td>
             </tr>
             <tr {{ highlight }}>
                 <td><b>{{ _("Stripe Total") }}</b></td>
