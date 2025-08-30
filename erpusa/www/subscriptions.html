@@ -1,0 +1,58 @@
+{% extends "templates/web.html" %}
+
+{% block breadcrumbs %}
+	{% include "templates/includes/breadcrumbs.html" %}
+{% endblock %}
+
+{% block style %}
+  
+<style>
+	.card-header {
+		pointer-events: all !important;
+		cursor: default !important;
+	}
+	.card-header .btn.visible-on-hover {
+		opacity: 0.3;
+	}
+
+	.card-header:hover .btn.visible-on-hover {
+		opacity: 1;
+	}
+	</style>
+{% endblock %}
+
+{% block script %}
+<script>
+	console.log("{{ subscriptions }}")
+</script>
+{% endblock %}
+
+{% block page_content %}
+	{% block page_header %}
+		<h3>Subscriptions</h3>
+	{% endblock %}
+	<p> {{ customer }}</p>
+	{% for subscription in subscriptions %}
+	<div class="card mb-5">
+		<div class="card-header d-flex justify-content-between align-items-center">
+			<h6 class="mb-0">{{ subscription.name }}</h6>
+			<div class="btn-group">
+				<button type="button" class="btn btn-primary dropdown-toggle visible-on-hover" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+					Manage
+				</button>
+				<div class="dropdown-menu">
+					<a class="dropdown-item" href="#">Action</a>
+					<a class="dropdown-item" href="#">Another action</a>
+					<a class="dropdown-item" href="#">Something else here</a>
+					<div class="dropdown-divider"></div>
+					<a class="dropdown-item" href="#">Separated link</a>
+				</div>
+			</div>
+  		</div>
+		<div class="card-body">
+			<p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+		</div>
+	</div>
+		
+	{% endfor %}
+{% endblock %}

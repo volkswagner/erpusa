@@ -565,6 +565,34 @@ def create_stripe_price(subscription_plan, item, stripe_product_id, stripe_setti
   if stripe_price_id:
     frappe.db.set_value("Subscription Plan", subscription_plan, "stripe_price_id", stripe_price_id)
 
+def calculate_subscription_plan_total(subscription):
+  subscription_plan_list = []
+  subscription_plan_grand_total = 0.00
+  for subscription_plan in subscription.plans:
+    if not frappe.db.get_value("Subscription Plan", subscription_plan.plan, "cost"):
+      price = frappe.db.get_value(
+        "Item Price",
+        {
+            "item_code": frappe.db.get_value("Subscription Plan", subscription_plan.plan, "item"),
+            "price_list": frappe.db.get_value("Subscription Plan", subscription_plan.plan, "price_list")
+        },
+        "price_list_rate"
+      )
+    
+    else:
+      price = frappe.db.get_value("Subscription Plan", subscription_plan.plan, "cost")
+      
+    subscription_plan_list.append(frappe._dict({
+      "plan": subscription_plan.plan,
+      "qty": subscription_plan.qty,
+      "price": price,
+      "amount": subscription_plan.qty * price
+    }))
+  
+  subscription_plan_grand_total = subscription_plan_grand_total + (subscription_plan.qty * price)
+  
+  return subscription_plan_list, subscription_plan_grand_total
+
 def setup_stripe_subscription_registration(subscription, method=None):
   if subscription.autocharge_with_stripe and not subscription.email_queue:
     stripe_settings = get_gateway_settings_doc(subscription.payment_gateway)
@@ -605,30 +633,7 @@ def setup_stripe_subscription_registration(subscription, method=None):
         email_now = True
         email_send_after = None
       
-      subscription_plan_list = []
-      subscription_plan_grand_total = 0.00
-      for subscription_plan in subscription.plans:
-        if not frappe.db.get_value("Subscription Plan", subscription_plan.plan, "cost"):
-          price = frappe.db.get_value(
-            "Item Price",
-            {
-                "item_code": frappe.db.get_value("Subscription Plan", subscription_plan.plan, "item"),
-                "price_list": frappe.db.get_value("Subscription Plan", subscription_plan.plan, "price_list")
-            },
-            "price_list_rate"
-          )
-        
-        else:
-          price = frappe.db.get_value("Subscription Plan", subscription_plan.plan, "cost")
-          
-        subscription_plan_list.append(frappe._dict({
-          "plan": subscription_plan.plan,
-          "qty": subscription_plan.qty,
-          "price": price,
-          "amount": subscription_plan.qty * price
-        }))
-      
-      subscription_plan_grand_total = subscription_plan_grand_total + (subscription_plan.qty * price)
+      subscription_plan_list, subscription_plan_grand_total = calculate_subscription_plan_total(subscription)
       
       subscription_plan_table = frappe.render_template(
         "erpusa/templates/html/subscription_plan_table.html", {

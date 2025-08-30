@@ -549,10 +549,9 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
             if sales_invoices:
                 mp_doc.associated_sales_invoice = sales_invoices[0]
                 user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
-                per_exists = frappe.db.exists(
-                    "Payment Entry Reference", 
-                    { "reference_name": sales_invoices[0] }
-                )
+                per = frappe.db.exists("Payment Entry Reference", { "reference_name": sales_invoices[0]})
+                per_exists = per and frappe.db.get_value("Payment Entry", frappe.db.get_value("Payment Entry", per, "parent"), "docstatus") != 2
+                
                 if user_to_authorize and not per_exists:
                     frappe.set_user(user_to_authorize)
 

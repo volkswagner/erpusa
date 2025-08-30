@@ -281,9 +281,15 @@ fixtures = [
              [
                 "module", "in", ["Stripe Plus", "ERPUSA"],
 			 ],
-             [
-                "dt", "not in", ["Subscription", "Subscription Plan"]
-			 ]
         ]
       },
+]
+
+portal_menu_items = [
+    {
+        "title": "Subscriptions",
+        "route": "/subscriptions",
+        "reference_doctype": "Subscription",
+        "role": "Customer"
+    }
 ]

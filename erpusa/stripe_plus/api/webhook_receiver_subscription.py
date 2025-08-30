@@ -83,5 +83,12 @@ def process_stripe_subscription_events(data):
                     })
 
                     user.save()
+                    
+                    frappe.db.set_value(
+                        "Customer", 
+                        frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"),
+                        "user",
+                        user.name
+                    )
         
     # if data.get("object") == "invoice" and 
