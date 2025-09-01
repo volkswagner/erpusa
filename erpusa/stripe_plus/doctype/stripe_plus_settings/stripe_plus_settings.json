@@ -31,11 +31,7 @@
   "notification_method",
   "notification_recipients",
   "section_break_eaam",
-  "notification_schedule",
-  "subscription_section",
-  "subscription_email_content_instructions",
-  "subscription_email_subject",
-  "subscription_email_message"
+  "notification_schedule"
  ],
  "fields": [
   {
@@ -73,7 +69,7 @@
    "label": "Hide warning in Payment Request when Stripe Plus is disabled"
   },
   {
-   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks <b>accounting automation</b> (automatic payment entry and payout journal entry), <b>subscriptions</b> and more features such as <b>notifications and events logging</b>.</small>",
+   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks accounting automation (automatic payment entry and payout journal entry) and more features such as notifications and events logging.</small>",
    "fieldname": "webhook_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
@@ -95,8 +91,7 @@
    "depends_on": "eval: doc.notification_method==\"Daily Digest\"",
    "description": "<small>There can be up to 24 timeslots and each timeslot can have hour and minute.</small>",
    "fieldname": "section_break_eaam",
-   "fieldtype": "Section Break",
-   "hide_border": 1
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "payment_entry_section",
@@ -106,7 +101,7 @@
   },
   {
    "default": "Administrator",
-   "description": "<small>Because Accounting data is sensitive, an admin must authorize the creation of Payment Entry. Leaving this empty won't automatically create a Payment Entry. For subscriptions, a System Manager is required.</small>",
+   "description": "<small>Because Accounting data is sensitive, an admin must authorize the creation of Payment Entry. Leaving this empty won't automatically create a Payment Entry.</small>",
    "fieldname": "user_to_authorize",
    "fieldtype": "Link",
    "label": "User to Authorize Payment Entry Creation (must be an Accounts Manager or someone with a higher position)",
@@ -209,28 +204,6 @@
    "fieldname": "show_error_message",
    "fieldtype": "Check",
    "label": "Show error through a pop up window if customer adding fails"
-  },
-  {
-   "fieldname": "subscription_section",
-   "fieldtype": "Section Break",
-   "label": "Subscription"
-  },
-  {
-   "fieldname": "subscription_email_content_instructions",
-   "fieldtype": "HTML",
-   "label": "Email Content Instructions",
-   "options": "<small>\n <p>Subscription info can be inserted in the email subject and message. To insert a subscription info, write the info code enclosed in parentheses, like so: <code>&#123;&#123; name &#125;&#125;</code>. The list below enumerates all the supported Subscription Info.</p><span>Instructions</span>\n <ol>\n  <li><b>name</b>. The name of the subscription.</li>\n  <li><b>customer</b></li>\n  <li><b>company</b></li>\n  <li><b>start_date</b>. The date when the subscription will begin.</li>\n  <li><b>end_date</b>. The date when the subscription will end.</li>\n  <li><b>subscription_plan_table</b>. A tabulation of the subscription plans included. (email message only)</li>\n  <li><b>payment_url</b>. The link where the customer can pay. (email message only, mandatory)</li>\n </ol>\n</small>"
-  },
-  {
-   "description": "If empty, defaults to: Request to Subscribe and Initiate Payment via Stripe",
-   "fieldname": "subscription_email_subject",
-   "fieldtype": "Data",
-   "label": "Email Subject"
-  },
-  {
-   "fieldname": "subscription_email_message",
-   "fieldtype": "Text Editor",
-   "label": "Email Message"
   }
  ],
  "index_web_pages_for_search": 1,
