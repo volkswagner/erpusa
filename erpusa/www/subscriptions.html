@@ -11,6 +11,7 @@
 		pointer-events: all !important;
 		cursor: default !important;
 	}
+
 	.card-header .btn.visible-on-hover {
 		opacity: 0.3;
 	}
@@ -18,34 +19,109 @@
 	.card-header:hover .btn.visible-on-hover {
 		opacity: 1;
 	}
+	
+	.filter-btn.active {
+		color: white !important;
+		background-color: #000 !important;
+    	border-color: #000 !important;
+	}
 	</style>
 {% endblock %}
 
 {% block script %}
-<script>
-	console.log("{{ subscriptions }}")
-</script>
+	<script>
+	document.addEventListener("DOMContentLoaded", function () {
+		const filter_buttons = document.querySelectorAll(".filter-btn");
+		const subscription_cards = document.querySelectorAll(".subscription-card");
+		const no_results = document.getElementById("no-results");
+
+		function get_query_param(key) {
+			const urlParams = new URLSearchParams(window.location.search);
+			return urlParams.get(key);
+		}
+
+		function update_url_param(key, value) {
+			const url = new URL(window.location);
+			url.searchParams.set(key, value);
+			history.replaceState({}, "", url);
+		}
+
+		function filter_subscriptions(filter_value) {
+			let show_empty_state = false;
+
+			subscription_cards.forEach(card => {
+				const cardStatus = card.dataset.status;
+
+				if (filter_value === "all" || cardStatus === filter_value) {
+					card.style.display = "flex";
+					show_empty_state = true;
+				} else {
+					card.style.display = "none";
+				}
+			});
+
+			show_empty_state ? no_results.classList.remove("d-flex") : no_results.classList.add("d-flex");
+
+			filter_buttons.forEach(btn => {
+				btn.dataset.filter === filter_value? btn.classList.add("active") : btn.classList.remove("active");
+			});
+		}
+
+		const initialFilter = get_query_param("status") || "all";
+		filter_subscriptions(initialFilter);
+
+		filter_buttons.forEach(button => {
+			button.addEventListener("click", function () {
+				const filter_value = this.dataset.filter;
+
+				filter_subscriptions(filter_value);
+				update_url_param("status", filter_value);
+			});
+		});
+	});
+	</script>
 {% endblock %}
 
 {% block page_content %}
 	{% block page_header %}
 		<h3>Subscriptions</h3>
 	{% endblock %}
-	<p> {{ customer }}</p>
+
+	<div id="filter-buttons" class="btn-group d-flex justify-content-start align-items-center pb-5 mb-5 mt-3">
+		<button class="btn btn-default btn-sm filter-btn" data-filter="all">All</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Active">Active</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Trialling">Trialling</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Unpaid">Unpaid</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Past Due">Past Due Date</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Cancelled">Cancelled</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Completed">Completed</button>
+	</div>
+	<div id="no-results" class="d-none empty-apps-state flex-column align-items-center justify-content-center py-5 my-5">
+		<img class="empty-list-icon" src="/assets/frappe/images/ui-states/list-empty-state.svg">
+		<div class="mt-4">Nothing to show</div>
+	</div>
 	{% for subscription in subscriptions %}
-	<div class="card mb-5">
+	<div class="card mb-5 subscription-card" data-subscription="{{ subscription.name }}" data-status="{{ subscription.status }}">
 		<div class="card-header d-flex justify-content-between align-items-center">
-			<h6 class="mb-0">{{ subscription.name }}</h6>
+			<div class="flex-grow-1 d-flex justify-content-start align-items-center">
+				<h6 class="mb-0 mr-2">{{ subscription.name }}</h6>
+				{% if subscription.status in ["Cancelled", "Completed"] %}
+					<div class="indicator-pill no-indicator-dot whitespace-nowrap gray">{{ subscription.status }}</div>
+				{% elif subscription.status in ["Trialling", "Active"] %}
+					<div class="indicator-pill no-indicator-dot whitespace-nowrap green">{{ subscription.status }}</div>
+				{% elif subscription.statusin ["Past Due Date", "Unpaid"] %}
+					<div class="indicator-pill no-indicator-dot whitespace-nowrap orange">{{ subscription.status }}</div>
+				{% endif %}
+			</div>
 			<div class="btn-group">
 				<button type="button" class="btn btn-primary dropdown-toggle visible-on-hover" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-					Manage
+					Actions
 				</button>
 				<div class="dropdown-menu">
-					<a class="dropdown-item" href="#">Action</a>
-					<a class="dropdown-item" href="#">Another action</a>
-					<a class="dropdown-item" href="#">Something else here</a>
+					<button class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}">Update Payment Method</button>
+					<button class="dropdown-item" data-action="request-plan-change" data-subscription="{{ subscription.name }}">Request Plan Change</button>
 					<div class="dropdown-divider"></div>
-					<a class="dropdown-item" href="#">Separated link</a>
+					<button class="dropdown-item" data-action="cancel" data-subscription="{{ subscription.name }}">Request Cancellation</button>
 				</div>
 			</div>
   		</div>

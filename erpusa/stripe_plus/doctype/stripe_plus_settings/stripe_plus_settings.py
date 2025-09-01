@@ -586,7 +586,9 @@ def calculate_subscription_plan_total(subscription):
       "plan": subscription_plan.plan,
       "qty": subscription_plan.qty,
       "price": price,
-      "amount": subscription_plan.qty * price
+      "amount": subscription_plan.qty * price,
+      "billing_interval": frappe.db.get_value("Subscription Plan", subscription_plan.plan, "billing_interval"),
+      "billing_interval_count": frappe.db.get_value("Subscription Plan", subscription_plan.plan, "billing_interval_count")
     }))
   
   subscription_plan_grand_total = subscription_plan_grand_total + (subscription_plan.qty * price)

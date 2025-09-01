@@ -12,7 +12,7 @@ def get_context(context):
     context.customer = frappe.db.exists("Customer", {"user": frappe.session.user})
     context.subscriptions = []
     if context.customer:
-        for subscription in frappe.db.get_all("Subscription", filters={"party": context.customer}, pluck="name", order_by="name ASC"):
+        for subscription in frappe.db.get_all("Subscription", filters={"party": context.customer}, pluck="name", order_by="status ASC"):
             subscription_data = frappe.get_doc("Subscription", subscription).as_dict()
             subscription_data["subscription_plan_list"], subscription_data["total"] = calculate_subscription_plan_total(subscription_data)
             
