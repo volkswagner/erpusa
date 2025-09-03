@@ -28,7 +28,7 @@ required_apps = [
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = "/assets/erpusa/css/stripe_plus.css"
+app_include_css = "/assets/erpusa/css/stripe_plus.css?v=202509030651"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpusa/css/erpusa.css"

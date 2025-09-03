@@ -89,25 +89,24 @@ frappe.ui.form.on("Subscription", {
 
     toggle_create_invoice_at: function (frm) {
         if (frm.doc.autocharge_with_stripe) {
-            const locked_in_message = `
+            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"]
+            const locked_message = `
                 <div class="alert alert-warning p-2 mt-2" role="alert">
-                        <small>Field is locked because Stripe only supports generating invoices at the beginning of the period.</small>
+                        <small>Field is locked to allow autocharging with Stripe.</small>
                 </div>`
 
-            frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
-            frm.set_df_property("generate_invoice_at", "read_only", 1);
-            frm.set_df_property(
-                "generate_invoice_at",
-                "description",
-                locked_in_message
-            );
             frm.set_value("generate_new_invoices_past_due_date", 1);
-            frm.set_df_property("generate_new_invoices_past_due_date", "read_only", 1);
-            frm.set_df_property(
-                "generate_new_invoices_past_due_date",
-                "description",
-                locked_in_message
-            );
+            frm.set_value("submit_invoice", 1);
+            frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
+
+            locked_fields.forEach(function(field) {
+                frm.set_df_property(field, "read_only", 1);
+                frm.set_df_property(
+                    field,
+                    "description",
+                    locked_message
+                );
+            })
         }
 
         else {

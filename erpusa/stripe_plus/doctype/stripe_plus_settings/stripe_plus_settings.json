@@ -5,6 +5,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "general_tab",
   "enable_stripe_plus",
   "hide_warning",
   "notes",
@@ -13,6 +14,7 @@
   "show_error_message",
   "payment_page_company_name",
   "payment_page_company_logo",
+  "advanced_features_tab",
   "webhook_section",
   "webhook_instructions",
   "signing_secret_list",
@@ -32,7 +34,9 @@
   "notification_recipients",
   "section_break_eaam",
   "notification_schedule",
-  "subscription_section",
+  "subscription_tab",
+  "subscription_notes",
+  "welcome_email_section",
   "subscription_email_content_instructions",
   "subscription_email_subject",
   "subscription_email_message"
@@ -77,7 +81,7 @@
    "fieldname": "webhook_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
-   "label": "Advanced Features"
+   "label": "Set Up"
   },
   {
    "fieldname": "signing_secret_list",
@@ -211,11 +215,6 @@
    "label": "Show error through a pop up window if customer adding fails"
   },
   {
-   "fieldname": "subscription_section",
-   "fieldtype": "Section Break",
-   "label": "Subscription"
-  },
-  {
    "description": "If empty, defaults to: Request to Subscribe and Initiate Payment via Stripe",
    "fieldname": "subscription_email_subject",
    "fieldtype": "Data",
@@ -231,12 +230,38 @@
    "fieldtype": "HTML",
    "label": "Email Content Instructions",
    "options": "<small>\n <p>Subscription info can be inserted in the email subject and message. To insert a subscription info, write the info code enclosed in parentheses, like so: <code>&#123;&#123; name &#125;&#125;</code>. The list below enumerates all the supported Subscription Info.</p><span>Instructions</span>\n <ol>\n  <li><b>name</b>. The name of the subscription.</li>\n  <li><b>customer</b></li>\n  <li><b>company</b></li>\n  <li><b>start_date</b>. The date when the subscription will begin.</li>\n  <li><b>end_date</b>. The date when the subscription will end.</li>\n  <li><b>subscription_plan_table</b>. A tabulation of the subscription plans included. (email message only)</li>\n  <li><b>payment_url</b>. The link where the customer can pay. (email message only, mandatory)</li>\n </ol>\n</small>"
+  },
+  {
+   "fieldname": "general_tab",
+   "fieldtype": "Tab Break",
+   "label": "General"
+  },
+  {
+   "fieldname": "advanced_features_tab",
+   "fieldtype": "Tab Break",
+   "label": "Advanced Features"
+  },
+  {
+   "fieldname": "subscription_tab",
+   "fieldtype": "Tab Break",
+   "label": "Subscription"
+  },
+  {
+   "fieldname": "welcome_email_section",
+   "fieldtype": "Section Break",
+   "label": "Welcome Email"
+  },
+  {
+   "fieldname": "subscription_notes",
+   "fieldtype": "HTML",
+   "label": "Subscription Notes",
+   "options": "A set-up Advanced Features is required to enable Subscription as it keeps track of customer payments to automatically make Payment Entries against Sales Invoices."
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-28 02:39:27.994333",
+ "modified": "2025-09-03 04:06:58.858497",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

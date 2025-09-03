@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{subscription}-RQ-{YY}{MM}{DD}",
+ "creation": "2025-09-03 04:13:58.147759",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "subscription",
+  "customer",
+  "column_break_fqre",
+  "status",
+  "request_type",
+  "section_break_jcqa",
+  "request_details",
+  "section_break_meld",
+  "reviewer",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "subscription",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Subscription",
+   "options": "Subscription",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "subscription.party",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "no_copy": 1,
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "default": "Requested",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "no_copy": 1,
+   "options": "Requested\nIn Review\nCustomer Action Required\nApproved\nRejected",
+   "reqd": 1
+  },
+  {
+   "fieldname": "request_details",
+   "fieldtype": "Long Text",
+   "label": "Request Details",
+   "no_copy": 1,
+   "reqd": 1
+  },
+  {
+   "default": "Plan Change",
+   "fieldname": "request_type",
+   "fieldtype": "Select",
+   "label": "Request Type",
+   "options": "Plan Change\nEnd Date Change\nPlan and End Date Change\nCancellation",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_fqre",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_jcqa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_meld",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "reviewer",
+   "fieldtype": "Link",
+   "label": "Reviewer",
+   "options": "User"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Table",
+   "label": "Notes",
+   "options": "Update Request Note"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "link_doctype": "ToDo",
+   "link_fieldname": "reference_name"
+  }
+ ],
+ "modified": "2025-09-03 09:33:32.040324",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Subscription Update Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

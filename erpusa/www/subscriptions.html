@@ -7,16 +7,22 @@
 {% block style %}
   
 <style>
-	.card-header {
+	.card {
 		pointer-events: all !important;
 		cursor: default !important;
+		transition: all 0.25s ease;
 	}
 
-	.card-header .btn.visible-on-hover {
+	.card:hover {
+		scale: 1.0125;
+		translate: 0 -10px;
+	}
+
+	.card .btn.visible-on-hover {
 		opacity: 0.3;
 	}
 
-	.card-header:hover .btn.visible-on-hover {
+	.card:hover .btn.visible-on-hover {
 		opacity: 1;
 	}
 	
@@ -30,6 +36,7 @@
 
 {% block script %}
 	<script>
+		console.log("{{ subscriptions }}")
 	document.addEventListener("DOMContentLoaded", function () {
 		const filter_buttons = document.querySelectorAll(".filter-btn");
 		const subscription_cards = document.querySelectorAll(".subscription-card");
@@ -82,6 +89,8 @@
 	</script>
 {% endblock %}
 
+{% set currency = frappe.db.get_single_value('Global Defaults', 'default_currency') %}
+
 {% block page_content %}
 	{% block page_header %}
 		<h3>Subscriptions</h3>
@@ -101,34 +110,97 @@
 		<div class="mt-4">Nothing to show</div>
 	</div>
 	{% for subscription in subscriptions %}
-	<div class="card mb-5 subscription-card" data-subscription="{{ subscription.name }}" data-status="{{ subscription.status }}">
-		<div class="card-header d-flex justify-content-between align-items-center">
-			<div class="flex-grow-1 d-flex justify-content-start align-items-center">
-				<h6 class="mb-0 mr-2">{{ subscription.name }}</h6>
-				{% if subscription.status in ["Cancelled", "Completed"] %}
-					<div class="indicator-pill no-indicator-dot whitespace-nowrap gray">{{ subscription.status }}</div>
-				{% elif subscription.status in ["Trialling", "Active"] %}
-					<div class="indicator-pill no-indicator-dot whitespace-nowrap green">{{ subscription.status }}</div>
-				{% elif subscription.statusin ["Past Due Date", "Unpaid"] %}
-					<div class="indicator-pill no-indicator-dot whitespace-nowrap orange">{{ subscription.status }}</div>
-				{% endif %}
-			</div>
-			<div class="btn-group">
-				<button type="button" class="btn btn-primary dropdown-toggle visible-on-hover" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-					Actions
-				</button>
-				<div class="dropdown-menu">
-					<button class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}">Update Payment Method</button>
-					<button class="dropdown-item" data-action="request-plan-change" data-subscription="{{ subscription.name }}">Request Plan Change</button>
-					<div class="dropdown-divider"></div>
-					<button class="dropdown-item" data-action="cancel" data-subscription="{{ subscription.name }}">Request Cancellation</button>
+		<div class="card mb-5 subscription-card" data-subscription="{{ subscription.name }}" data-status="{{ subscription.status }}">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<div class="flex-grow-1 d-flex justify-content-between align-items-cente pr-5">
+					<div class="d-flex justify-content-start align-items-center">
+						{% if subscription.friendly_name %}
+							<h6 class="mb-0 mr-2">{{ subscription.friendly_name }}</h6>
+						{% else %}
+							<h6 class="mb-0 mr-2">{{ subscription.name }}</h6>
+						{% endif %}
+						{% if subscription.status in ["Cancelled", "Completed"] %}
+							<div class="indicator-pill no-indicator-dot whitespace-nowrap gray">{{ subscription.status }}</div>
+						{% elif subscription.status in ["Trialling", "Active"] %}
+							<div class="indicator-pill no-indicator-dot whitespace-nowrap green">{{ subscription.status }}</div>
+						{% elif subscription.statusin ["Past Due Date", "Unpaid"] %}
+							<div class="indicator-pill no-indicator-dot whitespace-nowrap orange">{{ subscription.status }}</div>
+						{% endif %}
+					</div>
+					<div>
+						<h6 class="mb-0" >{{ frappe.utils.fmt_money(subscription.total, currency=currency) }}</h6>
+					</div>
+				</div>
+				<div class="btn-group">
+					<button type="button" class="btn btn-primary dropdown-toggle visible-on-hover" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+						Actions
+					</button>
+					<div class="dropdown-menu">
+						{% if subscription.status not in ["Cancelled", "Completed"] %}
+							<button class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}">Update Payment Method</button>
+							<button class="dropdown-item" data-action="request-plan-change" data-subscription="{{ subscription.name }}">Request Plan Change</button>
+							<div class="dropdown-divider"></div>
+							<button class="dropdown-item" data-action="cancel" data-subscription="{{ subscription.name }}">Request Cancellation</button>
+						{% else %}
+							<button class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}">Re-subscribe</button>
+						{% endif%}
+					</div>
 				</div>
 			</div>
-  		</div>
-		<div class="card-body">
-			<p class="card-text">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+			<div class="card-body">
+				<div class="card-text">
+					<p>
+						<span class="text-muted">Subscribed from </span>
+						<span>{{ subscription.start_date.strftime('%B %d, %Y') }}</span>
+						<span class="text-muted">to </span>
+						<span>{{ subscription.end_date.strftime('%B %d, %Y') }}</span>
+					</p>
+					<p>
+						<span class="text-muted">Current Billing Period: </span>
+						<span>{{ subscription.current_invoice_start.strftime('%b %d, %Y') }}</span>
+						<span class="text-muted">- </span>
+						<span>{{ subscription.current_invoice_end.strftime('%b %d, %Y') }}</span>
+					</p>
+					<hr/>
+					<p><strong>Plans</strong></p>
+					<table class="table">
+						<thead class="thead-light">
+							<tr>
+								<th scope="col" class="font-weight-normal"></th>
+								<th scope="col" class="font-weight-normal">Plan</th>
+								<th scope="col" class="text-right font-weight-normal">Price</th>
+								<th scope="col" class="text-right font-weight-normal">Qty</th>
+								<th scope="col" class="text-right font-weight-normal">Amount</th>
+								<th scope="col" class="text-right font-weight-normal">Frequency</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for plan in subscription.plan_list %}
+								<tr>
+									<th scope="row">{{ loop.index }}</th>
+									<td scope="row">{{ plan.plan }}</td>
+									<td scope="row" class="text-right">{{ frappe.utils.fmt_money(plan.price, currency=currency) }}</td>
+									<td scope="row" class="text-right">{{ plan.qty }}</td>
+									<td scope="row" class="text-right">{{ frappe.utils.fmt_money(plan.amount, currency=currency) }}</td>
+									<td scope="row" class="text-right">
+										{% if plan.billing_interval_count == 1 %}
+											<span>Once</span>
+										{% elif plan.billing_interval_count == 2 %}
+											<span>Twice</span>
+										{% elif plan.billing_interval_count == 3 %}
+											<span>Thrice</span>
+										{% else %}
+											<span>{{ plan.billing_interval_count }}x</span>
+										{% endif %}
+											<span> a {{ plan.billing_interval }}</span>
+									</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
 		</div>
-	</div>
 		
 	{% endfor %}
 {% endblock %}
