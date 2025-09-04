@@ -77,7 +77,7 @@
    "label": "Hide warning in Payment Request when Stripe Plus is disabled"
   },
   {
-   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks <b>accounting automation</b> (automatic payment entry and payout journal entry), <b>subscriptions</b> and more features such as <b>notifications and events logging</b>.</small>",
+   "description": "<small>Connecting the webhook receiver with your Stripe account unlocks accounting automation (automatic payment entry and payout journal entry) and more features such as notifications and events logging.</small>",
    "fieldname": "webhook_section",
    "fieldtype": "Section Break",
    "hide_border": 1,
@@ -99,8 +99,7 @@
    "depends_on": "eval: doc.notification_method==\"Daily Digest\"",
    "description": "<small>There can be up to 24 timeslots and each timeslot can have hour and minute.</small>",
    "fieldname": "section_break_eaam",
-   "fieldtype": "Section Break",
-   "hide_border": 1
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "payment_entry_section",
@@ -110,7 +109,7 @@
   },
   {
    "default": "Administrator",
-   "description": "<small>Because Accounting data is sensitive, an admin must authorize the creation of Payment Entry. Leaving this empty won't automatically create a Payment Entry. For subscriptions, a System Manager is required.</small>",
+   "description": "<small>Because Accounting data is sensitive, an admin must authorize the creation of Payment Entry. Leaving this empty won't automatically create a Payment Entry.</small>",
    "fieldname": "user_to_authorize",
    "fieldtype": "Link",
    "label": "User to Authorize Payment Entry Creation (must be an Accounts Manager or someone with a higher position)",
