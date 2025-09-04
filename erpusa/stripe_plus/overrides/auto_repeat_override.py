@@ -6,7 +6,7 @@ class AutoRepeatOverride(AutoRepeat):
     def create_documents(self):
         from erpnext.accounts.doctype.payment_request.payment_request import make_payment_request
 
-        if self.reference_doctype in ["Sales Invoice", "Sales Order", "Purchase Order", "Purchase Invoice"]:
+        if self.send_payment_request_instead and self.reference_doctype in ["Sales Invoice", "Sales Order", "Purchase Order", "Purchase Invoice"]:
             try:
                 new_doc = self.make_new_document()
                     
@@ -34,31 +34,33 @@ class AutoRepeatOverride(AutoRepeat):
                 payment_gateway = None
                 payment_method_configuration = None
                 
-            try:
-                pr_doc = make_payment_request(**{
-                    'dt': self.reference_doctype,
-                    'dn': new_doc.name,
-                    'order_type': new_doc.get("order_type"),
-                    'party_type': party_type,
-                    'party': party,
-                    'party_name': party_name,
-                    'mode_of_payment': self.mode_of_payment or None,
-                    'recipient_id': self.recipients,
-                    'loyalty_points': new_doc.get("loyalty_points"),
-                    'submit_doc': False,
-                    'return_doc': True
-                })
+            pr_doc = make_payment_request(**{
+                'dt': self.reference_doctype,
+                'dn': new_doc.name,
+                'order_type': new_doc.get("order_type"),
+                'party_type': party_type,
+                'party': party,
+                'party_name': party_name,
+                'mode_of_payment': self.mode_of_payment or None,
+                'recipient_id': self.recipients,
+                'loyalty_points': new_doc.get("loyalty_points"),
+                'submit_doc': False,
+                'return_doc': True,
+                'message': self.message
+            })
+            
+            pr_doc.message = self.message
+            pr_doc.payment_gateway_account = payment_gateway_account
+            pr_doc.payment_gateway = payment_gateway
+            pr_doc.payment_method_configuration = payment_method_configuration
                 
-                pr_doc.message = self.message
-                pr_doc.payment_gateway_account = payment_gateway_account
-                pr_doc.payment_gateway = payment_gateway
-                pr_doc.payment_method_configuration = payment_method_configuration
-                    
+            try:  
                 pr_doc.save()
             
             except Exception as e:
-                error_log = self.log_error("Auto repeat failed to create payment_request", e)
+                error_log = self.log_error("Auto repeat failed to create payment_request", str(e))
             
-            pr_doc.submit()
+            frappe.get_doc("Payment Request", pr_doc.name).submit()
+            
         else:
             super().create_documents()
