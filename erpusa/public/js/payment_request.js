@@ -101,8 +101,12 @@ function toggle_stripe_plus_section(frm) {
             },
             callback: function (r) {
                 frm.set_df_property("stripe_plus_section", "hidden", !(r.message));
+                frm.set_df_property("is_a_subscription", "hidden", (r.message));
             }
         });
+    }
+    else {
+        frm.set_df_property("is_a_subscription", "hidden", 0);
     }
 }
 

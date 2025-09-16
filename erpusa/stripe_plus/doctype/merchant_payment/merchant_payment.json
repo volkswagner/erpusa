@@ -18,6 +18,7 @@
   "customer",
   "associated_sales_order",
   "associated_sales_invoice",
+  "associated_subscription",
   "associated_payment_request",
   "associated_payment_entry",
   "column_break_zjuu",
@@ -133,11 +134,17 @@
    "hidden": 1,
    "label": "Created Before",
    "read_only": 1
+  },
+  {
+   "fieldname": "associated_subscription",
+   "fieldtype": "Link",
+   "label": "Associated Subscription",
+   "options": "Subscription"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-21 05:49:04.512656",
+ "modified": "2025-08-26 00:48:57.900400",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Merchant Payment",

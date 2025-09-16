@@ -1,0 +1,17 @@
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b> {{ _("Hi")}} {{ customer }},</b>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<p>{{ _("Your payment was successful. Thank you for subscribing to {}!").format(subscription) }}</p>
+			{% if user_exists %}
+            	<p>{{ _("You can manage your subscription by logging in to {}").format(frappe.utils.get_url()) }}</p>
+			{% else %}
+				<p>{{ _("You’ll receive a separate email shortly with your invitation to join the website. In the website, you can manage your subscriptions and account. You can change your subscription payment method or your plan, and update your login credentials.") }}</p>
+			{% endif %}
+		</td>
+	</tr>
+</table>
