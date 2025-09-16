@@ -3,14 +3,13 @@
 
 import frappe
 from frappe import _
-from frappe.utils import fmt_money
 import stripe
 import json
-import datetime
-from decimal import Decimal, ROUND_DOWN
-from payments.templates.pages.stripe_checkout import expected_keys, is_a_subscription, get_api_key
+from payments.templates.pages.stripe_checkout import get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
-from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret, get_customer_contact, get_representative_email_address
+from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret
+
+no_cache = 1
 
 def get_context(context):
     if frappe.form_dict:
@@ -55,11 +54,10 @@ def create_checkout_session(data):
             'price': frappe.db.get_value("Subscription Plan", subscription_plan.plan, "stripe_price_id"),
             'quantity': subscription_plan.qty
         })
-    
     try:
         session = stripe.checkout.Session.create(
-            ui_mode = 'embedded',
-            mode='subscription',
+            ui_mode = "embedded",
+            mode="subscription",
             customer=frappe.db.get_value("Customer", data.get("customer"), "stripe_customer_id"),
             line_items=line_items,
             subscription_data={
@@ -67,12 +65,15 @@ def create_checkout_session(data):
                     "erp_subscription_name": data.get("subscription")
                 }
             },
-            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return",
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}&payment_gateway={frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')}",
             payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", data.get("payment_configuration"), "stripe_configuration_id")
         )
         
     except Exception as e:
         return str(e)
+    
+    if frappe.db.exists("Subscription", data.get('subscription')):
+        frappe.db.set_value("Subscription", data.get('subscription'), "stripe_session_id", session['id'])
     
     return {"clientSecret": session['client_secret']}
 
@@ -82,11 +83,11 @@ def create_fetch_checkout_session():
     stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
 
     # check if intent has already been made
-    stripe_checkout_id = frappe.db.get_value("Subscription", data.get('request_name'), "stripe_intent_id")
+    stripe_session_id = frappe.db.get_value("Subscription", data.get('request_name'), "stripe_session_id")
 
-    if stripe_checkout_id:
+    if stripe_session_id:
         try:
-            checkout = stripe.checkout.Session.retrieve(stripe_checkout_id)
+            checkout = stripe.checkout.Session.retrieve(stripe_session_id)
 
             if checkout['status'] != "complete":
                 return create_checkout_session(data)
@@ -111,6 +112,3 @@ def get_session_status(session_id, gateway_controller):
     session = stripe.checkout.Session.retrieve(session_id)
 
     return session.status
-    
-    
-    #?subscription={data.get('subscription')}&gateway_controller={data.get('gateway_controller')}

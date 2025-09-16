@@ -1,6 +1,6 @@
 {% extends "templates/web.html" %}
 
-{% block title %} Payment Result {% endblock %}
+{% block title %} Payment Method Change Result {% endblock %}
 {%- block header -%}
     <link rel="stylesheet" href="stripe_plus_style.css">
 {% endblock %}
@@ -8,14 +8,13 @@
     <script src="https://js.stripe.com/v3/"></script>
     <script>{% include "templates/includes/stripe_plus_subs_return.js" %}</script>
     <script>
-      console.log("{{ customer_email }}")
-      console.log("{{ contact }}")
+      console.log("{{ session_status }}")
     </script>
 {% endblock %}
 {% block page_content %}
   <div class="py-5 my-5"></div>
   <div id="success" class="d-flex align-items-center justify-content-center w-100 p-1 p-xl-5 m-1 my-xl-5 hidden">
-    {% if session_status == "complete" %}
+    {% if session_status == "succeeded" %}
     <div id="payment-status" style="border-color: #30B130; box-shadow: 0px 15px 25px 5px rgba(48, 177, 48, 0.25)">
         <div id="status-icon" style="background-color: #30B130">
           `<svg width="50" height="50" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23,16 +22,11 @@
           </svg>`
         </div>
         <h2 id="status-text">
-          We appreciate your business!
+          Payment Method Was Successfully Changed!
         </h2>
         <hr class="w-100"/>
         <p id="payment-description" class="text-center">
-          You are now subscribed to {{ subscription }}. 
-          {% if customer_email[0]['email_id'] %}
-            A confirmation email will be sent to {{ customer_email[0]['email_id'] }}.
-          {% else %}
-            A confirmation was sent to your email.
-          {% endif %}
+          Future invoices will now be paid via the new payment method.
         </p>
     </div>
     {% endif %}

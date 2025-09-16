@@ -25,8 +25,9 @@ def receive_stripe_subscription_events(data):
 def process_stripe_subscription_events(data):
     if data.get("object") == "subscription":
         metadata = data.get("metadata")
-        if metadata and metadata.get("erp_subscription_name"):
+        if metadata and metadata.get("erp_subscription_name") and not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id"):
             frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id", data.get("id"))
+            frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
             
             if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"):
                 import stripe
@@ -68,7 +69,6 @@ def process_stripe_subscription_events(data):
                     reference_doctype="Subscription",
                     reference_name=f"{metadata.get('erp_subscription_name')}_welcome"
                 )
-                frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
 
                 if user_to_authorize and user_exists:
                     frappe.set_user(user_to_authorize)
@@ -81,14 +81,13 @@ def process_stripe_subscription_events(data):
                     user.append("roles", {
                         "role": "Customer"
                     })
-
                     user.save()
                     
-                    frappe.db.set_value(
-                        "Customer", 
-                        frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"),
-                        "user",
-                        user.name
-                    )
+                    customer = frappe.get_doc("Customer", frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"))
+                    if not frappe.db.exists("Portal User", {"parent": customer.name, "user": user.name}):
+                        customer.append("portal_user", {
+                            "user": user.name
+                        })
+                    customer.save()
         
     # if data.get("object") == "invoice" and 

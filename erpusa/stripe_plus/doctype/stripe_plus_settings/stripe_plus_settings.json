@@ -39,7 +39,14 @@
   "welcome_email_section",
   "subscription_email_content_instructions",
   "subscription_email_subject",
-  "subscription_email_message"
+  "subscription_email_message",
+  "update_settings_section",
+  "html_ifmh",
+  "section_break_khol",
+  "no_of_times",
+  "default_subscription_update_recipient",
+  "column_break_qcsg",
+  "timeframe"
  ],
  "fields": [
   {
@@ -255,12 +262,51 @@
    "fieldtype": "HTML",
    "label": "Subscription Notes",
    "options": "A set-up Advanced Features is required to enable Subscription as it keeps track of customer payments to automatically make Payment Entries against Sales Invoices."
+  },
+  {
+   "fieldname": "html_ifmh",
+   "fieldtype": "HTML",
+   "options": "Maximum Number of Payment Method Changes (X times in X minutes)"
+  },
+  {
+   "default": "3",
+   "fieldname": "no_of_times",
+   "fieldtype": "Int",
+   "label": "Number of Times",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "update_settings_section",
+   "fieldtype": "Section Break",
+   "hide_border": 1,
+   "label": "Subscription Update Settings"
+  },
+  {
+   "fieldname": "section_break_khol",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_qcsg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "5",
+   "fieldname": "timeframe",
+   "fieldtype": "Int",
+   "label": "Timeframe (in minutes)",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "default_subscription_update_recipient",
+   "fieldtype": "Link",
+   "label": "Default Recipient of Subscription Update Emails",
+   "options": "User"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-09-03 04:06:58.858497",
+ "modified": "2025-09-16 00:31:17.139647",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

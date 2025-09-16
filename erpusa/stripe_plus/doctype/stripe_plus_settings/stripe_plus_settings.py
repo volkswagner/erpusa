@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 from frappe.model.document import Document
 import stripe
 from jinja2 import Template
+import re
 from erpnext.selling.doctype.customer.customer import get_customer_primary_contact
 
 METHODS_FULLNAME = {
@@ -215,34 +216,25 @@ def get_customer_contact(customer):
       return contact_list[0][0]
       
   return None
-
-def get_representative_email_address(representative, as_dict=True, log_title=None):
-  email_address = frappe.db.get_value("Contact", representative, "email_id", as_dict=as_dict)
-  
-  if not email_address:
-      email_list = frappe.db.get_all("Contact Email", filters={"parent": representative}, pluck="email_id")
-      
-      if email_list:
-          email_address = email_list[0]
-      else:
-          frappe.log_error(log_title, f"No email address was found for its representative {representative}.")
-
-  return email_address
   
 def validate_subscription_stripe_plus_fields(subscription, method=None):
-  if subscription.autocharge_with_stripe and not subscription.stripe_subscription_id:
-    if not subscription.user_account_representative:
-      frappe.throw(_("User Account Representative is required to enable autocharging through Stripe."))
+  if subscription.autocharge_with_stripe:
+    if not frappe.db.get_single_value("Stripe Plus Settings", "default_subscription_update_recipient"):
+      frappe.throw(_("A default recipient for Subscription Update Emails is needed for autocharging with Stripe. Open Stripe Plus Settings and go to Subscription Tab to set the default recipient."))
     
-    if not frappe.db.count("Contact Email", filters={"parent": subscription.user_account_representative}):
-      frappe.throw(_("The selected User Account Representative doesn't have an email. Set an email address for the contact or choose a different one."))
+    if not subscription.stripe_subscription_id:
+      if not subscription.user_account_representative:
+        frappe.throw(_("User Account Representative is required to enable autocharging through Stripe."))
       
-    if not subscription.generate_invoice_at == "Beginning of the current subscription period":
-      subscription.generate_invoice_at = "Beginning of the current subscription period"
-      frappe.msgprint(_("Field generate_invoice_at was changed to <b>Beginning of the current subscription period</b> to allow auto-charging with Stripe."))
+      if not frappe.db.count("Contact Email", filters={"parent": subscription.user_account_representative}):
+        frappe.throw(_("The selected User Account Representative doesn't have an email. Set an email address for the contact or choose a different one."))
+        
+      if not subscription.generate_invoice_at == "Beginning of the current subscription period":
+        subscription.generate_invoice_at = "Beginning of the current subscription period"
+        frappe.msgprint(_("Field generate_invoice_at was changed to <b>Beginning of the current subscription period</b> to allow auto-charging with Stripe."))
 
-    if not subscription.payment_gateway_account:
-      frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
+      if not subscription.payment_gateway_account:
+        frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
@@ -565,7 +557,18 @@ def create_stripe_price(subscription_plan, item, stripe_product_id, stripe_setti
   if stripe_price_id:
     frappe.db.set_value("Subscription Plan", subscription_plan, "stripe_price_id", stripe_price_id)
 
-def calculate_subscription_plan_total(subscription):
+@frappe.whitelist()
+def calculate_subscription_plan_total(subscription, is_doc=True, include_billing=True, include_grand_total=True):
+  if isinstance(is_doc, str):
+      is_doc = is_doc.lower() == "true"
+  if isinstance(include_billing, str):
+      include_billing = include_billing.lower() == "true"
+  if isinstance(include_grand_total, str):
+      include_grand_total = include_grand_total.lower() == "true"
+      
+  if not is_doc:
+    subscription = frappe.get_doc("Subscription", subscription)
+    
   subscription_plan_list = []
   subscription_plan_grand_total = 0.00
   for subscription_plan in subscription.plans:
@@ -581,19 +584,26 @@ def calculate_subscription_plan_total(subscription):
     
     else:
       price = frappe.db.get_value("Subscription Plan", subscription_plan.plan, "cost")
-      
-    subscription_plan_list.append(frappe._dict({
+    
+    temp_plan = {
       "plan": subscription_plan.plan,
       "qty": subscription_plan.qty,
       "price": price,
-      "amount": subscription_plan.qty * price,
-      "billing_interval": frappe.db.get_value("Subscription Plan", subscription_plan.plan, "billing_interval"),
-      "billing_interval_count": frappe.db.get_value("Subscription Plan", subscription_plan.plan, "billing_interval_count")
-    }))
+      "amount": subscription_plan.qty * price
+    }
+    
+    if include_billing:
+      temp_plan["billing_interval"] = frappe.db.get_value("Subscription Plan", subscription_plan.plan, "billing_interval")
+      temp_plan["billing_interval_count"] = frappe.db.get_value("Subscription Plan", subscription_plan.plan, "billing_interval_count")
+      
+    subscription_plan_list.append(frappe._dict(temp_plan))
   
   subscription_plan_grand_total = subscription_plan_grand_total + (subscription_plan.qty * price)
   
-  return subscription_plan_list, subscription_plan_grand_total
+  if include_grand_total:
+    return subscription_plan_list, subscription_plan_grand_total
+  
+  return subscription_plan_list
 
 def setup_stripe_subscription_registration(subscription, method=None):
   if subscription.autocharge_with_stripe and not subscription.email_queue:
@@ -612,82 +622,90 @@ def setup_stripe_subscription_registration(subscription, method=None):
         stripe_product_id = frappe.db.get_value("Item", plan_item, "stripe_product_id")
         
         if stripe_product_id:
-          frappe.log_error("stripe_product", str(frappe.db.get_value("Item", plan_item, "stripe_product_id")))
           create_stripe_price(plan.plan, plan_item, stripe_product_id, stripe_settings)
-          frappe.log_error("stripe_price", frappe.db.get_value("Subscription Plan", plan.plan, "stripe_price_id"))
       
-      params = {
-        'subscription_name': subscription.name,
-        'customer': subscription.party,
-        'payment_gateway': subscription.payment_gateway,
-        'payment_configuration': subscription.payment_method_configuration
-      }
-      payment_url = frappe.utils.get_url() + f"/stripe_plus_subs_checkout?{urlencode(params)}"
-      recipient = get_representative_email_address(
-          representative=subscription.user_account_representative,
-          as_dict=False,
-          log_title=f"Failed to send payment URL for {subscription.name}",
-      )
-      email_now = False
-      email_send_after = subscription.start_date
-      
-      if getdate(subscription.start_date) == getdate(today()):
-        email_now = True
-        email_send_after = None
-      
-      subscription_plan_list, subscription_plan_grand_total = calculate_subscription_plan_total(subscription)
-      
-      subscription_plan_table = frappe.render_template(
-        "erpusa/templates/html/subscription_plan_table.html", {
-          "subscription_plan_list": subscription_plan_list,
-          "subscription_plan_grand_total": subscription_plan_grand_total
-        }
-      )
-      subject = frappe.db.get_single_value("Stripe Plus Settings", "subscription_email_subject") or _("Request to Subscribe and Initiate Payment via Stripe")
-      subject_template = Template(subject)
-      
-      if frappe.db.get_single_value("Stripe Plus Settings", "subscription_email_message"):
-        message_template = Template(frappe.db.get_single_value("Stripe Plus Settings", "subscription_email_message"))
-        message = message_template.render(
-          customer=subscription.party,
-          company=subscription.company,
-          name=f"<b>{subscription.name}<b/>",
-          start_date=subscription.start_date,
-          end_date=subscription.end_date,
-          payment_url=f'<span> <a href="{payment_url}" target="_blank">here</a> </span>',
-          subscription_plan_table=subscription_plan_table
-        )
+      if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}):
+        send_subscription_email_to_user(subscription)
         
-      else:
-        message = _(
-          """
-          Dear {},
-          <p>This email confirms your recent subscription to <b>{}</b> with {}.  We're excited to have you as a subscriber!</p>
-          <p>Here's what you're subscribe to:</p>
-          <p>{}</p>
-          <p>To finalize your payment, click <span> <a href="{}" target="_blank">here</a> </span>.</p>.
-          """
-        ).format(subscription.party, subscription.name, subscription.company, subscription_plan_table, payment_url)
-      
-      try:
-        frappe.sendmail(
-          subject=subject_template.render(name=subscription.name, start_date=subscription.start_date, end_date=subscription.end_date),
-          message=message,
-          recipients=[recipient],
-          now=email_now,
-          send_after=email_send_after,
-          reference_doctype="Subscription",
-          reference_name=subscription.name
-        )
-        
-      except Exception as e:
-        frappe.log_error("Error Sending Subscription Payment", str(e))
+def send_subscription_email_to_user(subscription):
+  params = {
+    'subscription_name': subscription.name,
+    'customer': subscription.party,
+    'payment_gateway': subscription.payment_gateway,
+    'payment_configuration': subscription.payment_method_configuration
+  }
+  payment_url = frappe.utils.get_url() + f"/stripe_plus_subs_checkout?{urlencode(params)}"
+  recipient = get_representative_email_address(
+    representative=subscription.user_account_representative,
+    as_dict=False,
+    log_title=f"Failed to send payment URL for {subscription.name}",
+  )
+  email_now = False
+  email_send_after = subscription.start_date
 
-      frappe.db.set_value("Subscription", subscription.name, "payment_url", payment_url)
-      frappe.db.set_value("Subscription", subscription.name, "email_queue", frappe.db.exists("Subscription", {"reference_doctype": "Subscription", "reference_name": subscription.name}))
-      frappe.db.set_value("Subscription", subscription.name, "email_status", "Queued")
-      
-def update_subscription_email_queue(email_queue, method=None):
-  if email_queue.has_value_changed("status"):
-    if email_queue.status == "Sent" and email_queue.reference_doctype == "Subscription":
-      frappe.db.set_value("Subscription", email_queue.reference_name, "email_status", "Sent")
+  if getdate(subscription.start_date) == getdate(today()):
+    email_now = True
+    email_send_after = None
+
+  subscription_plan_list, subscription_plan_grand_total = calculate_subscription_plan_total(subscription)
+
+  subscription_plan_table = frappe.render_template(
+    "erpusa/templates/html/subscription_plan_table.html", {
+      "subscription_plan_list": subscription_plan_list,
+      "subscription_plan_grand_total": subscription_plan_grand_total
+    }
+  )
+  subject = frappe.db.get_single_value("Stripe Plus Settings", "subscription_email_subject") or _("Request to Subscribe and Initiate Payment via Stripe")
+  subject_template = Template(subject)
+
+  if is_text_editor_set(frappe.db.get_single_value("Stripe Plus Settings", "subscription_email_message")):
+    message_template = Template(frappe.db.get_single_value("Stripe Plus Settings", "subscription_email_message"))
+    message = message_template.render(
+      customer=subscription.party,
+      company=subscription.company,
+      name=f"<b>{subscription.friendly_name or subscription.name}</b>",
+      start_date=subscription.start_date,
+      end_date=subscription.end_date,
+      payment_url=f'<span> <a href="{payment_url}" target="_blank">here</a> </span>',
+      subscription_plan_table=subscription_plan_table
+    )
+
+  else:
+    message = _(
+      """
+      Dear {},
+      <p>This email confirms your recent subscription to <b>{}</b> with {}.  We're excited to have you as a subscriber!</p>
+      <p>Here's what you're subscribe to:</p>
+      <p>{}</p>
+      <p>To set up your payment methods and automatic payments, click <span> <a href="{}" target="_blank">here</a> </span>.</p>.
+      """
+    ).format(subscription.party, subscription.friendly_name or subscription.name, subscription.company, subscription_plan_table, payment_url)
+
+  try:
+    frappe.sendmail(
+      subject=subject_template.render(name=subscription.name, start_date=subscription.start_date, end_date=subscription.end_date),
+      message=message,
+      recipients=[recipient],
+      now=email_now,
+      send_after=email_send_after,
+      reference_doctype="Subscription",
+      reference_name=subscription.name
+    )
+
+  except Exception as e:
+    frappe.log_error("Error Sending Subscription Payment", str(e))
+
+  frappe.db.set_value("Subscription", subscription.name, "payment_url", payment_url)
+  frappe.db.set_value("Subscription", subscription.name, "email_queue", frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}))
+  frappe.msgprint(_("An email was queued. Refresh the page from time to time to see updates."))
+  
+def is_text_editor_set(html_content):
+  if not html_content:
+    return False
+
+  text = re.sub('<[^<]+?>', '', html_content or '')
+  return text.strip()
+
+def unbind_email_queue_from_subscription(subscription, method=None):
+  if subscription.email_queue:
+    frappe.db.set_value("Email Queue", subscription.email_queue, "reference_name", None)

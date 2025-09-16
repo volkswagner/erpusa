@@ -564,7 +564,7 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
                         if reference.reference_name == sales_invoices[0]:
                             pe_doc.references[index].allocated_amount = mp_doc.gross_amount
                         
-                    pe_doc.reference_no = mp_doc.source
+                    pe_doc.reference_no = frappe.db.get_value("Stripe Transaction", mp_doc.source, "payment_intent")
                     pe_doc.paid_amount = mp_doc.net_amount
 
                     # apply Merchant Payment as deduction
