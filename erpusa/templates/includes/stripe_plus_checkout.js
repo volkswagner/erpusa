@@ -26,7 +26,7 @@ frappe.ready(function() {
         "docname": "{{ to_pay_id }}",
         "gateway_controller": "{{ gateway_controller }}",
         "request_name": "{{ reference_docname }}"
-    })
+      })
     });
     const { message: { clientSecret, redirect } } = await response.json();
 

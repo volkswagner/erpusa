@@ -1,0 +1,214 @@
+{% extends "templates/web.html" %}
+
+{% block breadcrumbs %}
+	{% include "templates/includes/breadcrumbs.html" %}
+{% endblock %}
+
+{% block style %}
+  
+<style>
+	.card {
+		pointer-events: all !important;
+		cursor: default !important;
+		transition: all 0.25s ease;
+	}
+
+	.card:hover {
+		box-shadow: 0px 0px 2px 3px var(--bg-dark-blue);
+	}
+
+	.card .btn.visible-on-hover {
+		opacity: 0.3;
+	}
+
+	.card:hover .btn.visible-on-hover {
+		opacity: 1;
+	}
+	
+	.filter-btn.active {
+		color: white !important;
+		background-color: #000 !important;
+    	border-color: #000 !important;
+	}
+	</style>
+{% endblock %}
+
+{% block script %}
+	<script>
+		document.addEventListener("DOMContentLoaded", function () {
+			const filter_buttons = document.querySelectorAll(".filter-btn");
+			const subscription_cards = document.querySelectorAll(".subscription-card");
+			const no_results = document.getElementById("no-results");
+
+			function get_query_param(key) {
+				const urlParams = new URLSearchParams(window.location.search);
+				return urlParams.get(key);
+			}
+
+			function update_url_param(key, value) {
+				const url = new URL(window.location);
+				url.searchParams.set(key, value);
+				history.replaceState({}, "", url);
+			}
+
+			function filter_subscriptions(filter_value) {
+				let show_empty_state = false;
+
+				subscription_cards.forEach(card => {
+					const cardStatus = card.dataset.status;
+
+					if (filter_value === "all" || cardStatus === filter_value) {
+						card.style.display = "flex";
+						show_empty_state = true;
+					} else {
+						card.style.display = "none";
+					}
+				});
+
+				show_empty_state ? no_results.classList.remove("d-flex") : no_results.classList.add("d-flex");
+
+				filter_buttons.forEach(btn => {
+					btn.dataset.filter === filter_value? btn.classList.add("active") : btn.classList.remove("active");
+				});
+			}
+
+			const initialFilter = get_query_param("status") || "all";
+			filter_subscriptions(initialFilter);
+
+			filter_buttons.forEach(button => {
+				button.addEventListener("click", function () {
+					const filter_value = this.dataset.filter;
+
+					filter_subscriptions(filter_value);
+					update_url_param("status", filter_value);
+				});
+			});
+		});
+	</script>
+{% endblock %}
+
+{% set currency = frappe.db.get_single_value('Global Defaults', 'default_currency') %}
+
+{% block page_content %}
+	{% block page_header %}
+		<h3>Subscriptions</h3>
+	{% endblock %}
+
+	<div id="filter-buttons" class="btn-group d-flex justify-content-start align-items-center pb-5 mb-5 mt-3">
+		<button class="btn btn-default btn-sm filter-btn" data-filter="all">All</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Active">Active</button>
+		<!-- <button class="btn btn-default btn-sm filter-btn" data-filter="Active">Autocharged with Stripe</button> -->
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Trialling">Trialling</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Unpaid">Unpaid</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Past Due">Past Due Date</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Cancelled">Cancelled</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Completed">Completed</button>
+	</div>
+	<div id="no-results" class="d-none empty-apps-state flex-column align-items-center justify-content-center py-5 my-5">
+		<img class="empty-list-icon" src="/assets/frappe/images/ui-states/list-empty-state.svg">
+		<div class="mt-4">Nothing to show</div>
+	</div>
+	{% for subscription in subscriptions %}
+		<div class="card mb-5 subscription-card" data-subscription="{{ subscription.name }}" data-status="{{ subscription.status }}">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<div class="flex-grow-1 d-flex justify-content-between align-items-cente pr-5">
+					<div class="d-flex justify-content-start align-items-center">
+						{% if subscription.friendly_name %}
+							<h6 class="mb-0 mr-2">{{ subscription.friendly_name }}</h6>
+						{% else %}
+							<h6 class="mb-0 mr-2">{{ subscription.name }}</h6>
+						{% endif %}
+						{% if subscription.status in ["Cancelled", "Completed"] %}
+							<div class="indicator-pill no-indicator-dot whitespace-nowrap gray mb-0 mr-2">{{ subscription.status }}</div>
+						{% elif subscription.status in ["Trialling", "Active"] %}
+							<div class="indicator-pill no-indicator-dot whitespace-nowrap green mb-0 mr-2">{{ subscription.status }}</div>
+						{% elif subscription.statusin ["Past Due Date", "Unpaid"] %}
+							<div class="indicator-pill no-indicator-dot whitespace-nowrap orange mb-0 mr-2">{{ subscription.status }}</div>
+						{% endif %}
+						{% if subscription.stripe_subscription_id %}
+							<div class="mb-0 mr-2">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-stripe" viewBox="0 0 16 16">
+									<path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zm6.226 5.385c-.584 0-.937.164-.937.593 0 .468.607.674 1.36.93 1.228.415 2.844.963 2.851 2.993C11.5 11.868 9.924 13 7.63 13a7.7 7.7 0 0 1-3.009-.626V9.758c.926.506 2.095.88 3.01.88.617 0 1.058-.165 1.058-.671 0-.518-.658-.755-1.453-1.041C6.026 8.49 4.5 7.94 4.5 6.11 4.5 4.165 5.988 3 8.226 3a7.3 7.3 0 0 1 2.734.505v2.583c-.838-.45-1.896-.703-2.734-.703"></path>
+								</svg>
+							</div>
+						{% endif %}
+					</div>
+					<div>
+						<h6 class="mb-0" >{{ frappe.utils.fmt_money(subscription.total, currency=currency) }}</h6>
+					</div>
+				</div>
+				<div class="btn-group">
+					<button type="button" class="btn btn-primary dropdown-toggle visible-on-hover" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+						Actions
+					</button>
+					<div class="dropdown-menu">
+						{% if subscription.status not in ["Cancelled", "Completed"] %}
+							{% if subscription.stripe_subscription_id %}
+								<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" target="_blank" href="{{ subscription.payment_url | replace('stripe_plus_subs_checkout', 'stripe_plus_subs_change_payment') }}">Update Payment Method</a>
+							{% endif %}
+							<button class="dropdown-item" data-action="request-plan-change" data-subscription="{{ subscription.name }}">Request Plan Change</button>
+							<div class="dropdown-divider"></div>
+							<button class="dropdown-item" data-action="cancel" data-subscription="{{ subscription.name }}">Request Cancellation</button>
+						{% else %}
+							<button class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}">Re-subscribe</button>
+						{% endif%}
+					</div>
+				</div>
+			</div>
+			<div class="card-body">
+				<div class="card-text">
+					<p>
+						<span class="text-muted">Subscribed from </span>
+						<span>{{ subscription.start_date.strftime('%B %d, %Y') }}</span>
+						<span class="text-muted">to </span>
+						<span>{{ subscription.end_date.strftime('%B %d, %Y') }}</span>
+					</p>
+					<p>
+						<span class="text-muted">Current Billing Period: </span>
+						<span>{{ subscription.current_invoice_start.strftime('%b %d, %Y') }}</span>
+						<span class="text-muted">- </span>
+						<span>{{ subscription.current_invoice_end.strftime('%b %d, %Y') }}</span>
+					</p>
+					<hr/>
+					<p><strong>Plans</strong></p>
+					<table class="table">
+						<thead class="thead-light">
+							<tr>
+								<th scope="col" class="font-weight-normal"></th>
+								<th scope="col" class="font-weight-normal">Plan</th>
+								<th scope="col" class="text-right font-weight-normal">Price</th>
+								<th scope="col" class="text-right font-weight-normal">Qty</th>
+								<th scope="col" class="text-right font-weight-normal">Amount</th>
+								<th scope="col" class="text-right font-weight-normal">Frequency</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for plan in subscription.plan_list %}
+								<tr>
+									<th scope="row">{{ loop.index }}</th>
+									<td scope="row">{{ plan.plan }}</td>
+									<td scope="row" class="text-right">{{ frappe.utils.fmt_money(plan.price, currency=currency) }}</td>
+									<td scope="row" class="text-right">{{ plan.qty }}</td>
+									<td scope="row" class="text-right">{{ frappe.utils.fmt_money(plan.amount, currency=currency) }}</td>
+									<td scope="row" class="text-right">
+										{% if plan.billing_interval_count == 1 %}
+											<span>Once</span>
+										{% elif plan.billing_interval_count == 2 %}
+											<span>Twice</span>
+										{% elif plan.billing_interval_count == 3 %}
+											<span>Thrice</span>
+										{% else %}
+											<span>{{ plan.billing_interval_count }}x</span>
+										{% endif %}
+											<span> a {{ plan.billing_interval }}</span>
+									</td>
+								</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+		
+	{% endfor %}
+{% endblock %}

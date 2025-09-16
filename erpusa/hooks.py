@@ -28,7 +28,7 @@ required_apps = [
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = "/assets/erpusa/css/stripe_plus.css"
+app_include_css = "/assets/erpusa/css/stripe_plus.css?v=202509030651"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpusa/css/erpusa.css"
@@ -53,7 +53,8 @@ doctype_js = {
 }
 doctype_list_js = {
     "Sales Invoice" : "public/js/sales_invoice_list.js",
- 	"Auto Repeat": "public/js/auto_repeat.js"
+ 	"Auto Repeat": "public/js/auto_repeat.js",
+ 	"Subscription": "public/js/subscription.js"
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -158,6 +159,11 @@ doc_events = {
 	},
 	"Contact": {
 		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.update_stripe_customer_info"
+	},
+	"Subscription": {
+        "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_subscription_stripe_plus_fields",
+        "on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.setup_stripe_subscription_registration",
+        "on_trash": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.unbind_email_queue_from_subscription"
 	}
 }
 
@@ -276,9 +282,15 @@ fixtures = [
              [
                 "module", "in", ["Stripe Plus", "ERPUSA"],
 			 ],
-             [
-                "dt", "not in", ["Subscription", "Subscription Plan"]
-			 ]
         ]
       },
+]
+
+portal_menu_items = [
+    {
+        "title": "Subscriptions",
+        "route": "/subscriptions",
+        "reference_doctype": "Subscription",
+        "role": "Customer"
+    }
 ]

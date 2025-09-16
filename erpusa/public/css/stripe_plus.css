@@ -28,3 +28,15 @@ html[data-theme="dark"] div[data-page-route="Stripe Plus Settings"] div[data-fie
     background-repeat: no-repeat;
     background-position: center;
 }
+
+div[data-page-route="Subscription Update Request"] div[data-fieldname="notes"] .grid-body .grid-row {
+    height: 100px;
+}
+
+div[data-page-route="Subscription Update Request"] div[data-fieldname="notes"] .grid-body .grid-row .row,
+div[data-page-route="Subscription Update Request"] div[data-fieldname="notes"] .grid-body .grid-row .col,
+div[data-page-route="Subscription Update Request"] div[data-fieldname="notes"] .grid-body .grid-row .field-area,
+div[data-page-route="Subscription Update Request"] div[data-fieldname="notes"] .grid-body .grid-row .frappe-control,
+div[data-page-route="Subscription Update Request"] div[data-fieldname="notes"] .grid-body .grid-row textarea {
+    height: 100% !important;
+}
