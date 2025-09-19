@@ -706,13 +706,11 @@ def cancel_subscription(subscription_name):
   if not frappe.db.exists("Email Queue", subscription_doc.email_queue):
     try:
       subscription_doc.email_queue = None
-      
     except Exception as e:
       frappe.log_error("Email Queue", str(e))
   
   try:
     subscription_doc.cancel_subscription()
-  
   except Exception as e:
     frappe.throw(_("Failed to cancel subscription"), str(e))
   
@@ -721,11 +719,48 @@ def cancel_subscription(subscription_name):
     
     try:
       subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
-      
     except Exception as e:
       frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
       
     frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
+
+def validate_subscription_plan_stripe_price(subscription_plan, method=None):
+  if subscription_plan.has_value_changed("currency") or \
+    subscription_plan.has_value_changed("item") or \
+    subscription_plan.has_value_changed("price_determination") or \
+    subscription_plan.has_value_changed("price_list")or \
+    subscription_plan.has_value_changed("cost") or \
+    subscription_plan.has_value_changed("billing_interval") or \
+  subscription_plan.has_value_changed("billing_interval_count") :
+    frappe.throw(_("This field can't be modified as the Subscription Plan has been registered to stripe.com"))
+
+def update_stripe_product(item, method=None):
+  if item.stripe_product_id and (item.has_value_changed("item_name") or item.has_value_changed("description")):
+    subscription_plan_detail = frappe.qb.DocType("Subscription Plan Detail")
+    subscription_plan = frappe.qb.DocType("Subscription Plan")
+
+    query = (
+        frappe.qb.from_(subscription_plan_detail)
+        .select(subscription_plan_detail.parent)
+        .inner_join(subscription_plan)
+        .on(subscription_plan_detail.plan == subscription_plan.name)
+        .where(subscription_plan.item == item.name)
+    )
+
+    subscriptions = query.run()
+    
+    if subscriptions:
+      stripe.api_key = get_api_key_secret(payment_gateway=frappe.db.get_value("Subscription", subscriptions[0][0], "payment_gateway"))
+      
+      try:
+        product = stripe.Product.modify(
+          item.stripe_product_id,
+          name=item.item_name,
+          description=item.description
+        )
+      except Exception as e:
+        frappe.log_error(_("Failed to update Stripe product: {}").format(item.stripe_product_id), str(e))
+    
 
 def is_text_editor_set(html_content):
   if not html_content:

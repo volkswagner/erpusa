@@ -97,11 +97,11 @@ frappe.ui.form.on("Subscription", {
 
     toggle_locked_fields: function (frm) {
         if (frm.doc.autocharge_with_stripe) {
-            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"]
+            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"];
             const locked_message = `
                 <div class="alert alert-warning p-2 mt-2" role="alert">
                         <small>Field is locked to allow autocharging with Stripe.</small>
-                </div>`
+                </div>`;
 
             frm.set_value("generate_new_invoices_past_due_date", 1);
             frm.set_value("submit_invoice", 1);
@@ -114,7 +114,7 @@ frappe.ui.form.on("Subscription", {
                     "description",
                     locked_message
                 );
-            })
+            });
         }
 
         else {
