@@ -589,7 +589,7 @@ def calculate_subscription_plan_total(subscription, is_doc=True, include_billing
       "plan": subscription_plan.plan,
       "qty": subscription_plan.qty,
       "price": price,
-      "amount": subscription_plan.qty * price
+      "amount": subscription_plan.qty * (price or 0)
     }
     
     if include_billing:
@@ -698,7 +698,35 @@ def send_subscription_email_to_user(subscription):
   frappe.db.set_value("Subscription", subscription.name, "payment_url", payment_url)
   frappe.db.set_value("Subscription", subscription.name, "email_queue", frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}))
   frappe.msgprint(_("An email was queued. Refresh the page from time to time to see updates."))
+
+@frappe.whitelist()
+def cancel_subscription(subscription_name):
+  subscription_doc = frappe.get_doc("Subscription", subscription_name)
+
+  if not frappe.db.exists("Email Queue", subscription_doc.email_queue):
+    try:
+      subscription_doc.email_queue = None
+      
+    except Exception as e:
+      frappe.log_error("Email Queue", str(e))
   
+  try:
+    subscription_doc.cancel_subscription()
+  
+  except Exception as e:
+    frappe.throw(_("Failed to cancel subscription"), str(e))
+  
+  if subscription_doc.stripe_subscription_id:
+    stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
+    
+    try:
+      subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
+      
+    except Exception as e:
+      frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
+      
+    frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
+
 def is_text_editor_set(html_content):
   if not html_content:
     return False
