@@ -640,12 +640,6 @@ def send_subscription_email_to_user(subscription):
     as_dict=False,
     log_title=f"Failed to send payment URL for {subscription.name}",
   )
-  email_now = False
-  email_send_after = subscription.start_date
-
-  if getdate(subscription.start_date) == getdate(today()):
-    email_now = True
-    email_send_after = None
 
   subscription_plan_list, subscription_plan_grand_total = calculate_subscription_plan_total(subscription)
 
@@ -686,8 +680,6 @@ def send_subscription_email_to_user(subscription):
       subject=subject_template.render(name=subscription.name, start_date=subscription.start_date, end_date=subscription.end_date),
       message=message,
       recipients=[recipient],
-      now=email_now,
-      send_after=email_send_after,
       reference_doctype="Subscription",
       reference_name=subscription.name
     )
