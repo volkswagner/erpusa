@@ -1,0 +1,48 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-14 12:26:40.827231",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "update_type",
+  "update_datetime",
+  "reference"
+ ],
+ "fields": [
+  {
+   "fieldname": "update_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Update Type",
+   "reqd": 1
+  },
+  {
+   "fieldname": "update_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Update DateTime",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reference",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-14 12:28:46.528305",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Subscription Update",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

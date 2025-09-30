@@ -1,0 +1,162 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{subscription}-RQ-{YY}{MM}{DD}",
+ "creation": "2025-09-03 04:13:58.147759",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "subscription",
+  "customer",
+  "column_break_fqre",
+  "status",
+  "request_type",
+  "section_break_yqfr",
+  "change_end_date",
+  "column_break_agrp",
+  "new_end_date",
+  "section_break_jcqa",
+  "additional_information",
+  "plans",
+  "section_break_meld",
+  "reviewer",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "subscription",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Subscription",
+   "options": "Subscription",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "subscription.party",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "no_copy": 1,
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "default": "Requested",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "no_copy": 1,
+   "options": "Requested\nIn Review\nCustomer Action Required\nApproved\nRejected",
+   "reqd": 1
+  },
+  {
+   "default": "Plan Change",
+   "fieldname": "request_type",
+   "fieldtype": "Select",
+   "label": "Request Type",
+   "options": "Plan Change\nEnd Date Change\nPlan and End Date Change\nCancellation\nResubscription",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_fqre",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_jcqa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_meld",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "reviewer",
+   "fieldtype": "Link",
+   "label": "Reviewer",
+   "options": "User"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Table",
+   "label": "Notes",
+   "options": "Update Request Note"
+  },
+  {
+   "default": "0",
+   "fieldname": "change_end_date",
+   "fieldtype": "Check",
+   "label": "Change End Date"
+  },
+  {
+   "fieldname": "section_break_yqfr",
+   "fieldtype": "Section Break",
+   "hide_border": 1
+  },
+  {
+   "depends_on": "eval: doc.change_end_date;",
+   "fieldname": "new_end_date",
+   "fieldtype": "Date",
+   "label": "New End Date"
+  },
+  {
+   "fieldname": "column_break_agrp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "additional_information",
+   "fieldtype": "Text Editor",
+   "label": "Additional Information",
+   "no_copy": 1
+  },
+  {
+   "description": "The current price, quantity, and total amount for each plan are shown next to the plan name. To change a plan, enter a new quantity. To remove a plan, enter zero (0).",
+   "fieldname": "plans",
+   "fieldtype": "Table",
+   "label": "Plans",
+   "options": "Update Request Plan"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "link_doctype": "ToDo",
+   "link_fieldname": "reference_name"
+  }
+ ],
+ "modified": "2025-09-09 01:39:11.080391",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Subscription Update Request",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "if_owner": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customer",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

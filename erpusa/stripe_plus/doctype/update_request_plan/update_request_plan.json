@@ -1,0 +1,106 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-05 12:58:35.720250",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "column_break_zkpj",
+  "plan",
+  "price",
+  "qty",
+  "amount",
+  "new_qty",
+  "new_amount"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "price",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Price",
+   "non_negative": 1,
+   "precision": "2",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "new_amount",
+   "fieldtype": "Currency",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "New Amt",
+   "non_negative": 1,
+   "precision": "2",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Current Qty",
+   "non_negative": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Current Amt",
+   "non_negative": 1,
+   "precision": "2",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "new_qty",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "New Qty",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "default": "0",
+   "fieldname": "plan",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Subscription Plan",
+   "options": "Subscription Plan",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "columns": 8,
+   "fieldname": "column_break_zkpj",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-09 01:56:17.659432",
+ "modified_by": "Administrator",
+ "module": "Stripe Plus",
+ "name": "Update Request Plan",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
