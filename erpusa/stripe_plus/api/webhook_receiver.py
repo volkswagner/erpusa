@@ -6,6 +6,7 @@ from decimal import Decimal
 from frappe import _
 from frappe.utils import fmt_money, get_url_to_form, today, now, split_emails
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
+from frappe.utils import now_datetime, add_to_date
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_bank_account_for_payment_entry
 from erpusa.stripe_plus.api.webhook_receiver_subscription import receive_stripe_subscription_events
 
@@ -124,8 +125,27 @@ METHOD_PROCESSING_DAYS = {
 @frappe.whitelist(allow_guest=True)
 def receive_stripe_events():
     payload = frappe.request.get_data()
-    validators = frappe.db.get_all("Stripe Plus Settings Webhook Validator", pluck="name")
     sig_header = frappe.request.headers.get("Stripe-Signature")
+    
+    frappe.enqueue(
+        "erpusa.stripe_plus.api.webhook_receiver.process_stripe_events",
+        queue='short',
+        enqueue_after_commit=False,
+        payload=payload,
+        sig_header=sig_header
+    )
+
+    # enqueue_at(
+    #     method="erpusa.stripe_plus.api.webhook_receiver.process_stripe_events",
+    #     queue='default',
+    #     kwargs={
+    #         "payload": payload,
+    #         "sig_header": sig_header
+    #     }
+    # )
+    
+def process_stripe_events(payload, sig_header):
+    validators = frappe.db.get_all("Stripe Plus Settings Webhook Validator", pluck="name")
     
     # verify if signing secret matches an entry in Stripe Plus Settings
     for validator in validators:

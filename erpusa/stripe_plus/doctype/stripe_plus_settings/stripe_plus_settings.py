@@ -235,6 +235,9 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
 
       if not subscription.payment_gateway_account:
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
+        
+    if  subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
+      subscription.email_queue = None
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
