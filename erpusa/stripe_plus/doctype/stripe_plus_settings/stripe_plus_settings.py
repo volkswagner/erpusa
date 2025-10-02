@@ -720,13 +720,13 @@ def cancel_subscription(subscription_name):
     frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
 
 def validate_subscription_plan_stripe_price(subscription_plan, method=None):
-  if subscription_plan.has_value_changed("currency") or \
+  if subscription_plan.stripe_price_id and (subscription_plan.has_value_changed("currency") or \
     subscription_plan.has_value_changed("item") or \
     subscription_plan.has_value_changed("price_determination") or \
     subscription_plan.has_value_changed("price_list")or \
     subscription_plan.has_value_changed("cost") or \
     subscription_plan.has_value_changed("billing_interval") or \
-  subscription_plan.has_value_changed("billing_interval_count") :
+  subscription_plan.has_value_changed("billing_interval_count") ):
     frappe.throw(_("This field can't be modified as the Subscription Plan has been registered to stripe.com"))
 
 def update_stripe_product(item, method=None):
