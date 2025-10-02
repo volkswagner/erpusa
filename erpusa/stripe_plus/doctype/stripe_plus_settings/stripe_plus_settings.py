@@ -235,6 +235,9 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
 
       if not subscription.payment_gateway_account:
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
+        
+    if  subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
+      subscription.email_queue = None
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
@@ -640,12 +643,6 @@ def send_subscription_email_to_user(subscription):
     as_dict=False,
     log_title=f"Failed to send payment URL for {subscription.name}",
   )
-  email_now = False
-  email_send_after = subscription.start_date
-
-  if getdate(subscription.start_date) == getdate(today()):
-    email_now = True
-    email_send_after = None
 
   subscription_plan_list, subscription_plan_grand_total = calculate_subscription_plan_total(subscription)
 
@@ -686,8 +683,6 @@ def send_subscription_email_to_user(subscription):
       subject=subject_template.render(name=subscription.name, start_date=subscription.start_date, end_date=subscription.end_date),
       message=message,
       recipients=[recipient],
-      now=email_now,
-      send_after=email_send_after,
       reference_doctype="Subscription",
       reference_name=subscription.name
     )
@@ -725,13 +720,13 @@ def cancel_subscription(subscription_name):
     frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
 
 def validate_subscription_plan_stripe_price(subscription_plan, method=None):
-  if subscription_plan.has_value_changed("currency") or \
+  if subscription_plan.stripe_price_id and (subscription_plan.has_value_changed("currency") or \
     subscription_plan.has_value_changed("item") or \
     subscription_plan.has_value_changed("price_determination") or \
     subscription_plan.has_value_changed("price_list")or \
     subscription_plan.has_value_changed("cost") or \
     subscription_plan.has_value_changed("billing_interval") or \
-  subscription_plan.has_value_changed("billing_interval_count") :
+  subscription_plan.has_value_changed("billing_interval_count") ):
     frappe.throw(_("This field can't be modified as the Subscription Plan has been registered to stripe.com"))
 
 def update_stripe_product(item, method=None):
