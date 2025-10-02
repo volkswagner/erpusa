@@ -44,7 +44,7 @@ frappe.ui.form.on("Subscription", {
                         name: frm.doc.email_queue
                     },
                     callback: function (r) {
-                        let additional_info = r.message.status == "Sent"? "Customer has been notified to set up a payment method." : "An email is scheduled to be sent to the customer at the start of the subscription.";
+                        let additional_info = r.message.status == "Sent"? "Customer has been notified to set up a payment method." : "An email was scheduled to be sent to the customer.";
                         displayIntro(frm, "Email " + r.message.status, additional_info);
                     }
                 });
@@ -129,7 +129,7 @@ frappe.ui.form.on("Subscription", {
     },
 
     cancel_subscription: function (frm) {
-		frappe.confirm(
+		cancel_subscription_dialog = frappe.confirm(
 			__("This action will stop future billing. Are you sure you want to cancel this subscription?"),
 			() => {
 				frappe.call({
@@ -140,7 +140,6 @@ frappe.ui.form.on("Subscription", {
                     callback: function (r) {
                         if (!r.exec) {
                             frm.reload_doc();
-                            cancel_subscription_dialog.hide();
                         }
                     }
                 });
