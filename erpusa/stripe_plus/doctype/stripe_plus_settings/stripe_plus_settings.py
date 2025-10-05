@@ -204,18 +204,6 @@ def get_representative_email_address(representative, as_dict=True, log_title=Non
           frappe.log_error(log_title, f"No email address was found for its representative {representative}.")
 
   return email_address
-
-@frappe.whitelist()
-def get_customer_contact(customer):
-  for contact_type in ("is_billing_contact", "is_primary_contact"):
-    contact_list = get_customer_primary_contact(
-      "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1}
-    )
-    
-    if contact_list:
-      return contact_list[0][0]
-      
-  return None
   
 def validate_subscription_stripe_plus_fields(subscription, method=None):
   if subscription.autocharge_with_stripe:
