@@ -349,8 +349,10 @@ def find_customer_configuration(customer, payment_gateway):
   
 @frappe.whitelist()
 def create_stripe_customer(customer, stripe_settings=None, show_success_message=0):
-  if frappe.db.get_value("Customer", customer, "stripe_customer_id") and show_success_message:
-    frappe.throw(_("Customer already added to Stripe with id {stripe_customer}").format(stripe_customer=frappe.db.get_value("Customer", customer, "stripe_customer_id")))
+  if frappe.db.get_value("Customer", customer, "stripe_customer_id"):
+    if show_success_message:
+      frappe.throw(_("Customer already added to Stripe with id {stripe_customer}").format(stripe_customer=frappe.db.get_value("Customer", customer, "stripe_customer_id")))
+    return
   
   if not stripe_settings:
     frappe.throw(_("Select a Stripe Settings."))
@@ -366,20 +368,25 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
       frappe.throw(_("An error occured while looking for customer in stripe.com. <br><br/>{}").format(str(e)))
 
   if matching_customer_list and matching_customer_list.get("data"):
-    frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
+    if show_success_message:
+      frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
+    return
 
   customer_contact = get_customer_contact(customer)
-  if show_success_message and not customer_contact:
+  if not customer_contact and show_success_message:
     frappe.throw(_("A preferred contact information does not exist for {}.").format(customer))
     
   customer_email_address = get_representative_email_address(customer_contact, as_dict=False)
-  if show_success_message and not customer_email_address:
+  if not customer_email_address and show_success_message:
     frappe.throw(_("{} doesn't have an email address.").format(customer_contact))
     
   try:
     stripe_customer = stripe.Customer.create(
       name=frappe.db.get_value("Customer", customer, "customer_name"),
       email=customer_email_address,
+      metadata={
+        "erp_customer_name": customer
+      }
     )
 
     frappe.db.set_value("Customer", customer, "stripe_customer_id", stripe_customer.id)
