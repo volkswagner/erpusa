@@ -54,7 +54,8 @@ doctype_js = {
 doctype_list_js = {
     "Sales Invoice" : "public/js/sales_invoice_list.js",
  	"Auto Repeat": "public/js/auto_repeat.js",
- 	"Subscription": "public/js/subscription.js"
+ 	"Subscription": "public/js/subscription.js",
+	"Subscription Plan": "public/js/subscription_plan.js"
 }
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -164,6 +165,12 @@ doc_events = {
         "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_subscription_stripe_plus_fields",
         "on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.setup_stripe_subscription_registration",
         "on_trash": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.unbind_email_queue_from_subscription"
+	},
+	"Subscription Plan": {
+		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_subscription_plan_stripe_price"
+	},
+	"Item": {
+		"on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.update_stripe_product"
 	}
 }
 

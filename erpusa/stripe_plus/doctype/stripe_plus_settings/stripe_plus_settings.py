@@ -204,18 +204,6 @@ def get_representative_email_address(representative, as_dict=True, log_title=Non
           frappe.log_error(log_title, f"No email address was found for its representative {representative}.")
 
   return email_address
-
-@frappe.whitelist()
-def get_customer_contact(customer):
-  for contact_type in ("is_billing_contact", "is_primary_contact"):
-    contact_list = get_customer_primary_contact(
-      "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1}
-    )
-    
-    if contact_list:
-      return contact_list[0][0]
-      
-  return None
   
 def validate_subscription_stripe_plus_fields(subscription, method=None):
   if subscription.autocharge_with_stripe:
@@ -235,6 +223,9 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
 
       if not subscription.payment_gateway_account:
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
+        
+    if  subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
+      subscription.email_queue = None
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
@@ -346,8 +337,10 @@ def find_customer_configuration(customer, payment_gateway):
   
 @frappe.whitelist()
 def create_stripe_customer(customer, stripe_settings=None, show_success_message=0):
-  if frappe.db.get_value("Customer", customer, "stripe_customer_id") and show_success_message:
-    frappe.throw(_("Customer already added to Stripe with id {stripe_customer}").format(stripe_customer=frappe.db.get_value("Customer", customer, "stripe_customer_id")))
+  if frappe.db.get_value("Customer", customer, "stripe_customer_id"):
+    if show_success_message:
+      frappe.throw(_("Customer already added to Stripe with id {stripe_customer}").format(stripe_customer=frappe.db.get_value("Customer", customer, "stripe_customer_id")))
+    return
   
   if not stripe_settings:
     frappe.throw(_("Select a Stripe Settings."))
@@ -363,20 +356,25 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
       frappe.throw(_("An error occured while looking for customer in stripe.com. <br><br/>{}").format(str(e)))
 
   if matching_customer_list and matching_customer_list.get("data"):
-    frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
+    if show_success_message:
+      frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
+    return
 
   customer_contact = get_customer_contact(customer)
-  if show_success_message and not customer_contact:
+  if not customer_contact and show_success_message:
     frappe.throw(_("A preferred contact information does not exist for {}.").format(customer))
     
   customer_email_address = get_representative_email_address(customer_contact, as_dict=False)
-  if show_success_message and not customer_email_address:
+  if not customer_email_address and show_success_message:
     frappe.throw(_("{} doesn't have an email address.").format(customer_contact))
     
   try:
     stripe_customer = stripe.Customer.create(
       name=frappe.db.get_value("Customer", customer, "customer_name"),
       email=customer_email_address,
+      metadata={
+        "erp_customer_name": customer
+      }
     )
 
     frappe.db.set_value("Customer", customer, "stripe_customer_id", stripe_customer.id)
@@ -589,7 +587,7 @@ def calculate_subscription_plan_total(subscription, is_doc=True, include_billing
       "plan": subscription_plan.plan,
       "qty": subscription_plan.qty,
       "price": price,
-      "amount": subscription_plan.qty * price
+      "amount": subscription_plan.qty * (price or 0)
     }
     
     if include_billing:
@@ -640,12 +638,6 @@ def send_subscription_email_to_user(subscription):
     as_dict=False,
     log_title=f"Failed to send payment URL for {subscription.name}",
   )
-  email_now = False
-  email_send_after = subscription.start_date
-
-  if getdate(subscription.start_date) == getdate(today()):
-    email_now = True
-    email_send_after = None
 
   subscription_plan_list, subscription_plan_grand_total = calculate_subscription_plan_total(subscription)
 
@@ -686,8 +678,6 @@ def send_subscription_email_to_user(subscription):
       subject=subject_template.render(name=subscription.name, start_date=subscription.start_date, end_date=subscription.end_date),
       message=message,
       recipients=[recipient],
-      now=email_now,
-      send_after=email_send_after,
       reference_doctype="Subscription",
       reference_name=subscription.name
     )
@@ -698,7 +688,70 @@ def send_subscription_email_to_user(subscription):
   frappe.db.set_value("Subscription", subscription.name, "payment_url", payment_url)
   frappe.db.set_value("Subscription", subscription.name, "email_queue", frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}))
   frappe.msgprint(_("An email was queued. Refresh the page from time to time to see updates."))
+
+@frappe.whitelist()
+def cancel_subscription(subscription_name):
+  subscription_doc = frappe.get_doc("Subscription", subscription_name)
+
+  if not frappe.db.exists("Email Queue", subscription_doc.email_queue):
+    try:
+      subscription_doc.email_queue = None
+    except Exception as e:
+      frappe.log_error("Email Queue", str(e))
   
+  try:
+    subscription_doc.cancel_subscription()
+  except Exception as e:
+    frappe.throw(_("Failed to cancel subscription"), str(e))
+  
+  if subscription_doc.stripe_subscription_id:
+    stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
+    
+    try:
+      subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
+    except Exception as e:
+      frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
+      
+    frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
+
+def validate_subscription_plan_stripe_price(subscription_plan, method=None):
+  if subscription_plan.stripe_price_id and (subscription_plan.has_value_changed("currency") or \
+    subscription_plan.has_value_changed("item") or \
+    subscription_plan.has_value_changed("price_determination") or \
+    subscription_plan.has_value_changed("price_list")or \
+    subscription_plan.has_value_changed("cost") or \
+    subscription_plan.has_value_changed("billing_interval") or \
+  subscription_plan.has_value_changed("billing_interval_count") ):
+    frappe.throw(_("This field can't be modified as the Subscription Plan has been registered to stripe.com"))
+
+def update_stripe_product(item, method=None):
+  if item.stripe_product_id and (item.has_value_changed("item_name") or item.has_value_changed("description")):
+    subscription_plan_detail = frappe.qb.DocType("Subscription Plan Detail")
+    subscription_plan = frappe.qb.DocType("Subscription Plan")
+
+    query = (
+        frappe.qb.from_(subscription_plan_detail)
+        .select(subscription_plan_detail.parent)
+        .inner_join(subscription_plan)
+        .on(subscription_plan_detail.plan == subscription_plan.name)
+        .where(subscription_plan.item == item.name)
+    )
+
+    subscriptions = query.run()
+    
+    if subscriptions:
+      stripe.api_key = get_api_key_secret(payment_gateway=frappe.db.get_value("Subscription", subscriptions[0][0], "payment_gateway"))
+      
+      try:
+        product = stripe.Product.modify(
+          item.stripe_product_id,
+          name=item.item_name,
+          description=item.description
+        )
+      except Exception as e:
+        frappe.log_error(_("Failed to update Stripe product: {}").format(item.stripe_product_id), str(e))
+    
+
 def is_text_editor_set(html_content):
   if not html_content:
     return False
