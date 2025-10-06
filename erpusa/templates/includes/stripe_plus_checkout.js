@@ -20,7 +20,6 @@ frappe.ready(function() {
           "X-Frappe-CSRF-Token": frappe.csrf_token
       },
       body: JSON.stringify({ 
-        "amount": "{{ amount_float }}", 
         "pm_configuration": "{{ pm_configuration }}"=="None"? null : "{{ pm_configuration }}",
         "doctype": "{{ to_pay_doctype }}",
         "docname": "{{ to_pay_id }}",

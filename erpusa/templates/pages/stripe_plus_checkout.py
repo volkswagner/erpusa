@@ -7,12 +7,14 @@ from frappe.utils import fmt_money
 import stripe
 import json
 from decimal import Decimal, ROUND_DOWN
-from payments.templates.pages.stripe_checkout import expected_keys, is_a_subscription, get_api_key
+from payments.templates.pages.stripe_checkout import is_a_subscription, get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import (
     get_api_key_secret,
     get_customer_funding_instructions,
 )
+
+expected_keys = ["reference_doctype", "reference_docname", "payment_gateway", "description"]
 
 def get_context(context):
     context.no_cache = 1
@@ -61,7 +63,12 @@ def get_context(context):
                 else:
                     context.header_image = frappe.db.get_value("Company", context.company, "company_logo")
                 
+                context.title = context.company
                 context.to_pay_id = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_name")
+                context.order_id = context.reference_docname
+
+                context.payer_email = frappe.db.get_value(context.reference_doctype, context.reference_docname, "email_to")
+                context.payer_name = frappe.db.get_value(context.reference_doctype, context.reference_docname, "party_name")
 
                 if frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration"):
                     pm_configuration_doc = frappe.db.get_value(context.reference_doctype, context.reference_docname, "payment_method_configuration")
@@ -70,8 +77,12 @@ def get_context(context):
                 else:
                     context.pm_configuration = None
 
-                context.amount_float = float(context["amount"])
-                context["amount"] = fmt_money(amount=context["amount"], currency=context["currency"])
+                paymentRequestAmount = frappe.db.get_value(context.reference_doctype, context.reference_docname, "outstanding_amount")
+                paymentRequestCurrencyDocname = frappe.db.get_value(context.reference_doctype, context.reference_docname, "currency")
+                paymentRequestCurrencyName = frappe.db.get_value("Currency", paymentRequestCurrencyDocname, "currency_name")
+                context.currency = paymentRequestCurrencyName
+                context.amount_float = paymentRequestAmount
+                context["amount"] = fmt_money(amount=paymentRequestAmount, currency=paymentRequestCurrencyName)
 
                 if is_a_subscription(context.reference_doctype, context.reference_docname):
                     payment_plan = frappe.db.get_value(
@@ -127,6 +138,9 @@ def create_fetch_payment_intent():
     stripe_intent_id = frappe.db.get_value("Payment Request", data.get('request_name'), "stripe_intent_id")
     payment_request_customer = frappe.db.get_value("Payment Request", data.get('request_name'), "party")
     stripe_customer_id = frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id")
+
+    # load payment amount from payment request
+    data.amount = frappe.db.get_value("Payment Request", data.get('request_name'), "outstanding_amount")
 
     if stripe_intent_id:
         try:
