@@ -91,14 +91,18 @@ def get_context(context):
                     recurrence = frappe.db.get_value("Payment Plan", payment_plan, "recurrence")
 
                     context["amount"] = context["amount"] + " " + _(recurrence)
-
+        else:
+            redirect_for_missing_info()
     else:
-        frappe.redirect_to_message(
+        redirect_for_missing_info()
+
+def redirect_for_missing_info():
+    frappe.redirect_to_message(
             _("Some information is missing"),
             _("Looks like someone sent you to an incomplete URL. Please ask them to look into it."),
         )
-        frappe.local.flags.redirect_location = frappe.local.response.location
-        raise frappe.Redirect
+    frappe.local.flags.redirect_location = frappe.local.response.location
+    raise frappe.Redirect 
 
 def create_payment_intent(data, customer_id):
     amount_in_decimal = (Decimal(data.get('amount')) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
@@ -140,7 +144,7 @@ def create_fetch_payment_intent():
     stripe_customer_id = frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id")
 
     # load payment amount from payment request
-    data.amount = frappe.db.get_value("Payment Request", data.get('request_name'), "outstanding_amount")
+    data["amount"] = frappe.db.get_value("Payment Request", data.get('request_name'), "outstanding_amount")
 
     if stripe_intent_id:
         try:
