@@ -7,6 +7,7 @@ from frappe.utils import cint, getdate, today
 from urllib.parse import urlencode
 from frappe.model.document import Document
 import stripe
+import secrets
 from jinja2 import Template
 import re
 from erpnext.selling.doctype.customer.customer import get_customer_primary_contact
@@ -152,6 +153,7 @@ def validate_stripe_plus_fields(payment_request, method=None):
 
     if payment_request.docstatus == 2:
       payment_request.stripe_intent_id = None
+      payment_request.stripe_plus_access_token = secrets.token_urlsafe()
 
   else:
     return
