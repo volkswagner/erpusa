@@ -14,7 +14,7 @@ from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import
     get_customer_funding_instructions,
 )
 
-expected_keys = ["reference_doctype", "reference_docname", "payment_gateway", "description"]
+expected_keys = ["reference_doctype", "reference_docname", "payment_gateway", "description", "access_token"]
 
 def get_context(context):
     context.no_cache = 1
@@ -31,6 +31,10 @@ def get_context(context):
         if ek_set.issubset(fd_set):
             for key in expected_keys:
                 context[key] = url_parameter[key]
+
+            paymentRequestAccessToken = frappe.db.get_value(context.reference_doctype, context.reference_docname, "stripe_plus_access_token")
+            if (context.access_token != paymentRequestAccessToken):
+                redirect_for_missing_info()
 
             context.to_pay_doctype = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_doctype")
 
