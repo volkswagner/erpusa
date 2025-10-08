@@ -549,7 +549,7 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
     # notify user payment once merchnt payment doc is created
-    if frappe.db.exists("Merchant Payment", mp_doc.name) and frappe.db.get_value("Merchant Payment", mp_doc.name, "stripe_status") == "Available":
+    if frappe.db.exists("Merchant Payment", mp_doc.name):
         notify_user(merchant_payment=mp_doc)
             
     return mp_doc
