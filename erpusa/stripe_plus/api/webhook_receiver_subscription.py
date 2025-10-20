@@ -22,7 +22,6 @@ def receive_stripe_subscription_events(data):
         # check if subscription exists and set the stripe id and status
         if metadata and metadata.get("erp_subscription_name") and not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id"):
             frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id", data.get("id"))
-            frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
             
             # if stripe is already linked with ERPNext, update the cancellation date if appplicable
             if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"):
@@ -38,6 +37,7 @@ def receive_stripe_subscription_events(data):
             
             # send welcome email and create user if customer is new
             if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and data.get("status") == "active":
+                frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
                 user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
                 representative = frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "user_account_representative")
                 email_address = get_representative_email_address(
@@ -67,7 +67,8 @@ def receive_stripe_subscription_events(data):
                     reference_name=f"{metadata.get('erp_subscription_name')}_welcome"
                 )
 
-                if user_to_authorize and user_exists:
+                if user_to_authorize and not user_exists:
+                    frappe.log_error("Exists")
                     frappe.set_user(user_to_authorize)
                     user = frappe.new_doc("User")
                     user.email = email_address
