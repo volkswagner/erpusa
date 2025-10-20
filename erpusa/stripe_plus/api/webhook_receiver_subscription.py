@@ -35,7 +35,7 @@ def receive_stripe_subscription_events(data):
                     )
                 )
             
-            # send welcome email and create user if customer is new
+             # send welcome email and create user if customer is new
             if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and data.get("status") == "active":
                 frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
                 user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
@@ -68,7 +68,6 @@ def receive_stripe_subscription_events(data):
                 )
 
                 if user_to_authorize and not user_exists:
-                    frappe.log_error("Exists")
                     frappe.set_user(user_to_authorize)
                     user = frappe.new_doc("User")
                     user.email = email_address
