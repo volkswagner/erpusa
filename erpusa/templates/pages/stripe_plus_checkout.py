@@ -37,7 +37,7 @@ def get_context(context):
                 redirect_for_missing_info()
 
             context.to_pay_doctype = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_doctype")
-            context.to_pay_docname = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_docname")
+            context.to_pay_docname = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_name")
 
             paymentRequestStatus = frappe.db.get_value(context.reference_doctype, context.reference_docname, "status")
 
