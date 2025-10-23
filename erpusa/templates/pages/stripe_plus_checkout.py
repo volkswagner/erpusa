@@ -53,6 +53,7 @@ def get_context(context):
                     _("This payment request is no longer valid."),
                     _("The payment request was cancelled and this link is no longer valid. You may have received an updated payment request for {doctype} {docname} instead.").format(doctype=context.to_pay_doctype, docname=context.to_pay_docname),
                 )
+                frappe.local.flags.redirect_location = frappe.local.response.location
                 raise frappe.Redirect
             else:
                 context.gateway_controller = get_gateway_controller(
