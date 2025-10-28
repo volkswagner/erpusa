@@ -134,15 +134,6 @@ def receive_stripe_events():
         payload=payload,
         sig_header=sig_header
     )
-
-    # enqueue_at(
-    #     method="erpusa.stripe_plus.api.webhook_receiver.process_stripe_events",
-    #     queue='default',
-    #     kwargs={
-    #         "payload": payload,
-    #         "sig_header": sig_header
-    #     }
-    # )
     
 def process_stripe_events(payload, sig_header):
     validators = frappe.db.get_all("Stripe Plus Settings Webhook Validator", pluck="name")
@@ -471,10 +462,6 @@ def create_update_stripe_payout(data, log_doc, api_key):
                 adjustments = adjustments + txn.net
                 
         total = charges + stripe_fees
-        frappe.log_error("charges", str(charges))
-        frappe.log_error("stripe_fees", str(stripe_fees))
-        frappe.log_error("total", str(total))
-        frappe.log_error("doc.amount", str(doc.amount))
         
         # refunds and adjustments are not handled at the moment, error message will be sent via email
         if refunds or adjustments or (Decimal(total) / Decimal('100') != Decimal(str(doc.amount))):

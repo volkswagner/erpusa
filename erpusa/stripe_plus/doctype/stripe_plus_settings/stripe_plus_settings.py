@@ -3,12 +3,12 @@
 
 import frappe
 from frappe import _
-from frappe.utils import cint, getdate, today
 from urllib.parse import urlencode
 from frappe.model.document import Document
 import stripe
 from jinja2 import Template
 import re
+from frappe.utils import cint
 from erpnext.selling.doctype.customer.customer import get_customer_primary_contact
 
 METHODS_FULLNAME = {
@@ -223,8 +223,8 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
 
       if not subscription.payment_gateway_account:
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
-        
-    if  subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
+
+    if subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
       subscription.email_queue = None
 
 @frappe.whitelist()
@@ -624,7 +624,11 @@ def setup_stripe_subscription_registration(subscription, method=None):
       
       if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}):
         send_subscription_email_to_user(subscription)
-        
+
+  frappe.log_error(str(subscription.email_queue))
+  if subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
+    subscription.email_queue = None
+
 def send_subscription_email_to_user(subscription):
   params = {
     'subscription_name': subscription.name,
@@ -762,3 +766,6 @@ def is_text_editor_set(html_content):
 def unbind_email_queue_from_subscription(subscription, method=None):
   if subscription.email_queue:
     frappe.db.set_value("Email Queue", subscription.email_queue, "reference_name", None)
+
+  
+
