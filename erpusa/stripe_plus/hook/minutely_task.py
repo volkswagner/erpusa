@@ -1,6 +1,7 @@
 import frappe
 import datetime
 import urllib
+from frappe import _
 
 
 def generate_digest_notification_message(schedule_info, description):
@@ -71,14 +72,14 @@ def send_daily_digest():
                     label = schedule_detail["label"] if schedule_detail["label"] else schedule_detail["date_end"].strftime("%I:%M %p")
                     
                     if schedule_index == 0:
-                        description = f'You have <b id="count">{count}</b> new transaction(s) that occurred before {schedule_detail["date_end"].strftime("%I:%M %p")} today.'
+                        description = _('You have <b id="count">{}</b> new transaction(s) that occurred before {} today.').format(count, schedule_detail["date_end"].strftime("%I:%M %p"))
                     else:
-                        description = f'You have <b id="count">{count}</b> new transaction(s) since the last digest.'
+                        description =_('You have <b id="count">{}</b> new transaction(s) since the last digest.').format(count)
                     
                     
                     frappe.sendmail(
                         recipients=recipients.split(),
-                        subject=f"New Stripe Transactions - Stripe Plus",
+                        subject=_("New Stripe Transactions - Stripe Plus"),
                         message=generate_digest_notification_message(
                             schedule_detail,
                             description

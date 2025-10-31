@@ -112,6 +112,10 @@
   {
    "fieldname": "object",
    "fieldtype": "Select",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
    "label": "Object",
    "options": "charge\npayment_intent\nsetup_intent\nrefund"
   },
@@ -166,6 +170,10 @@
   {
    "fieldname": "customer",
    "fieldtype": "Data",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
    "label": "Customer"
   },
   {
@@ -283,6 +291,10 @@
   {
    "fieldname": "payment_intent",
    "fieldtype": "Data",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
    "label": "Payment Intent"
   },
   {
@@ -413,6 +425,10 @@
   {
    "fieldname": "status",
    "fieldtype": "Data",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
    "label": "Status"
   },
   {
@@ -568,12 +584,20 @@
   {
    "fieldname": "payout",
    "fieldtype": "Link",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
    "label": "Payout",
    "options": "Stripe Payout"
   },
   {
    "fieldname": "amount",
    "fieldtype": "Currency",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
    "label": "Amount"
   },
   {
@@ -599,9 +623,15 @@
    "options": "Stripe Transaction Email Log"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2025-08-20 08:24:58.213406",
+ "links": [
+  {
+   "link_doctype": "Merchant Payment",
+   "link_fieldname": "source"
+  }
+ ],
+ "modified": "2025-10-29 07:26:02.233761",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Transaction",
@@ -633,6 +663,8 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

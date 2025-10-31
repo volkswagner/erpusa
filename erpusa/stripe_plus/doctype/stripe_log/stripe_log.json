@@ -19,11 +19,19 @@
   {
    "fieldname": "event_id",
    "fieldtype": "Data",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
    "label": "Event ID"
   },
   {
    "fieldname": "event_type",
    "fieldtype": "Data",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
    "label": "Event Type"
   },
   {
@@ -32,9 +40,10 @@
    "label": "Event Data"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-08 11:29:22.374986",
+ "modified": "2025-10-29 07:30:44.680457",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Log",
@@ -72,6 +81,8 @@
    "share": 1
   }
  ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

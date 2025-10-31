@@ -42,8 +42,8 @@ frappe.ui.form.on("Payment Request", {
 
     refresh: function(frm) {
         if (frm.doc.payment_url) {
-            frm.add_custom_button("Open Payment Page", function() {
-                window.open(frm.doc.payment_url, "_blank");
+            frm.add_custom_button("Preview Payment Page", function() {
+                window.open(`${frm.doc.payment_url}&preview`, "_blank");
             }, "Tools")
         }
     },

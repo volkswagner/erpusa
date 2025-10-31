@@ -27,6 +27,7 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
             # if stripe is already linked with ERPNext, update the cancellation date if appplicable
             if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"):
                 import stripe
+                
                 stripe.api_key = get_api_key_secret(payment_gateway=frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "payment_gateway"))
                 stripe.Subscription.modify(
                     data.get("id"), 
@@ -83,14 +84,13 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
                     
                     customer = frappe.get_doc("Customer", frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"))
                     if not frappe.db.exists("Portal User", {"parent": customer.name, "user": user.name}):
-                        customer.append("portal_userss", {
+                        customer.append("portal_users", {
                             "user": user.name
                         })
                     customer.save()
     
     # make payment entry if subscription was succesfully set up
     if data.get("object") == "invoice" and data.get("status") == "paid" and data.get("subscription"):
-        frappe.log_error("this was accessed")
         from erpusa.stripe_plus.api.webhook_receiver import create_update_stripe_transaction, get_charge_details
         
         # find the subscription associated
@@ -98,7 +98,7 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
         api_key = get_api_key_secret(
             payment_gateway=frappe.db.get_value(
                 "Subscription",
-                frappe.db.exists("Subscription", {"stripe_subscription_id": data.get("subscription")}),
+                subscription,
                 "payment_gateway"
             )
         )
@@ -107,6 +107,14 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
             data.get("charge"),
             api_key
         )
+
+        if not frappe.db.get_value("Subscription", subscription, "card_expiration"):
+            payment_method_details = charge.get("payment_method_details")
+
+            if payment_method_details and "card" in payment_method_details:
+                card_expiration = f'{str(payment_method_details["card"]["exp_year"])}-{str(payment_method_details["card"]["exp_month"]).zfill(2)}'
+                frappe.db.set_value("Subscription", subscription, "card_expiration", card_expiration)
+
         # update/create Stripe Transaction for the charge data and get the Merchant Payment doc associated
         mp_doc = create_update_stripe_transaction(charge, api_key, return_mp_doc=True)
         
@@ -138,8 +146,7 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
                 
                 ##  Create a Payment Entry for the oldest sales invoice ##
                 if not frappe.db.exists("Payment Entry Reference", { "reference_name":  sales_invoices[0]}):
-                    
-                    frappe.log_error("reached merchant_payment payment entry creation")
+                
                     # get the Payment Request doc and fetch the cost_center from settings
                     cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
                     pe_doc = get_payment_entry("Sales Invoice", sales_invoices[0])
@@ -158,7 +165,6 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
                         "amount": mp_doc.merchant_fee,
                         "description": mp_doc.name,
                     })
-                    frappe.log_error("reached merchant_payment payment entry created")
                     # set the bank account
                     if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False):
                         pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False)
@@ -177,9 +183,6 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
 
                     except Exception as e:
                         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
-
-                        
-                    frappe.log_error("reached almost done")
 
                 if return_invoice_id:
                     return sales_invoices[0]
@@ -283,20 +286,6 @@ def allocate_payments(stripe_transactions, invoice_count, payment_gateway):
   api_key = get_api_key_secret(gateway_controller=frappe.db.get_value("Payment Gateway", payment_gateway, "gateway_controller"))
   stripe_transactions = json.loads(stripe_transactions)
 
-#   for index in range(int(invoice_count)):
-#     stripe_invoice = get_invoice_details(stripe_transactions[index]['invoice'], api_key)
-
-#     if stripe_invoice:
-#       try:
-#         sales_invoice = receive_stripe_subscription_events(stripe_invoice)
-#       except Exception as e:
-#         frappe.throw(_("Alllocation Failed"), str(e))
-
-#       frappe.msgprint(
-#         title=_("Allocation Successful"),
-#         msg=_("Stripe Transaction {} allocated for {}.").format(stripe_transactions[index]['invoice'], sales_invoice)
-#       )
-
   for st in stripe_transactions:
     stripe_invoice = get_invoice_details(st['invoice'], api_key)
 
@@ -313,3 +302,28 @@ def allocate_payments(stripe_transactions, invoice_count, payment_gateway):
         title=_("Allocation Successful"),
         msg=_("Stripe Transaction {} allocated for {}.").format(st['invoice'], sales_invoice)
       )
+
+@frappe.whitelist()
+def resync_subscription(subscription_name, stripe_subscription_id, payment_gateway):
+    import stripe
+    api_key = get_api_key_secret(gateway_controller=frappe.db.get_value("Payment Gateway", payment_gateway, "gateway_controller"))
+
+    try:
+        subscription = stripe.Subscription.retrieve(
+            id=stripe_subscription_id,
+            api_key=api_key
+        )
+    except Exception as e:
+        frappe.throw(
+            title=_("Resyncing Failed"),
+            msg=str(e)
+        )
+
+    if subscription:
+        frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[subscription.status])
+
+        frappe.msgprint(
+            title=_("Resync Successful"),
+            msg=_("Subscription {}'s stripe status changed to {}.").format(subscription_name, SUBSCRIPTION_STATUS_VERBOSE[subscription.status])
+        )
+

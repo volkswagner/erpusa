@@ -126,16 +126,20 @@ METHOD_PROCESSING_DAYS = {
 def receive_stripe_events():
     payload = frappe.request.get_data()
     sig_header = frappe.request.headers.get("Stripe-Signature")
+    data = json.loads(payload)
+    event_id = data.get("id")
     
     frappe.enqueue(
         "erpusa.stripe_plus.api.webhook_receiver.process_stripe_events",
-        queue='short',
+        queue="short",
+        job_name=event_id,
         enqueue_after_commit=False,
         payload=payload,
-        sig_header=sig_header
+        sig_header=sig_header,
+        data=data
     )
     
-def process_stripe_events(payload, sig_header):
+def process_stripe_events(payload, sig_header, data):
     validators = frappe.db.get_all("Stripe Plus Settings Webhook Validator", pluck="name")
     
     # verify if signing secret matches an entry in Stripe Plus Settings
@@ -151,8 +155,6 @@ def process_stripe_events(payload, sig_header):
                 sig_header=sig_header,
                 secret=secret
             )
-
-            data = json.loads(payload)
 
             # store the id, data and attached object in the event
             id = data.get("id")
@@ -536,8 +538,12 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
     # notify user payment once merchnt payment doc is created
-    if frappe.db.exists("Merchant Payment", mp_doc.name) and frappe.db.get_value("Merchant Payment", mp_doc.name, "stripe_status") == "Available":
-        notify_user(merchant_payment=mp_doc)
+    if frappe.db.exists("Merchant Payment", mp_doc.name):
+        frappe.enqueue(
+        "erpusa.stripe_plus.api.webhook_receiver.notify_user",
+            queue="short",
+            merchant_payment=mp_doc
+        )
             
     return mp_doc
 

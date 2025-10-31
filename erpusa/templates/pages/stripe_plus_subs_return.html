@@ -27,7 +27,7 @@
         </h2>
         <hr class="w-100"/>
         <p id="payment-description" class="text-center">
-          You are now subscribed to {{ subscription }}. 
+          You are now subscribed to {{ subscription }} for {{ "%.2f"|format(amount/100) }}. 
           {% if customer_email[0]['email_id'] %}
             A confirmation email will be sent to {{ customer_email[0]['email_id'] }}.
           {% else %}

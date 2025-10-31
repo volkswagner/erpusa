@@ -31,6 +31,7 @@ def get_context(context):
                 context[key] = url_parameter[key]
 
             context.to_pay_doctype = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_doctype")
+            context.is_preview = True if "preview" in frappe.form_dict else False
 
             if frappe.db.get_value(context.reference_doctype, context.reference_docname, "status") == "Paid":
                 frappe.redirect_to_message(

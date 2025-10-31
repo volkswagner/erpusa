@@ -160,8 +160,7 @@ doc_events = {
 	},
 	"Subscription": {
         "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_subscription_stripe_plus_fields",
-        "on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.setup_stripe_subscription_registration",
-        "on_trash": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.unbind_email_queue_from_subscription"
+        "on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.setup_stripe_subscription_registration"
 	},
 	"Subscription Plan": {
 		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_subscription_plan_stripe_price"
@@ -187,9 +186,9 @@ scheduler_events = {
 	# "weekly": [
 	# 	"erpusa.tasks.weekly"
 	# ],
-	# "monthly": [
-	# 	"erpusa.tasks.monthly"
-	# ],
+	"monthly": [
+		"erpusa.stripe_plus.hook.monthly_task.check_card_expiration"
+	],
 	"cron": {
         "* * * * *": [
             "erpusa.stripe_plus.hook.minutely_task.send_daily_digest"

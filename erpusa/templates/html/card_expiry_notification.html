@@ -1,0 +1,51 @@
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td>
+            <p>
+                <b>{{ _("The card associated with these subscriptions will expire soon.") }}</b>
+            </p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p>
+                {{ _("To avoid billing issues, please inform customers to update their payment methods.") }}
+            </p>
+        </td>
+    </tr>
+</table>
+<table class="table table-bordered text-medium" cellpadding="0" cellspacing="0" border="0" style="max-width: {{ max_width }}">
+    <thead>
+        <tr>
+            <th>Subscription</th>
+            <th>Customer</th>
+            <th>Card Expiration Date</th>
+            <th>Months Before Expiry</th>
+            <th>Contact Information</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for sub in data %}
+            <tr>
+                <td>
+                    <a href="{{ sub.url }}" target="_blank">
+                        <b>{{ sub.name }}</b>
+                        {% if sub.friendly_name %}
+                            {{ ": " + sub.friendly_name }}
+                        {% endif %}
+                    </a>
+                </td>
+                <td>{{ sub.party }}</td>
+                <td>{{ sub.card_expiration }}</td>
+                <td>{{ sub.month_difference }}</td>
+                <td>
+                    <a href="mailto:{{ sub.email }}">{{ sub.email }}</a>
+                    {% if sub.phone %}
+                        <span> / </span>
+                        <a href="tel:{{ sub.phone }}">{{ sub.phone }}</a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

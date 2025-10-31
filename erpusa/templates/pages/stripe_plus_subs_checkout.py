@@ -5,6 +5,7 @@ import frappe
 from frappe import _
 import stripe
 import json
+import datetime
 from payments.templates.pages.stripe_checkout import get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret
@@ -36,13 +37,29 @@ def get_context(context):
             context.header_image = frappe.db.get_value("Company", context.company, "company_logo")
         
         if frappe.db.get_value("Subscription", context.subscription, "stripe_subscription_id"):
+            status = frappe.db.get_value("Subscription", context.subscription, "stripe_subscription_status") or frappe.db.get_value("Subscription", context.subscription, "status")
             frappe.redirect_to_message(
                 _("Payment has already been initiated.").format(context.subscription),
-                _("Subscription <b>{}</b> is already {}. Thank you for your business!").format(context.subscription, frappe.db.get_value("Subscription", context.subscription, "stripe_subscription_status").lower()),
+                _("Subscription <b>{}</b> is already {}. Thank you for your business!").format(context.subscription, status.lower()),
             )
             frappe.local.flags.redirect_location = frappe.local.response.location
             raise frappe.Redirect
 
+def formulate_timestamp(date):
+    if isinstance(date, str):
+        date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+
+    # Combine with midnight
+    dt = datetime.datetime.combine(date, datetime.time.min)
+
+    # Make it UTC-aware
+    import pytz
+    dt_utc = pytz.UTC.localize(dt)
+
+    # Get timestamp
+    timestamp = dt_utc.timestamp()
+
+    return timestamp
 
 @frappe.whitelist(allow_guest=True)
 def create_checkout_session(data):
@@ -54,17 +71,25 @@ def create_checkout_session(data):
             'price': frappe.db.get_value("Subscription Plan", subscription_plan.plan, "stripe_price_id"),
             'quantity': subscription_plan.qty
         })
+
+    subscription_data = {
+        "metadata": {
+            "erp_subscription_name": data.get("subscription")
+        },
+    }
+
+    if str(frappe.db.get_value("Subscription", data.get("subscription"), "start_date")) != str(frappe.utils.today()):
+        subscription_data['billing_cycle_anchor'] = int(
+            formulate_timestamp(frappe.db.get_value("Subscription", data.get("subscription"), "start_date"))
+        )
+
     try:
         session = stripe.checkout.Session.create(
             ui_mode = "embedded",
             mode="subscription",
             customer=frappe.db.get_value("Customer", data.get("customer"), "stripe_customer_id"),
             line_items=line_items,
-            subscription_data={
-                "metadata": {
-                    "erp_subscription_name": data.get("subscription")
-                }
-            },
+            subscription_data=subscription_data,
             return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}&payment_gateway={frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')}",
             payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", data.get("payment_configuration"), "stripe_configuration_id")
         )
@@ -106,9 +131,12 @@ def create_fetch_checkout_session():
         return create_checkout_session(data)
 
 @frappe.whitelist(allow_guest=True)
-def get_session_status(session_id, gateway_controller):
+def get_session_info(session_id, gateway_controller):
     stripe.api_key = get_api_key_secret(gateway_controller)
     
     session = stripe.checkout.Session.retrieve(session_id)
 
-    return session.status
+    return {
+        'status': session.status,
+        'amount': session.amount_total
+    }

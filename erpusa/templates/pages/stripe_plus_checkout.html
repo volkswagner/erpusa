@@ -9,6 +9,13 @@
     <script>{% include "templates/includes/stripe_plus_checkout.js" %}</script>
 {% endblock %}
 {% block page_content %}
+    {% if is_preview %}
+        <div class="banner align-items-center justify-content-center">
+            <small class="alert alert-warning w-100 text-center border font-weight-bold" role="alert">
+                Preview mode active. Please process payments with caution.
+            </small>
+        </div>
+    {% endif %}
     <div class="py-5 my-5"></div>
     <div class="w-100 row justify-content-center align-items-stretch p-1 p-xl-5 m-1 my-xl-5">
         <div class="col-12 col-md-5 w-100 h-100">

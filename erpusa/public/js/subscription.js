@@ -17,6 +17,9 @@ const stripe_subscription_status_color = {
     'Paused': 'yellow'
 }
 
+let is_unlocked = false;
+const autocharge_with_stripe_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice", "plans"];
+
 frappe.ui.form.on("Subscription", {
     setup: function (frm) {
         frm.set_query("user_account_representative", function (doc) {
@@ -30,6 +33,7 @@ frappe.ui.form.on("Subscription", {
     },
 
     refresh: function(frm) {
+        is_unlocked = true;
         if (frm.doc.status !== "Cancelled") {
             frm.remove_custom_button(__("Cancel Subscription"), __("Actions"));
 			frm.add_custom_button(
@@ -55,6 +59,23 @@ frappe.ui.form.on("Subscription", {
                     }
                 });
             }
+            
+            frappe.call({
+                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.email_queue_exists",
+                args: {
+                    email_queue: frm.doc.email_queue
+                },
+                callback: function (r) {
+                    if (r.message) {
+                        frm.set_df_property("email_queue", "description", 
+                            `<small><a href=${r.message} target="_blank">Open Email Queue doc</a></small>`
+                        )
+                    }
+                    else {
+                        frm.set_df_property("email_queue", "description", "<small>Email Queue doc already deleted and can't be viewed.</small>")
+                    }
+                }
+            });
         }
 
         if (frm.doc.stripe_subscription_id) {
@@ -85,12 +106,12 @@ frappe.ui.form.on("Subscription", {
                                     }
                                 }
                             })
-                        }, `${stripe_logo} Tools`)
+                        }, stripe_logo + __("Tools"))
                     }
                 }
             })
         
-            frm.add_custom_button("Look for Unallocated Payments", function() {
+            frm.add_custom_button(__("Identify Unallocated Payments"), function() {
                 frappe.call({
                     method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_unallocated_payments",
                     freeze: true,
@@ -190,19 +211,50 @@ frappe.ui.form.on("Subscription", {
                         }
                     }
                 })
-            }, `${stripe_logo} Tools`)
+            }, stripe_logo + __("Tools"))
 
+            frm.add_custom_button(__("Re-sync Subscription"), function() {
+                frappe.call({
+                    method: "erpusa.stripe_plus.api.webhook_receiver_subscription.resync_subscription",
+                    freeze: true,
+                    freeze_message: __("Re-syncing Subscription"),
+                    args: {
+                        subscription_name: frm.doc.name,
+                        stripe_subscription_id: frm.doc.stripe_subscription_id,
+                        payment_gateway: frm.doc.payment_gateway
+                    },
+                    callback: function (r) {
+                        if (r.message) {
+                            frm.refresh();
+                        }
+                    }
+                })
+            }, stripe_logo + __("Tools"))
+            
+            frm.add_custom_button(__("Unlock Fields"), function() {
+                autocharge_with_stripe_fields.forEach(function(field) {
+                    frm.set_df_property(field, "read_only", 0);
+                    frm.set_df_property(
+                        field,
+                        "description",
+                        null
+                    );
+                });
+                
+                frm.disable_save();
+
+            }, stripe_logo + __("Tools"));
         }
         
-        frm.events.toggle_locked_fields(frm);
-        frm.events.toggle_stripe_plus_fields_read_only(frm);
+        frm.events.toggle_autocharge_with_stripe_fields(frm);
+        frm.events.toggle_stripe_plus_fields_reqd(frm);
         insertReloadButton(frm);
     },
 
     autocharge_with_stripe: function(frm) {
         frm.events.set_user_account_representative(frm);
-        frm.events.toggle_locked_fields(frm);
-        frm.events.toggle_stripe_plus_fields_read_only(frm);
+        frm.events.toggle_autocharge_with_stripe_fields(frm);
+        frm.events.toggle_stripe_plus_fields_reqd(frm);
     },
 
     party_type: function (frm) {
@@ -231,9 +283,8 @@ frappe.ui.form.on("Subscription", {
         }
     },
 
-    toggle_locked_fields: function (frm) {
+    toggle_autocharge_with_stripe_fields: function (frm) {
         if (frm.doc.autocharge_with_stripe) {
-            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"];
             const locked_message = `
                 <div class="alert alert-warning p-2 mt-2" role="alert">
                         <small>Field is locked to allow autocharging with Stripe.</small>
@@ -243,7 +294,7 @@ frappe.ui.form.on("Subscription", {
             frm.set_value("submit_invoice", 1);
             frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
 
-            locked_fields.forEach(function(field) {
+            autocharge_with_stripe_fields.forEach(function(field) {
                 frm.set_df_property(field, "read_only", 1);
                 frm.set_df_property(
                     field,
@@ -259,7 +310,7 @@ frappe.ui.form.on("Subscription", {
         }
     },
 
-    toggle_stripe_plus_fields_read_only: function (frm) {
+    toggle_stripe_plus_fields_reqd: function (frm) {
         frm.set_df_property("payment_gateway_account", "reqd", frm.doc.autocharge_with_stripe);
         frm.set_df_property("user_account_representative", "reqd", frm.doc.autocharge_with_stripe);
     },

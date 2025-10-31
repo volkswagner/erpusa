@@ -245,3 +245,12 @@
     background-color: white;
     box-shadow: rgba(0, 123, 255, 0.25) 0px 0px 0px 3px, rgb(0, 122, 255) 0px 0px 0px 1px
   }
+
+  .banner {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 999;
+  }

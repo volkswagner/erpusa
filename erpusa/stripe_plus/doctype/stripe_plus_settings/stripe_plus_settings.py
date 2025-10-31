@@ -51,6 +51,9 @@ class StripePlusSettings(Document):
       if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center:
         frappe.throw(_("Fields User to Authorize, Merchant Fee Account and Cost Centers are empty. Fill them out to enable auto-creation of Payment Entry."))
 
+      if self.card_expiry_notification_lead_time < 1:
+        frappe.throw(_("Card Expiry Notification Lead Time should be at least 1 month."))
+
     if self.turn_on_email_notifications:
       if not self.signing_secret_list:
         frappe.throw(_("Can't turn on notifications when signing secret is empty."))
@@ -204,6 +207,20 @@ def get_representative_email_address(representative, as_dict=True, log_title=Non
           frappe.log_error(log_title, f"No email address was found for its representative {representative}.")
 
   return email_address
+
+def get_representative_phone(representative, as_dict=True, log_title=None):
+  # email_id_override is for when the old value is needed
+  phone = frappe.db.get_value("Contact", representative, "phone", as_dict=as_dict)
+  
+  if not phone:
+      phone_list = frappe.db.get_all("Contact Phone", filters={"parent": representative}, pluck="email_id")
+      
+      if phone_list:
+          phone = phone_list[0]
+      elif log_title:
+          frappe.log_error(log_title, f"No phone number was found for its representative {representative}.")
+
+  return phone
   
 def validate_subscription_stripe_plus_fields(subscription, method=None):
   if subscription.autocharge_with_stripe:
@@ -223,9 +240,6 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
 
       if not subscription.payment_gateway_account:
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
-
-    if subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
-      subscription.email_queue = None
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):
@@ -671,7 +685,7 @@ def send_subscription_email_to_user(subscription):
       """
       Dear {},
       <p>This email confirms your recent subscription to <b>{}</b> with {}.  We're excited to have you as a subscriber!</p>
-      <p>Here's what you're subscribe to:</p>
+      <p>Here's what you're subscribed to:</p>
       <p>{}</p>
       <p>To set up your payment methods and automatic payments, click <span> <a href="{}" target="_blank">here</a> </span>.</p>.
       """
@@ -763,9 +777,14 @@ def is_text_editor_set(html_content):
   text = re.sub('<[^<]+?>', '', html_content or '')
   return text.strip()
 
-def unbind_email_queue_from_subscription(subscription, method=None):
-  if subscription.email_queue:
-    frappe.db.set_value("Email Queue", subscription.email_queue, "reference_name", None)
+@frappe.whitelist()
+def email_queue_exists(email_queue):
+    email_queue = frappe.db.exists("Email Queue", email_queue)
+
+    if email_queue:
+      email_queue = frappe.utils.get_url_to_form("Email Queue", email_queue)
+
+    return email_queue
 
   
 

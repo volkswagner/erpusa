@@ -4,7 +4,7 @@ from frappe import _
 from payments.templates.pages.stripe_checkout import get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import get_gateway_controller
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_customer_contact,  get_representative_email_address
-from erpusa.templates.pages.stripe_plus_subs_checkout import get_session_status
+from erpusa.templates.pages.stripe_plus_subs_checkout import get_session_info
 
 no_cache = 1
 
@@ -24,7 +24,7 @@ def get_context(context):
         context.contact = get_customer_contact(frappe.db.get_value("Subscription", context.subscription, "party"))
         context.customer_email = get_representative_email_address(context.contact),
         context.payment_url = frappe.db.get_value("Subscription", context.subscription, "payment_url")
-        context.session_status = get_session_status(frappe.form_dict["session_id"], gateway_controller)
+        context.session_status, context.amount = get_session_info(frappe.form_dict["session_id"], gateway_controller).values()
         
     else:
         frappe.redirect_to_message(
