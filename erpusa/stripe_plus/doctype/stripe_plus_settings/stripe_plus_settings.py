@@ -438,6 +438,7 @@ def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, trigger
    
 @frappe.whitelist()
 def get_bank_account_for_payment_request(mode_of_payment, reference_doctype=None, reference_docname=None, company=None):
+  account = None
   bank_account = None
   payment_gateway_account = None
   
@@ -452,6 +453,7 @@ def get_bank_account_for_payment_request(mode_of_payment, reference_doctype=None
       payment_gateway_account = frappe.db.get_value("Payment Gateway Account", {"payment_account": account}, "name")
       
   return {
+    "account": account,
     "bank_account": bank_account,
     "payment_gateway_account": payment_gateway_account
   }
@@ -639,7 +641,6 @@ def setup_stripe_subscription_registration(subscription, method=None):
       if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}):
         send_subscription_email_to_user(subscription)
 
-  frappe.log_error(str(subscription.email_queue))
   if subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
     subscription.email_queue = None
 

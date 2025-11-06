@@ -136,6 +136,11 @@ frappe.ui.form.on("Subscription", {
                                         `
                                     },
                                     {
+                                        fieldname: 'submit_payment_entries',
+                                        fieldtype: 'Check',
+                                        label: 'Submit Payment Entries'
+                                    },
+                                    {
                                         fieldname: 'payments',
                                         fieldtype: 'Table',
                                         cannot_add_rows: 1,
@@ -181,6 +186,7 @@ frappe.ui.form.on("Subscription", {
                                             freeze: true,
                                             freeze_message: __("Allocating Payments"),
                                             args: {
+                                                submit_payment_entries: unallocated_payments_dialog.get_values().submit_payment_entries,
                                                 stripe_transactions: r.message.unallocated_stripe_transactions,
                                                 invoice_count: r.message.invoice_count,
                                                 payment_gateway: frm.doc.payment_gateway
@@ -311,7 +317,7 @@ frappe.ui.form.on("Subscription", {
     },
 
     toggle_stripe_plus_fields_reqd: function (frm) {
-        frm.set_df_property("payment_gateway_account", "reqd", frm.doc.autocharge_with_stripe);
+        frm.set_df_property("mode_of_payment", "reqd", frm.doc.autocharge_with_stripe);
         frm.set_df_property("user_account_representative", "reqd", frm.doc.autocharge_with_stripe);
     },
 
@@ -333,6 +339,26 @@ frappe.ui.form.on("Subscription", {
 			},
 		);
 	},
+
+    mode_of_payment: function (frm) {
+        frm.events.set_account_and_payment_gateway_account(frm);
+    },
+
+    set_account_and_payment_gateway_account: function (frm) {
+        frappe.call({
+            method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_bank_account_for_payment_request",
+            args: {
+                mode_of_payment: frm.doc.mode_of_payment,
+                company: frm.doc.company
+            },
+            callback: function(r) {
+                if (r.message) {
+                    frm.set_value("account", r.message.account || null)
+                    frm.set_value("payment_gateway_account", r.message.payment_gateway_account || null)
+                }
+            }
+        });
+    }
 })
 
 function displayIntro(frm, stripe_subscription_status, additional_info="") {
