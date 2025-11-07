@@ -200,14 +200,16 @@ def receive_stripe_subscription_events(data, type, return_docs=False, submit_pay
 
                         except Exception as e:
                             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
+                    
+
+                    if return_docs:
+                        return {
+                            'sales_invoice': sales_invoices[0],
+                            'payment_entry': pe_doc.name
+                        }
+                
                 else:
                     raise Exception("An error occured while creating a payment entry.")
-
-                if return_docs:
-                    {
-                        'sales_invoice': sales_invoices[0],
-                        'payment_entry': pe_doc.name
-                    }
 
 def get_invoice_details(id, api_key):
     import stripe
