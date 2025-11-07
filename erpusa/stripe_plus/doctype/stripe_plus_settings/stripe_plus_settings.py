@@ -637,12 +637,6 @@ def setup_stripe_subscription_registration(subscription, method=None):
         
         if stripe_product_id:
           create_stripe_price(plan.plan, plan_item, stripe_product_id, stripe_settings)
-      
-      if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}):
-        send_subscription_email_to_user(subscription)
-
-  if subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
-    subscription.email_queue = None
 
 def send_subscription_email_to_user(subscription):
   params = {
