@@ -2,7 +2,7 @@
 	{% if not started_from_pending %}
 		<tr>
 			<td>
-				<b>{{ _("We received your payment through Stripe.") }}</b>
+				<b>{{ _("We received your payment for ") }} {{ doctype }} {{ _(" number ") }} {{ docname }} {{ _(" through Stripe.") }}</b>
 			</td>
 		</tr>
 		<tr>

@@ -312,6 +312,8 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, p
                 message=frappe.render_template(
                     "erpusa/templates/html/payment_receipt.html",
                     {
+                        "doctype": metadata.get("doctype"),
+                        "docname": metadata.get("docname"),
                         "started_from_pending": started_from_pending,
                         "processing_days": METHOD_PROCESSING_DAYS.get(doc.payment_method_type),
                         "status": doc.status,
