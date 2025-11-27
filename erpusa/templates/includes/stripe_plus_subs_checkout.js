@@ -15,8 +15,6 @@ frappe.ready(function() {
         },
         body: JSON.stringify({ 
           "subscription": "{{ subscription }}",
-          "customer": "{{ customer }}",
-          "gateway_controller": "{{ gateway_controller }}",
         })
       });
       const { message: { clientSecret, redirect } } = await response.json();

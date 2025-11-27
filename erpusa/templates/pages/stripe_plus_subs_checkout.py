@@ -9,18 +9,20 @@ import datetime
 from payments.templates.pages.stripe_checkout import get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret
+from frappe.utils import add_to_date
 
 no_cache = 1
 
 def get_context(context):
     if frappe.form_dict:
+        context.subscription = frappe.form_dict["subscription_name"]
+        payment_gateway = frappe.db.get_value("Subscription", context.subscription, "payment_gateway")
         context.gateway_controller = get_gateway_controller(
-            "Subscription", frappe.form_dict["subscription_name"], frappe.form_dict["payment_gateway"]
+            "Subscription", context.subscription, payment_gateway
         )
         context.publishable_key = get_api_key("Subscription", context.gateway_controller)
-        context.subscription = frappe.form_dict["subscription_name"]
-        context.customer = frappe.form_dict["customer"]
-        context.payment_configuration = frappe.form_dict["payment_configuration"]
+        context.customer = frappe.db.get_value("Subscription", context.subscription, "party")
+        context.payment_configuration = frappe.db.get_value("Subscription", context.subscription, "payment_method_configuration")
         settings_company = frappe.db.get_single_value("Stripe Plus Settings", "payment_page_company_name")
         settings_header_image = frappe.db.get_single_value("Stripe Plus Settings", "payment_page_company_logo")
 
@@ -62,11 +64,12 @@ def formulate_timestamp(date):
     return timestamp
 
 @frappe.whitelist(allow_guest=True)
-def create_checkout_session(data):
-    stripe.api_key = get_api_key_secret(data.get("gateway_controller"))
+def create_checkout_session(subscription_name, api_key):
+    subscription_doc = frappe.get_doc("Subscription", subscription_name)
+    stripe.api_key = api_key
     line_items = []
     
-    for subscription_plan in frappe.db.get_all("Subscription Plan Detail", filters={"parent": data.get("subscription")}, fields=["plan", "qty"]):
+    for subscription_plan in subscription_doc.plans:
         line_items.append({
             'price': frappe.db.get_value("Subscription Plan", subscription_plan.plan, "stripe_price_id"),
             'quantity': subscription_plan.qty
@@ -74,48 +77,79 @@ def create_checkout_session(data):
 
     subscription_data = {
         "metadata": {
-            "erp_subscription_name": data.get("subscription")
+            "erp_subscription_name": subscription_doc.name
         },
     }
 
-    if str(frappe.db.get_value("Subscription", data.get("subscription"), "start_date")) != str(frappe.utils.today()):
-        subscription_data['billing_cycle_anchor'] = int(
-            formulate_timestamp(frappe.db.get_value("Subscription", data.get("subscription"), "start_date"))
+    # if str(subscription_doc.start_date) != str(frappe.utils.today()):
+    #     subscription_data['billing_cycle_anchor'] = int(
+    #         formulate_timestamp(subscription_doc.start_date)
+    #     )
+
+    if subscription_doc.trial_period_end:
+        subscription_data['trial_end'] = int(
+            formulate_timestamp(
+                subscription_doc.current_invoice_start
+            )
         )
+
+
+    else:
+        billing_cycle_anchor = subscription_doc.start_date
+        if str(subscription_doc.start_date) < str(frappe.utils.today()):
+            billing_cycle_anchor = subscription_doc.current_invoice_start
+
+        if str(subscription_doc.current_invoice_start) < str(frappe.utils.today()):
+            billing_cycle_anchor = add_to_date(subscription_doc.current_invoice_end, days=1) 
+
+        subscription_data['billing_cycle_anchor'] = int(
+            formulate_timestamp(billing_cycle_anchor)
+        )
+
+
+        if subscription_doc.billing_behavior == "Charge a prorated amount for the current billing period":
+            subscription_data['proration_behavior'] = "create_prorations"
+
+        else:
+            subscription_data['proration_behavior'] = "none"
+
+    frappe.log_error(str(add_to_date(subscription_doc.current_invoice_end, days=1) ))
 
     try:
         session = stripe.checkout.Session.create(
-            ui_mode = "embedded",
+            ui_mode="embedded",
             mode="subscription",
-            customer=frappe.db.get_value("Customer", data.get("customer"), "stripe_customer_id"),
+            customer=frappe.db.get_value("Customer", subscription_doc.party, "stripe_customer_id"),
             line_items=line_items,
             subscription_data=subscription_data,
-            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}&payment_gateway={frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')}",
-            payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", data.get("payment_configuration"), "stripe_configuration_id")
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={subscription_doc.name}&payment_gateway={subscription_doc.payment_gateway}",
+            payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", subscription_doc.payment_method_configuration, "stripe_configuration_id")
         )
         
     except Exception as e:
         return str(e)
     
-    if frappe.db.exists("Subscription", data.get('subscription')):
-        frappe.db.set_value("Subscription", data.get('subscription'), "stripe_session_id", session['id'])
+    frappe.db.set_value("Subscription", subscription_doc.name, "stripe_session_id", session.id)
     
     return {"clientSecret": session['client_secret']}
 
 @frappe.whitelist(allow_guest=True)
 def create_fetch_checkout_session():
     data = json.loads(frappe.request.data)
-    stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
+    subscription_name = data.get("subscription")
+    stripe.api_key = get_api_key_secret(
+        payment_gateway=frappe.db.get_value("Subscription", subscription_name, "payment_gateway")
+    )
 
     # check if intent has already been made
-    stripe_session_id = frappe.db.get_value("Subscription", data.get('request_name'), "stripe_session_id")
+    stripe_session_id = frappe.db.get_value("Subscription", subscription_name, "stripe_session_id")
 
     if stripe_session_id:
         try:
             checkout = stripe.checkout.Session.retrieve(stripe_session_id)
 
             if checkout['status'] != "complete":
-                return create_checkout_session(data)
+                return create_checkout_session(subscription_name, stripe.api_key)
                 
             else:
                 return {
@@ -128,7 +162,7 @@ def create_fetch_checkout_session():
         
     else:
         
-        return create_checkout_session(data)
+        return create_checkout_session(subscription_name, stripe.api_key)
 
 @frappe.whitelist(allow_guest=True)
 def get_session_info(session_id, gateway_controller):

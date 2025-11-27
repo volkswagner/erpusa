@@ -4,6 +4,7 @@ import datetime
 import json
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret, get_representative_email_address, get_bank_account_for_payment_entry
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
+from erpusa.templates.pages.stripe_plus_subs_checkout import formulate_timestamp
 
 SUBSCRIPTION_STATUS_VERBOSE = {
     'incomplete': 'Incomplete',
@@ -16,78 +17,78 @@ SUBSCRIPTION_STATUS_VERBOSE = {
     'paused': 'Paused'
 }
 
-def receive_stripe_subscription_events(data, type, return_docs=False, submit_payment_entries=True):
+def receive_stripe_subscription_events(data, type=None, return_docs=False, submit_payment_entries=True):
     if data.get("object") == "subscription":
         # get metadata to look for associated ERPNext subscription
         metadata = data.get("metadata")
         # check if subscription exists and set the stripe id and status
-        if metadata and metadata.get("erp_subscription_name") and not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id"):
-            frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id", data.get("id"))
-            
-            # if stripe is already linked with ERPNext, update the cancellation date if appplicable
-            if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"):
-                import stripe
+        if metadata and metadata.get("erp_subscription_name"):
+            subscription_doc = frappe.get_doc("Subscription", metadata.get("erp_subscription_name"))
+            if not subscription_doc.stripe_subscription_id:
+                frappe.db.set_value("Subscription", subscription_doc.name, "stripe_subscription_id", data.get("id"))
+                cancel_at = None
                 
-                stripe.api_key = get_api_key_secret(payment_gateway=frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "payment_gateway"))
-                stripe.Subscription.modify(
-                    data.get("id"), 
-                    cancel_at=int(
-                        (datetime.datetime.combine(frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"), datetime.time()))
-                        .timestamp()
+                # if stripe is already linked with ERPNext, update the cancellation date if appplicable
+                if not subscription_doc.stripe_subscription_status and subscription_doc.end_date and subscription_doc.cancel_at_period_end:
+                    import stripe
+                    
+                    stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
+                    stripe.Subscription.modify(
+                        data.get("id"), 
+                        cancel_at=formulate_timestamp(subscription_doc.end_date)
                     )
-                )
-            
-             # send welcome email and create user if customer is new
-            if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and data.get("status") == "active":
-                frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
-                user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
-                representative = frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "user_account_representative")
-                email_address = get_representative_email_address(
-                    representative=representative,
-                    log_title=f"Failed to send a welcome email for {metadata.get('erp_subscription_name')}.",
-                    as_dict=False
-                )
                 
-                if not email_address:
-                    return
-                
-                user_exists = frappe.db.exists("User", email_address)
-                
-                frappe.sendmail(
-                    subject=_("Welcome to {}").format(frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "company")),
-                    recipients=[email_address],
-                    message=frappe.render_template(
-                        "erpusa/templates/html/subscription_welcome.html",
-                        {
-                            "customer": frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"),
-                            "subscription": metadata.get("erp_subscription_name"),
-                            "user_exists": user_exists
-                        },
-                    ),
-                    now=True,
-                    reference_doctype="Subscription",
-                    reference_name=f"{metadata.get('erp_subscription_name')}_welcome"
-                )
+                # send welcome email and create user if customer is new
+                if not subscription_doc.stripe_subscription_status and data.get("status") in ["trialing", "active"]:
+                    frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
+                    user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
+                    representative = subscription_doc.user_account_representative
+                    email_address = get_representative_email_address(
+                        representative=representative,
+                        log_title=f"Failed to send a welcome email for {subscription_doc.name}.",
+                        as_dict=False
+                    )
+                    
+                    if not email_address:
+                        return
+                    
+                    user_exists = frappe.db.exists("User", email_address)
+                    
+                    frappe.sendmail(
+                        subject=_("Welcome to {}").format(frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "company")),
+                        recipients=[email_address],
+                        message=frappe.render_template(
+                            "erpusa/templates/html/subscription_welcome.html",
+                            {
+                                "customer": frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"),
+                                "subscription": metadata.get("erp_subscription_name"),
+                                "user_exists": user_exists
+                            },
+                        ),
+                        now=True,
+                        reference_doctype="Subscription",
+                        reference_name=f"{subscription_doc.name}_welcome"
+                    )
 
-                if user_to_authorize and not user_exists:
-                    frappe.set_user(user_to_authorize)
-                    user = frappe.new_doc("User")
-                    user.email = email_address
-                    user.first_name = frappe.db.get_value("Contact", representative, "first_name")
-                    user.last_name = frappe.db.get_value("Contact", representative, "last_name")
-                    user.save()
-                    
-                    user.append("roles", {
-                        "role": "Customer"
-                    })
-                    user.save()
-                    
-                    customer = frappe.get_doc("Customer", frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"))
-                    if not frappe.db.exists("Portal User", {"parent": customer.name, "user": user.name}):
-                        customer.append("portal_users", {
-                            "user": user.name
+                    if user_to_authorize and not user_exists:
+                        frappe.set_user(user_to_authorize)
+                        user = frappe.new_doc("User")
+                        user.email = email_address
+                        user.first_name = frappe.db.get_value("Contact", representative, "first_name")
+                        user.last_name = frappe.db.get_value("Contact", representative, "last_name")
+                        user.save()
+                        
+                        user.append("roles", {
+                            "role": "Customer"
                         })
-                    customer.save()
+                        user.save()
+                        
+                        customer = frappe.get_doc("Customer", subscription_doc.party)
+                        if not frappe.db.exists("Portal User", {"parent": customer.name, "user": user.name}):
+                            customer.append("portal_users", {
+                                "user": user.name
+                            })
+                        customer.save()
     
     # make payment entry if subscription was succesfully set up
     if data.get("object") == "invoice" and data.get("subscription") and type in ["invoice.finalized", "invoice.created", "invoice.payment_succeeded"]:
