@@ -45,6 +45,17 @@ METHODS_FULLNAME = {
   "zip": "Zip"
 }
 
+SUBSCRIPTION_STATUS_VERBOSE = {
+    'incomplete': 'Incomplete',
+    'incomplete_expired': 'Incomplete Expired',
+    'trialing': 'Trialing',
+    'active': 'Active',
+    'past_due': 'Past Due',
+    'canceled': 'Canceled',
+    'unpaid': 'Unpaid',
+    'paused': 'Paused'
+}
+
 class StripePlusSettings(Document):
   def validate(self):
     if self.signing_secret_list:
@@ -696,12 +707,6 @@ def send_subscription_email_to_user(subscription):
 @frappe.whitelist()
 def cancel_subscription(subscription_name):
   subscription_doc = frappe.get_doc("Subscription", subscription_name)
-
-  if not frappe.db.exists("Email Queue", subscription_doc.email_queue):
-    try:
-      subscription_doc.email_queue = None
-    except Exception as e:
-      frappe.log_error("Email Queue", str(e))
   
   try:
     subscription_doc.cancel_subscription()
@@ -712,11 +717,20 @@ def cancel_subscription(subscription_name):
     stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
     
     try:
-      subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
+      subscription = stripe.Subscription.retrieve(subscription_doc.stripe_subscription_id)
     except Exception as e:
-      frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
-      
-    frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
+      frappe.throw(_("Failed to find the associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
+
+    if subscription.status in ["canceled", "incomplete_expired", "incomplete"]:
+      frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[subscription.status])
+    
+    else:
+      try:
+        subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
+      except Exception as e:
+        frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
+        
+      frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
 
 def validate_subscription_plan_stripe_price(subscription_plan, method=None):
   if subscription_plan.stripe_price_id and (subscription_plan.has_value_changed("currency") or \

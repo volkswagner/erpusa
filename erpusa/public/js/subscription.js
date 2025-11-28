@@ -51,7 +51,13 @@ frappe.ui.form.on("Subscription", {
                     },
                     callback: function (r) {
                         let additional_info = r.message.status == "Sent"? "Customer has been notified to set up a payment method." : "An email was scheduled to be sent to the customer.";
-                        displayIntro(frm, "Email " + r.message.status, additional_info);
+                        let status =  "Email " + r.message.status;
+                        if (frm.doc.status == "Cancelled") {
+                            additional_info = "Subscription was cancelled before customer could pay.";
+                            status = "Canceled";
+                        }
+
+                        displayIntro(frm, status, additional_info);
                     }
                 });
             }

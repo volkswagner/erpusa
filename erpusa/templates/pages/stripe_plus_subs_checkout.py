@@ -35,6 +35,14 @@ def get_context(context):
         else:
             context.header_image = frappe.db.get_value("Company", context.company, "company_logo")
         
+        if frappe.db.get_value("Subscription", context.subscription, "status") == "Cancelled":
+            frappe.redirect_to_message(
+                _("Subscription is no longer active.").format(context.subscription),
+                _("Subscription <b>{}</b> was cancelled. If you believe this is a mistake, please contact {}.").format(context.subscription, context.company),
+            )
+            frappe.local.flags.redirect_location = frappe.local.response.location
+            raise frappe.Redirect
+        
         if frappe.db.get_value("Subscription", context.subscription, "stripe_subscription_id"):
             frappe.redirect_to_message(
                 _("Payment has already been initiated.").format(context.subscription),
