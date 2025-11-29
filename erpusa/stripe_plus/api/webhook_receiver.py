@@ -733,7 +733,7 @@ def get_charge_details(id, api_key):
             return charge
         
         except Exception as e:
-            frappe.log_error("Error getting Charge Details", str(e))
+            frappe.log_error(frappe.get_traceback(), _("Error getting Charge Details"))
             return None
 
 def get_balance_transaction_details(id, api_key):
