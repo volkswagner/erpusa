@@ -110,7 +110,7 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
             except Exception as e:
                 notify_error_to_user_merchant_payment(
                     mp_doc.name,
-                    "The Customer and Subscription association failed.",
+                    _("The Customer and/or Subscription association failed."),
                     str(e)
                 )
                 frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
@@ -134,7 +134,7 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
                 if sales_invoices:
                     # set the customer and associated subscription
                     mp_doc.associated_sales_invoice = sales_invoices[0]
-                    mp_error_message = _("The Sales Invoice associated failed.")
+                    mp_error_message = _("The Sales Invoice association failed.")
                     
                     ##  Create a Payment Entry for the oldest sales invoice ##
                     if not frappe.db.exists("Payment Entry Reference", { "reference_name":  sales_invoices[0]}):
@@ -144,14 +144,14 @@ def receive_stripe_subscription_events(data, return_invoice_id=False):
                         for index, reference in enumerate(pe_doc.references):
                             if reference.reference_name == sales_invoices[0]:
                                 pe_doc.references[index].allocated_amount = mp_doc.gross_amount
-                        mp_error_message = _("The Payment Entry creation failed")
+                        mp_error_message = _("The Payment Entry creation failed.")
 
                 else:
                     pe_doc = frappe.new_doc("Payment Entry")
                     pe_doc.party_type = "Customer"
                     pe_doc.party = mp_doc.customer
                     pe_doc.received_amount = mp_doc.net_amount
-                    mp_error_message = _("The Payment Entry creation failed")
+                    mp_error_message = _("The Advance Payment Entry creation failed.")
 
                 account = frappe.db.get_value(
                     "Payment Gateway Account",
