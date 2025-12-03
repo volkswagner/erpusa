@@ -622,13 +622,18 @@ def create_payment_entry(merchant_payment):
         })
         
         # set the bank account
-        if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False):
-            pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False)
+        if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
+            pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
 
         try:
             pe_doc.save(ignore_permissions=True)
 
         except Exception as e:
+            notify_error_to_user_merchant_payment(
+                merchant_payment.name,
+                _("The Payment Entry creation failed."),
+                str(e)
+            )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
         
         # update Merchant Payment doc
@@ -637,6 +642,11 @@ def create_payment_entry(merchant_payment):
             merchant_payment.save()
 
         except Exception as e:
+            notify_error_to_user_merchant_payment(
+                merchant_payment.name,
+                _("The Payment Entry association failed."),
+                str(e)
+            )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
             
         # submit Payment Entry doc according to settings
@@ -798,6 +808,33 @@ def generate_realtime_notification_email_message(title, description, merchant_pa
             "gross_amount": fmt_money(merchant_payment.gross_amount)
         },
     )
+
+
+def notify_error_to_user_merchant_payment(merchant_payment_name, summary, error_message):
+    recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+
+    if frappe.db.exists("Merchant Payment", merchant_payment_name):
+        reference_name = merchant_payment_name + "_error_" + now()
+
+        if recipients and not frappe.db.exists("Email Queue", {"reference_doctype": "Merchant Payment", "reference_name": reference_name}):
+            message = frappe.render_template(
+                "erpusa/templates/html/merchant_payment_errors.html",
+                {
+                    "merchant_payment": merchant_payment_name,
+                    "summary": summary,
+                    "error_message": error_message
+                },
+            )
+
+            frappe.sendmail(
+                recipients=recipients.split(),
+                subject=_("Merchant Payment failed"),
+                message=message,
+                reference_doctype="Merchant Payment",
+                reference_name=reference_name,
+                now=True
+            )
+
 
 def notify_user(merchant_payment):
     # check if realtime notifications is enabled

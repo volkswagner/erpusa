@@ -207,7 +207,7 @@ frappe.ui.form.on("Subscription", {
 
     autocharge_with_stripe: function(frm) {
         frm.events.set_user_account_representative(frm);
-        frm.events.toggle_locked_fields(frm);
+        frm.events.set_subscription_fields(frm);
         frm.events.toggle_stripe_plus_fields_read_only(frm);
     },
 
@@ -237,6 +237,13 @@ frappe.ui.form.on("Subscription", {
         }
     },
 
+    set_subscription_fields: function (frm) {
+        frm.events.toggle_locked_fields(frm);
+        frm.set_value("generate_new_invoices_past_due_date", 1);
+        frm.set_value("submit_invoice", 1);
+        frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
+    },
+
     toggle_locked_fields: function (frm) {
         if (frm.doc.autocharge_with_stripe) {
             const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"];
@@ -244,10 +251,6 @@ frappe.ui.form.on("Subscription", {
                 <div class="alert alert-warning p-2 mt-2" role="alert">
                         <small>Field is locked to allow autocharging with Stripe.</small>
                 </div>`;
-
-            frm.set_value("generate_new_invoices_past_due_date", 1);
-            frm.set_value("submit_invoice", 1);
-            frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
 
             locked_fields.forEach(function(field) {
                 frm.set_df_property(field, "read_only", 1);

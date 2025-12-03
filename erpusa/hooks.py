@@ -141,7 +141,8 @@ after_install = "erpusa.post_installation.create_docs.create_docs_payment_method
 override_doctype_class = {
 	"Stripe Settings": "erpusa.stripe_plus.overrides.stripe_settings_override.StripeSettingsOverride",
 	"Payment Request": "erpusa.stripe_plus.overrides.payment_request_override.PaymentRequestOverride",
-	"Auto Repeat": "erpusa.stripe_plus.overrides.auto_repeat_override.AutoRepeatOverride"
+	"Auto Repeat": "erpusa.stripe_plus.overrides.auto_repeat_override.AutoRepeatOverride",
+   "Subscription": "erpusa.stripe_plus.overrides.subscription_override.SubscriptionOverride",
 }
 
 # Document Events
