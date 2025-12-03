@@ -40,6 +40,8 @@
   "subscription_email_content_instructions",
   "subscription_email_subject",
   "subscription_email_message",
+  "accounting_settings_section",
+  "automatically_apply_advance_payments",
   "subscription_notification_section",
   "card_expiry_notification_lead_time",
   "card_expiry_notification_repeat",
@@ -311,6 +313,13 @@
    "label": "Notification"
   },
   {
+   "default": "3",
+   "fieldname": "card_expiry_notification_lead_time",
+   "fieldtype": "Int",
+   "label": "Card Expiry Notification Lead Time (in Months)",
+   "non_negative": 1
+  },
+  {
    "default": "Notify Monthly",
    "fieldname": "card_expiry_notification_repeat",
    "fieldtype": "Select",
@@ -318,18 +327,23 @@
    "options": "Notify Once\nNotify Monthly\nNotify Only at the Earliest and Closest Month"
   },
   {
-   "default": "3",
-   "fieldname": "card_expiry_notification_lead_time",
-   "fieldtype": "Int",
-   "label": "Card Expiry Notification Lead Time (in Months)",
-   "non_negative": 1
+   "fieldname": "accounting_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Accounting Settings"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, Sales Invoices generated from Subscriptions will automatically have their <i>Allocate Advances Automatically</i> field checked.\n<br>\nSuitable for situations where the payment gets processed before the invoice is created.",
+   "fieldname": "automatically_apply_advance_payments",
+   "fieldtype": "Check",
+   "label": "Automatically Apply Advance Payments"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-30 07:05:56.024796",
+ "modified": "2025-11-29 08:41:48.611392",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

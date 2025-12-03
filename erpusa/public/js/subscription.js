@@ -68,7 +68,13 @@ frappe.ui.form.on("Subscription", {
                     },
                     callback: function (r) {
                         let additional_info = r.message.status == "Sent"? "Customer has been notified to set up a payment method." : "An email was scheduled to be sent to the customer.";
-                        displayIntro(frm, "Email " + r.message.status, additional_info);
+                        let status =  "Email " + r.message.status;
+                        if (frm.doc.status == "Cancelled") {
+                            additional_info = "Subscription was cancelled before customer could pay.";
+                            status = "Canceled";
+                        }
+
+                        displayIntro(frm, status, additional_info);
                     }
                 });
             }
@@ -276,6 +282,8 @@ frappe.ui.form.on("Subscription", {
         frm.events.set_trial_end_date(frm);
         frm.events.toggle_autocharge_with_stripe_fields(frm);
         frm.events.toggle_stripe_plus_fields_reqd(frm);
+        frm.events.set_subscription_fields(frm);
+        frm.events.toggle_stripe_plus_fields_read_only(frm);
     },
 
     party_type: function (frm) {
@@ -311,7 +319,6 @@ frappe.ui.form.on("Subscription", {
             });
         }
     },
-
     
     set_account_and_payment_gateway_account: function (frm) {
         frappe.call({
@@ -327,6 +334,37 @@ frappe.ui.form.on("Subscription", {
                 }
             }
         });
+    },
+
+    set_subscription_fields: function (frm) {
+        frm.events.toggle_locked_fields(frm);
+        frm.set_value("generate_new_invoices_past_due_date", 1);
+        frm.set_value("submit_invoice", 1);
+        frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
+    },
+
+    toggle_locked_fields: function (frm) {
+        if (frm.doc.autocharge_with_stripe) {
+            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"];
+            const locked_message = `
+                <div class="alert alert-warning p-2 mt-2" role="alert">
+                        <small>Field is locked to allow autocharging with Stripe.</small>
+                </div>`;
+
+            locked_fields.forEach(function(field) {
+                frm.set_df_property(field, "read_only", 1);
+                frm.set_df_property(
+                    field,
+                    "description",
+                    locked_message
+                );
+            });
+        }
+
+        else {
+            frm.set_df_property("generate_invoice_at", "read_only", 0);
+            frm.set_df_property("generate_invoice_at", "description", null);
+        }
     },
 
     set_trial_end_date: function (frm) {
