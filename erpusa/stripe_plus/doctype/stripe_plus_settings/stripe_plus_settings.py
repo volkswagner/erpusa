@@ -9,7 +9,6 @@ import stripe
 from jinja2 import Template
 import re
 from frappe.utils import cint
-from erpnext.selling.doctype.customer.customer import get_customer_primary_contact
 
 try:
     from erpnext.selling.doctype.customer.customer import get_customer_primary as get_customer_primary_contact
