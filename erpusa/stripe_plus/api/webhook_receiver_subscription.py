@@ -114,7 +114,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         notify_error_to_user_merchant_payment(
             mp_doc.name,
             _("The Customer and/or Subscription association failed."),
-            str(e)
+            frappe.get_traceback()
         )
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
     
@@ -196,7 +196,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             notify_error_to_user_merchant_payment(
                 mp_doc.name,
                 _("The Payment Entry creation failed."),
-                str(e)
+                frappe.get_traceback()
             )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
 
@@ -207,7 +207,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             notify_error_to_user_merchant_payment(
                 mp_doc.name,
                 _("The Payment Entry submission failed."),
-                str(e)
+                frappe.get_traceback()
             )
             frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
                     
@@ -220,7 +220,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             notify_error_to_user_merchant_payment(
                 mp_doc.name,
                 mp_error_message,
-                str(e)
+                frappe.get_traceback()
             )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 

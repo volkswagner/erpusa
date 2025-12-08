@@ -633,7 +633,7 @@ def create_payment_entry(merchant_payment):
             notify_error_to_user_merchant_payment(
                 merchant_payment.name,
                 _("The Payment Entry creation failed."),
-                str(e)
+                frappe.get_traceback()
             )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
         
@@ -646,7 +646,7 @@ def create_payment_entry(merchant_payment):
             notify_error_to_user_merchant_payment(
                 merchant_payment.name,
                 _("The Payment Entry association failed."),
-                str(e)
+                frappe.get_traceback()
             )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
             
