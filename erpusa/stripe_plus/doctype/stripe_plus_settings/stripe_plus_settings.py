@@ -418,20 +418,18 @@ def update_stripe_customer(stripe_customer_id, stripe_settings, email_address):
       frappe.log_error(f"Can't update customer in stripe.com", str(e))
 
 @frappe.whitelist()
-def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
+def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, as_dict=True):
   account = paid_to if payment_type == "Receive" else paid_from
   bank_account = None
 
-  if account and trigger_change:
+  if account:
       bank_account = frappe.db.get_value("Bank Account", {"account": account}, "name")
-      if bank_account:
-          bank_account = bank_account
-
-  if as_dict:
-    return { "bank_account": bank_account or 0}
-  
-  else:
-     return bank_account
+    
+  if bank_account:
+    if as_dict:
+      return { "bank_account": bank_account or 0}
+    
+    return bank_account
    
 @frappe.whitelist()
 def get_bank_account_for_payment_request(mode_of_payment, reference_doctype=None, reference_docname=None, company=None):
@@ -636,7 +634,6 @@ def setup_stripe_subscription_registration(subscription, method=None):
       if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}):
         send_subscription_email_to_user(subscription)
 
-  frappe.log_error(str(subscription.email_queue))
   if subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
     subscription.email_queue = None
 

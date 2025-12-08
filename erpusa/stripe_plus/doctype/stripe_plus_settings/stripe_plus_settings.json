@@ -40,6 +40,11 @@
   "subscription_email_content_instructions",
   "subscription_email_subject",
   "subscription_email_message",
+  "accounting_settings_section",
+  "automatically_apply_advance_payments",
+  "subscription_notification_section",
+  "card_expiry_notification_lead_time",
+  "card_expiry_notification_repeat",
   "update_settings_section",
   "html_ifmh",
   "section_break_khol",
@@ -100,7 +105,7 @@
    "fieldname": "webhook_instructions",
    "fieldtype": "HTML",
    "label": "Instructions",
-   "options": "<small>\n <span>Instructions</span>\n <ol>\n  <li>Go to your Stripe dashboard. Navigate to the bottom bar and look for 'Developers' menu button.</li>\n  <li>Click the button and choose 'Webhooks'. Wait until a pane appears.</li>\n <li>From the pane, click the 'Add destination' button.</li>\n  <li>Select all events related to Charge, Payment Intent, Setup Intent and Payout, then continue.</li>\n  <li>Choose the destination type to 'Webhook endpoint', then continue.</li>\n  <li>Choose a destination name and set the endpoint url to <code> https://{your_domain}/api/method/erpusa.stripe_plus.api.webhook_receiver.receive_stripe_events\n   </code>.</li>\n  <li>Finally, create the destination.</li>\n  <li>Once the destination is created, look for its signing secret and copy it.</li>\n  <li>In the table below, add a row where the Stripe Settings is the account you used and the Signing Secret is the text you copied.</li>\n </ol>\n</small>"
+   "options": "<small>\n <span>Instructions</span>\n <ol>\n  <li>Go to your Stripe dashboard. Navigate to the bottom bar and look for 'Developers' menu button.</li>\n  <li>Click the button and choose 'Webhooks'. Wait until a pane appears.</li>\n <li>From the pane, click the 'Add destination' button.</li>\n  <li>Select all events related to Charge, Payment Intent, Setup Intent and Payout, then continue.</li>\n<ul>\nOptional: Also select all Customer.Subscription events, and events invoice.created invoice.payment_succeeded if you intend to use Stripe Plus Subscription.\n</ul>\n  <li>Choose the destination type to 'Webhook endpoint', then continue.</li>\n  <li>Choose a destination name and set the endpoint url to <code> https://{your_domain}/api/method/erpusa.stripe_plus.api.webhook_receiver.receive_stripe_events\n   </code>.</li>\n  <li>Finally, create the destination.</li>\n  <li>Once the destination is created, look for its signing secret and copy it.</li>\n  <li>In the table below, add a row where the Stripe Settings is the account you used and the Signing Secret is the text you copied.</li>\n </ol>\n</small>"
   },
   {
    "depends_on": "eval: doc.notification_method==\"Daily Digest\"",
@@ -139,7 +144,7 @@
   },
   {
    "default": "0",
-   "description": "<small>This setting is only applicable when payment is applied to Sales Invoice (including automatically generated invoices via Payment Requests)</small>",
+   "description": "<small>This setting is only applicable when payment is applied to Sales Invoice (including automatically generated invoices via Payment Requests). Subscription Invoices are always submitted.</small>",
    "fieldname": "auto_submit_payment",
    "fieldtype": "Check",
    "label": "Automatically submit Payment Entry"
@@ -301,12 +306,44 @@
    "fieldtype": "Link",
    "label": "Default Recipient of Subscription Update Emails",
    "options": "User"
+  },
+  {
+   "fieldname": "subscription_notification_section",
+   "fieldtype": "Section Break",
+   "label": "Notification"
+  },
+  {
+   "default": "3",
+   "fieldname": "card_expiry_notification_lead_time",
+   "fieldtype": "Int",
+   "label": "Card Expiry Notification Lead Time (in Months)",
+   "non_negative": 1
+  },
+  {
+   "default": "Notify Monthly",
+   "fieldname": "card_expiry_notification_repeat",
+   "fieldtype": "Select",
+   "label": "Card Expiry Notification Repeat",
+   "options": "Notify Once\nNotify Monthly\nNotify Only at the Earliest and Closest Month"
+  },
+  {
+   "fieldname": "accounting_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Accounting Settings"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, Sales Invoices generated from Subscriptions will automatically have their <i>Allocate Advances Automatically</i> field checked.\n<br>\nSuitable for situations where the payment gets processed before the invoice is created.",
+   "fieldname": "automatically_apply_advance_payments",
+   "fieldtype": "Check",
+   "label": "Automatically Apply Advance Payments"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-09-16 00:31:17.139647",
+ "modified": "2025-11-29 08:41:48.611392",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",
@@ -338,6 +375,8 @@
    "share": 1
   }
  ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
