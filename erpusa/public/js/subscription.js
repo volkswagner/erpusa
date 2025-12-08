@@ -21,7 +21,7 @@ frappe.ui.form.on("Subscription", {
     setup: function (frm) {
         frm.set_query("user_account_representative", function (doc) {
 			return {
-				query: "erpnext.selling.doctype.customer.customer.get_customer_primary_contact",
+				query: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_customer_contact",
 				filters: {
 					customer: doc.party,
 				},
@@ -30,7 +30,6 @@ frappe.ui.form.on("Subscription", {
     },
 
     refresh: async function(frm) {
-        frm.events.insert_advance_payments_link(frm);
         if (frm.doc.status !== "Cancelled") {
             frm.remove_custom_button(__("Cancel Subscription"), __("Actions"));
 			frm.add_custom_button(
@@ -291,38 +290,41 @@ frappe.ui.form.on("Subscription", {
 	},
 
     insert_advance_payments_link: function (frm) {
-        frappe.call({
-            method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_advance_payments",
-            args: {
-                customer: frm.doc.party
-            },
-            callback: function (r) {
-                if (r.message) {
-                    let payment_entry_node = $('.document-link[data-doctype="Payment Entry"]');
+        if (frm.doc.party_type && frm.doc.party) {
+            frappe.call({
+                method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_advance_payments",
+                args: {
+                    customer: frm.doc.party
+                },
+                callback: function (r) {
+                    if (r.message) {
+                        let payment_entry_node = $('.document-link[data-doctype="Payment Entry"]');
 
-                    // Advance Payment Link is already inserted update the count instead
-                    if (payment_entry_node.length == 0) {
-                        let link = window.location.origin + "/app/payment-entry?status=Submitted&reference_no=%5B%22like%22%2C%22pi%25%22%5D&reference_name=%5B%22is%22%2C%22not+set%22%5D&party=" + encodeURI(frm.doc.party);
-                        $('[data-page-route="Subscription"] .document-link[data-doctype="Sales Invoice"]').after(
-                            $(`
-                                <div class="document-link" data-doctype="Payment Entry">
-                                    <div class="document-link-badge" data-doctype="Payment Entry"> 
-                                        <span class="count">${r.message.length}</span>
-                                        <a class="badge-link" href="${link}" target="_blank">Advance Payment</a>
-                                    </div> 
-                                    <span class="open-notification hidden" title="Advance Payment"></span>
-                                </div>
-                            `)
-                        );
+                        // Advance Payment Link is already inserted update the count instead
+                        if (payment_entry_node.length == 0) {
+                            let link = window.location.origin + "/app/payment-entry?status=Submitted&reference_no=%5B%22like%22%2C%22pi%25%22%5D&reference_name=%5B%22is%22%2C%22not+set%22%5D&party=" + encodeURI(frm.doc.party);
+                            $('[data-page-route="Subscription"] .document-link[data-doctype="Sales Invoice"]').after(
+                                $(`
+                                    <div class="document-link" data-doctype="Payment Entry">
+                                        <div class="document-link-badge" data-doctype="Payment Entry"> 
+                                            <span class="count">${r.message.length}</span>
+                                            <a class="badge-link" href="${link}" target="_blank">Advance Payment</a>
+                                        </div> 
+                                        <span class="open-notification hidden" title="Advance Payment"></span>
+                                    </div>
+                                `)
+                            );
+                        }
+                        else {
+                            payment_entry_node.find('.count').html(r.message.length);
+                        }
+                        // force the Advance Paymetn count to always show
+                        payment_entry_node.find('.count').removeClass('hidden');
                     }
-                    else {
-                        payment_entry_node.find('.count').html(r.message.length);
-                    }
-                    // force the Advance Paymetn count to always show
-                    payment_entry_node.find('.count').removeClass('hidden');
                 }
-            }
-        });
+            });
+
+        } 
     }
 })
 

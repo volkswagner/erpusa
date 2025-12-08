@@ -11,6 +11,11 @@ import re
 from frappe.utils import cint
 from erpnext.selling.doctype.customer.customer import get_customer_primary_contact
 
+try:
+    from erpnext.selling.doctype.customer.customer import get_customer_primary as get_customer_primary_contact
+except ImportError:
+    from erpnext.selling.doctype.customer.customer import get_customer_primary_contact as get_customer_primary_contact
+
 METHODS_FULLNAME = {
   "acss_debit": "Pre-authorized Debit Payments",
   "affirm": "Affirm",
@@ -194,11 +199,12 @@ def update_stripe_customer_info(contact, method=None):
 def get_customer_contact(customer):
   for contact_type in ("is_billing_contact", "is_primary_contact"):
     contact_list = get_customer_primary_contact(
-      "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1}
+      "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1, type: "Address"}
     )
     
     if contact_list:
       return contact_list[0][0]
+  frappe.throw(str(contact_list))
       
   return None
 
