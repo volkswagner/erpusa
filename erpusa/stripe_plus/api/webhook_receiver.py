@@ -356,8 +356,9 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, p
                 if metadata.get('doctype') == "Sales Order":
                     create_sales_invoice(metadata.get('docname'), mp_doc)
 
+                if doc.balance_transaction:
                 # create a Payment Entry doc
-                create_payment_entry(mp_doc)
+                    create_payment_entry(mp_doc)
 
         if return_mp_doc:
             return mp_doc         
@@ -536,7 +537,7 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
     # notify user payment once merchnt payment doc is created
-    if frappe.db.exists("Merchant Payment", mp_doc.name) and frappe.db.get_value("Merchant Payment", mp_doc.name, "stripe_status") == "Available":
+    if frappe.db.exists("Merchant Payment", mp_doc.name):
         notify_user(merchant_payment=mp_doc)
             
     return mp_doc
@@ -609,7 +610,7 @@ def create_payment_entry(merchant_payment):
             if reference.reference_name == pr_doc.reference_name:
                 pe_doc.references[index].allocated_amount = merchant_payment.gross_amount
                 
-        pe_doc.payment_method = frappe.get_value("Payment Request", merchant_payment.associated_payment_request, "mode_of_payment") 
+        pe_doc.mode_of_payment = frappe.get_value("Payment Request", merchant_payment.associated_payment_request, "mode_of_payment") 
         pe_doc.reference_no = frappe.get_value("Stripe Transaction", merchant_payment.source, "payment_intent")
         pe_doc.paid_amount = merchant_payment.net_amount
 
@@ -622,7 +623,7 @@ def create_payment_entry(merchant_payment):
         })
         
         # set the bank account
-        if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
+        if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
             pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
 
         try:

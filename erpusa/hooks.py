@@ -214,7 +214,7 @@ scheduler_events = {
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
 # override_doctype_dashboards = {
-# 	"Task": "erpusa.task.get_dashboard_data"
+# 	"Subscription": "erpusa.stripe_plus.overrides.subscription_dashboard_override.get_dashboard_data"
 # }
 
 # exempt linked doctypes from being automatically cancelled
