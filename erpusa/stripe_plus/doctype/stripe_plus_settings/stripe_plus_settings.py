@@ -204,7 +204,6 @@ def get_customer_contact(customer):
     
     if contact_list:
       return contact_list[0][0]
-  frappe.throw(str(contact_list))
       
   return None
 
