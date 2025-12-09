@@ -221,7 +221,7 @@ frappe.ui.form.on("Subscription", {
     set_user_account_representative: function (frm) {
         if (frm.doc.autocharge_with_stripe && frm.doc.party) {
             frappe.call({
-                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_customer_contact",
+                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_user_account_representative",
                 args: {
                     customer: frm.doc.party
                 },
