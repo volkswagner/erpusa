@@ -2,14 +2,13 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe import _
+from frappe import _, qb
 from urllib.parse import urlencode
 from frappe.model.document import Document
 import stripe
 from jinja2 import Template
 import re
 from frappe.utils import cint
-from erpnext.selling.doctype.customer.customer import get_customer_primary_contact
 
 METHODS_FULLNAME = {
   "acss_debit": "Pre-authorized Debit Payments",
@@ -191,16 +190,38 @@ def update_stripe_customer_info(contact, method=None):
         )
 
 @frappe.whitelist()
-def get_customer_contact(customer):
-  for contact_type in ("is_billing_contact", "is_primary_contact"):
-    contact_list = get_customer_primary_contact(
-      "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1}
-    )
-    
-    if contact_list:
+def get_customer_contact(doctype, txt, searchfield, start, page_len, filters):
+  customer = filters.get("customer")
+  con = qb.DocType("Contact")
+  dlink = qb.DocType("Dynamic Link")
+
+  return (
+    qb.from_(con)
+    .join(dlink)
+    .on(con.name == dlink.parent)
+    .select(con.name)
+    .where((dlink.link_name == customer) & (con.name.like(f"%{txt}%")))
+    .run()
+  )
+  
+@frappe.whitelist()
+def get_user_account_representative(customer):
+  contact_list = get_customer_contact(
+    doctype="Contact",
+    txt="",
+    searchfield="name",
+    start=0,P
+    page_len=1,
+    filters={
+      "customer": customer
+    }
+  )
+  
+  if contact_list:
       return contact_list[0][0]
-      
+    
   return None
+  
 
 def get_representative_email_address(representative, as_dict=True, log_title=None, email_id_override=None):
   # email_id_override is for when the old value is needed
@@ -332,10 +353,10 @@ def find_customer_configuration(customer, payment_gateway):
     stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
     settings = get_gateway_settings_doc(payment_gateway)
 
-    doctype_stripe_pmc_customer = frappe.qb.DocType('Stripe Payment Method Configuration Customer')
+    doctype_stripe_pmc_customer = qb.DocType('Stripe Payment Method Configuration Customer')
 
     query = (
-      frappe.qb.from_(doctype_stripe_pmc_customer)
+      qb.from_(doctype_stripe_pmc_customer)
       .select(doctype_stripe_pmc_customer.parent.as_('configuration'))
       .where(doctype_stripe_pmc_customer.customer == customer)
       .limit(1)
@@ -741,11 +762,11 @@ def validate_subscription_plan_stripe_price(subscription_plan, method=None):
 
 def update_stripe_product(item, method=None):
   if item.stripe_product_id and (item.has_value_changed("item_name") or item.has_value_changed("description")):
-    subscription_plan_detail = frappe.qb.DocType("Subscription Plan Detail")
-    subscription_plan = frappe.qb.DocType("Subscription Plan")
+    subscription_plan_detail = qb.DocType("Subscription Plan Detail")
+    subscription_plan = qb.DocType("Subscription Plan")
 
     query = (
-        frappe.qb.from_(subscription_plan_detail)
+        qb.from_(subscription_plan_detail)
         .select(subscription_plan_detail.parent)
         .inner_join(subscription_plan)
         .on(subscription_plan_detail.plan == subscription_plan.name)
