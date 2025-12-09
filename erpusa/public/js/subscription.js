@@ -37,7 +37,7 @@ frappe.ui.form.on("Subscription", {
     setup: function (frm) {
         frm.set_query("user_account_representative", function (doc) {
 			return {
-				query: "erpnext.selling.doctype.customer.customer.get_customer_primary_contact",
+				query: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_customer_contact",
 				filters: {
 					customer: doc.party,
 				},
@@ -45,8 +45,7 @@ frappe.ui.form.on("Subscription", {
 		});
     },
 
-    refresh: function(frm) {
-        is_unlocked = true;
+    refresh: async function(frm) {
         if (frm.doc.status !== "Cancelled") {
             frm.remove_custom_button(__("Cancel Subscription"), __("Actions"));
 			frm.add_custom_button(
@@ -130,7 +129,7 @@ frappe.ui.form.on("Subscription", {
                 }
             })
         
-            frm.add_custom_button(__("Identify Unallocated Payments"), function() {
+            frm.add_custom_button("Look for Unallocated Stripe Transactions", function() {
                 frappe.call({
                     method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_unallocated_payments",
                     freeze: true,
@@ -144,23 +143,22 @@ frappe.ui.form.on("Subscription", {
                     callback: function (r) {
                         if (r.message) {
                             let unallocated_payments_dialog = new frappe.ui.Dialog({
-                                size: "large",
-                                title: "Unallocated Payments",
+                                size: "extra-large",
+                                title: "Unallocated Stripe Transactions",
                                 fields: [
                                     {
                                         fieldname: 'instructions',
                                         fieldtype: 'HTML',
                                         options: `
-                                            You have <b>${r.message.invoice_count}</b> unpaid invoice(s). The following can be allocated as payments for them:
+                                            <p>The table below shows Stripe Transactions that don't have Payment Entries yet. Select the Stripe Transaction you'd like to allocate.</p>
+                                            <p>
+                                                <b>Note:</b> 
+                                                <span>Payments will be automatically applied to any unpaid Sales Invoices. If there are none, an Advance Payment will be created instead.</span>
+                                            </p>
                                         `
                                     },
                                     {
-                                        fieldname: 'submit_payment_entries',
-                                        fieldtype: 'Check',
-                                        label: 'Submit Payment Entries'
-                                    },
-                                    {
-                                        fieldname: 'payments',
+                                        fieldname: 'unallocated_stripe_transactions',
                                         fieldtype: 'Table',
                                         cannot_add_rows: 1,
                                         cannot_delete_rows: 1,
@@ -174,7 +172,15 @@ frappe.ui.form.on("Subscription", {
                                                 options: 'Stripe Transaction',
                                                 read_only: 1,
                                                 in_list_view: 1,
-                                                columns: 5
+                                                columns: 4
+                                            },
+                                            {
+                                                fieldname: 'amount',
+                                                fieldtype: 'Currency',
+                                                label: 'Amount',
+                                                read_only: 1,
+                                                in_list_view: 1,
+                                                columns: 1
                                             },
                                             {
                                                 fieldname: 'payment_method_type',
@@ -199,36 +205,20 @@ frappe.ui.form.on("Subscription", {
 
                             if (r.message.unallocated_stripe_transactions.length > 0) {
                                 unallocated_payments_dialog.set_primary_action("Allocate Payments", function() {
-                                    function allocate_payments() {
-                                        frappe.call({
-                                            method: "erpusa.stripe_plus.api.webhook_receiver_subscription.allocate_payments",
-                                            freeze: true,
-                                            freeze_message: __("Allocating Payments"),
-                                            args: {
-                                                submit_payment_entries: unallocated_payments_dialog.get_values().submit_payment_entries,
-                                                stripe_transactions: r.message.unallocated_stripe_transactions,
-                                                invoice_count: r.message.invoice_count,
-                                                payment_gateway: frm.doc.payment_gateway
-                                            },
-                                            callback: function (r) {
-                                                unallocated_payments_dialog.hide();
-                                            }
-                                        });
-                                    }
-
-                                    if (r.message.unallocated_stripe_transactions.length !== r.message.invoice_count.length) {
-                                        frappe.confirm(__("The number of unpaid invoices is not equal to the total unallocated payments. Continue?"),
-                                            () => {
-                                                allocate_payments();
-                                            },
-                                            () => {
-                                                unallocated_payments_dialog.hide();
-                                            }
-                                        )
-                                    }
-                                    else {
-                                        allocate_payments();
-                                    }
+                                    frappe.call({
+                                        method: "erpusa.stripe_plus.api.webhook_receiver_subscription.allocate_payments",
+                                        freeze: true,
+                                        freeze_message: __("Allocating Payments"),
+                                        args: {
+                                            subscription: frm.doc.name,
+                                            stripe_transactions: r.message.unallocated_stripe_transactions,
+                                            invoice_count: r.message.invoice_count,
+                                            payment_gateway: frm.doc.payment_gateway
+                                        },
+                                        callback: function (r) {
+                                            unallocated_payments_dialog.hide();
+                                        }
+                                    });
                                 });
                             }
 
@@ -307,7 +297,7 @@ frappe.ui.form.on("Subscription", {
     set_user_account_representative: function (frm) {
         if (frm.doc.autocharge_with_stripe && frm.doc.party) {
             frappe.call({
-                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_customer_contact",
+                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_user_account_representative",
                 args: {
                     customer: frm.doc.party
                 },
@@ -464,6 +454,44 @@ frappe.ui.form.on("Subscription", {
                 <use class="" href="#es-line-reload"></use>
             </svg>
         `);
+    },
+    
+    insert_advance_payments_link: function (frm) {
+        if (frm.doc.party_type && frm.doc.party) {
+            frappe.call({
+                method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_advance_payments",
+                args: {
+                    customer: frm.doc.party
+                },
+                callback: function (r) {
+                    if (r.message) {
+                        let payment_entry_node = $('.document-link[data-doctype="Payment Entry"]');
+
+                        // Advance Payment Link is already inserted update the count instead
+                        if (payment_entry_node.length == 0) {
+                            let link = window.location.origin + "/app/payment-entry?status=Submitted&reference_no=%5B%22like%22%2C%22pi%25%22%5D&reference_name=%5B%22is%22%2C%22not+set%22%5D&party=" + encodeURI(frm.doc.party);
+                            $('[data-page-route="Subscription"] .document-link[data-doctype="Sales Invoice"]').after(
+                                $(`
+                                    <div class="document-link" data-doctype="Payment Entry">
+                                        <div class="document-link-badge" data-doctype="Payment Entry"> 
+                                            <span class="count">${r.message.length}</span>
+                                            <a class="badge-link" href="${link}" target="_blank">Advance Payment</a>
+                                        </div> 
+                                        <span class="open-notification hidden" title="Advance Payment"></span>
+                                    </div>
+                                `)
+                            );
+                        }
+                        else {
+                            payment_entry_node.find('.count').html(r.message.length);
+                        }
+                        // force the Advance Paymetn count to always show
+                        payment_entry_node.find('.count').removeClass('hidden');
+                    }
+                }
+            });
+
+        } 
     }
 });
 
