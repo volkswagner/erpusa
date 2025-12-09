@@ -2,15 +2,14 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe import _
-from frappe.utils import cint, getdate, today
+from frappe import _, qb
 from urllib.parse import urlencode
 from frappe.model.document import Document
 import stripe
 import secrets
 from jinja2 import Template
 import re
-from erpnext.selling.doctype.customer.customer import get_customer_primary_contact
+from frappe.utils import cint
 
 METHODS_FULLNAME = {
   "acss_debit": "Pre-authorized Debit Payments",
@@ -44,6 +43,17 @@ METHODS_FULLNAME = {
   "us_bank_account": "ACH Direct Debit",
   "wechat_pay": "WeChat Pay",
   "zip": "Zip"
+}
+
+SUBSCRIPTION_STATUS_VERBOSE = {
+    'incomplete': 'Incomplete',
+    'incomplete_expired': 'Incomplete Expired',
+    'trialing': 'Trialing',
+    'active': 'Active',
+    'past_due': 'Past Due',
+    'canceled': 'Canceled',
+    'unpaid': 'Unpaid',
+    'paused': 'Paused'
 }
 
 class StripePlusSettings(Document):
@@ -182,16 +192,38 @@ def update_stripe_customer_info(contact, method=None):
         )
 
 @frappe.whitelist()
-def get_customer_contact(customer):
-  for contact_type in ("is_billing_contact", "is_primary_contact"):
-    contact_list = get_customer_primary_contact(
-      "Customer", "", "name", 0, 11, {"customer": customer, contact_type: 1}
-    )
-    
-    if contact_list:
+def get_customer_contact(doctype, txt, searchfield, start, page_len, filters):
+  customer = filters.get("customer")
+  con = qb.DocType("Contact")
+  dlink = qb.DocType("Dynamic Link")
+
+  return (
+    qb.from_(con)
+    .join(dlink)
+    .on(con.name == dlink.parent)
+    .select(con.name)
+    .where((dlink.link_name == customer) & (con.name.like(f"%{txt}%")))
+    .run()
+  )
+  
+@frappe.whitelist()
+def get_user_account_representative(customer):
+  contact_list = get_customer_contact(
+    doctype="Contact",
+    txt="",
+    searchfield="name",
+    start=0,P
+    page_len=1,
+    filters={
+      "customer": customer
+    }
+  )
+  
+  if contact_list:
       return contact_list[0][0]
-      
+    
   return None
+  
 
 def get_representative_email_address(representative, as_dict=True, log_title=None, email_id_override=None):
   # email_id_override is for when the old value is needed
@@ -225,8 +257,8 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
 
       if not subscription.payment_gateway_account:
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
-        
-    if  subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
+
+    if subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
       subscription.email_queue = None
 
 @frappe.whitelist()
@@ -323,10 +355,10 @@ def find_customer_configuration(customer, payment_gateway):
     stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
     settings = get_gateway_settings_doc(payment_gateway)
 
-    doctype_stripe_pmc_customer = frappe.qb.DocType('Stripe Payment Method Configuration Customer')
+    doctype_stripe_pmc_customer = qb.DocType('Stripe Payment Method Configuration Customer')
 
     query = (
-      frappe.qb.from_(doctype_stripe_pmc_customer)
+      qb.from_(doctype_stripe_pmc_customer)
       .select(doctype_stripe_pmc_customer.parent.as_('configuration'))
       .where(doctype_stripe_pmc_customer.customer == customer)
       .limit(1)
@@ -409,20 +441,18 @@ def update_stripe_customer(stripe_customer_id, stripe_settings, email_address):
       frappe.log_error(f"Can't update customer in stripe.com", str(e))
 
 @frappe.whitelist()
-def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, trigger_change, as_dict=True):
+def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, as_dict=True):
   account = paid_to if payment_type == "Receive" else paid_from
   bank_account = None
 
-  if account and trigger_change:
+  if account:
       bank_account = frappe.db.get_value("Bank Account", {"account": account}, "name")
-      if bank_account:
-          bank_account = bank_account
-
-  if as_dict:
-    return { "bank_account": bank_account or 0}
-  
-  else:
-     return bank_account
+    
+  if bank_account:
+    if as_dict:
+      return { "bank_account": bank_account or 0}
+    
+    return bank_account
    
 @frappe.whitelist()
 def get_bank_account_for_payment_request(mode_of_payment, reference_doctype=None, reference_docname=None, company=None):
@@ -626,7 +656,10 @@ def setup_stripe_subscription_registration(subscription, method=None):
       
       if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}):
         send_subscription_email_to_user(subscription)
-        
+
+  if subscription.email_queue and not frappe.db.exists("Email Queue", subscription.email_queue):
+    subscription.email_queue = None
+
 def send_subscription_email_to_user(subscription):
   params = {
     'subscription_name': subscription.name,
@@ -694,12 +727,6 @@ def send_subscription_email_to_user(subscription):
 @frappe.whitelist()
 def cancel_subscription(subscription_name):
   subscription_doc = frappe.get_doc("Subscription", subscription_name)
-
-  if not frappe.db.exists("Email Queue", subscription_doc.email_queue):
-    try:
-      subscription_doc.email_queue = None
-    except Exception as e:
-      frappe.log_error("Email Queue", str(e))
   
   try:
     subscription_doc.cancel_subscription()
@@ -710,11 +737,20 @@ def cancel_subscription(subscription_name):
     stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
     
     try:
-      subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
+      subscription = stripe.Subscription.retrieve(subscription_doc.stripe_subscription_id)
     except Exception as e:
-      frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
-      
-    frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
+      frappe.throw(_("Failed to find the associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
+
+    if subscription.status in ["canceled", "incomplete_expired", "incomplete"]:
+      frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[subscription.status])
+    
+    else:
+      try:
+        subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
+      except Exception as e:
+        frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
+        
+      frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
 
 def validate_subscription_plan_stripe_price(subscription_plan, method=None):
   if subscription_plan.stripe_price_id and (subscription_plan.has_value_changed("currency") or \
@@ -728,11 +764,11 @@ def validate_subscription_plan_stripe_price(subscription_plan, method=None):
 
 def update_stripe_product(item, method=None):
   if item.stripe_product_id and (item.has_value_changed("item_name") or item.has_value_changed("description")):
-    subscription_plan_detail = frappe.qb.DocType("Subscription Plan Detail")
-    subscription_plan = frappe.qb.DocType("Subscription Plan")
+    subscription_plan_detail = qb.DocType("Subscription Plan Detail")
+    subscription_plan = qb.DocType("Subscription Plan")
 
     query = (
-        frappe.qb.from_(subscription_plan_detail)
+        qb.from_(subscription_plan_detail)
         .select(subscription_plan_detail.parent)
         .inner_join(subscription_plan)
         .on(subscription_plan_detail.plan == subscription_plan.name)
@@ -764,3 +800,6 @@ def is_text_editor_set(html_content):
 def unbind_email_queue_from_subscription(subscription, method=None):
   if subscription.email_queue:
     frappe.db.set_value("Email Queue", subscription.email_queue, "reference_name", None)
+
+  
+

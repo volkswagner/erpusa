@@ -30,8 +30,6 @@ frappe.ui.form.on("Auto Repeat", {
                 collapse_notification_section(false);
             })
         }
-
-        
     },
 
     payment_gateway_account: function (frm) {

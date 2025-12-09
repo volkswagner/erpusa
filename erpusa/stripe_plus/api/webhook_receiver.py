@@ -134,15 +134,6 @@ def receive_stripe_events():
         payload=payload,
         sig_header=sig_header
     )
-
-    # enqueue_at(
-    #     method="erpusa.stripe_plus.api.webhook_receiver.process_stripe_events",
-    #     queue='default',
-    #     kwargs={
-    #         "payload": payload,
-    #         "sig_header": sig_header
-    #     }
-    # )
     
 def process_stripe_events(payload, sig_header):
     validators = frappe.db.get_all("Stripe Plus Settings Webhook Validator", pluck="name")
@@ -365,8 +356,9 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, p
                 if metadata.get('doctype') == "Sales Order":
                     create_sales_invoice(metadata.get('docname'), mp_doc)
 
+                if doc.balance_transaction:
                 # create a Payment Entry doc
-                create_payment_entry(mp_doc)
+                    create_payment_entry(mp_doc)
 
         if return_mp_doc:
             return mp_doc         
@@ -471,10 +463,6 @@ def create_update_stripe_payout(data, log_doc, api_key):
                 adjustments = adjustments + txn.net
                 
         total = charges + stripe_fees
-        frappe.log_error("charges", str(charges))
-        frappe.log_error("stripe_fees", str(stripe_fees))
-        frappe.log_error("total", str(total))
-        frappe.log_error("doc.amount", str(doc.amount))
         
         # refunds and adjustments are not handled at the moment, error message will be sent via email
         if refunds or adjustments or (Decimal(total) / Decimal('100') != Decimal(str(doc.amount))):
@@ -549,7 +537,7 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
     # notify user payment once merchnt payment doc is created
-    if frappe.db.exists("Merchant Payment", mp_doc.name) and frappe.db.get_value("Merchant Payment", mp_doc.name, "stripe_status") == "Available":
+    if frappe.db.exists("Merchant Payment", mp_doc.name):
         notify_user(merchant_payment=mp_doc)
             
     return mp_doc
@@ -622,7 +610,7 @@ def create_payment_entry(merchant_payment):
             if reference.reference_name == pr_doc.reference_name:
                 pe_doc.references[index].allocated_amount = merchant_payment.gross_amount
                 
-        pe_doc.payment_method = frappe.get_value("Payment Request", merchant_payment.associated_payment_request, "mode_of_payment") 
+        pe_doc.mode_of_payment = frappe.get_value("Payment Request", merchant_payment.associated_payment_request, "mode_of_payment") 
         pe_doc.reference_no = frappe.get_value("Stripe Transaction", merchant_payment.source, "payment_intent")
         pe_doc.paid_amount = merchant_payment.net_amount
 
@@ -635,13 +623,18 @@ def create_payment_entry(merchant_payment):
         })
         
         # set the bank account
-        if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False):
-            pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, False, as_dict=False)
+        if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
+            pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
 
         try:
             pe_doc.save(ignore_permissions=True)
 
         except Exception as e:
+            notify_error_to_user_merchant_payment(
+                merchant_payment.name,
+                _("The Payment Entry creation failed."),
+                frappe.get_traceback()
+            )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
         
         # update Merchant Payment doc
@@ -650,6 +643,11 @@ def create_payment_entry(merchant_payment):
             merchant_payment.save()
 
         except Exception as e:
+            notify_error_to_user_merchant_payment(
+                merchant_payment.name,
+                _("The Payment Entry association failed."),
+                frappe.get_traceback()
+            )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
             
         # submit Payment Entry doc according to settings
@@ -746,7 +744,7 @@ def get_charge_details(id, api_key):
             return charge
         
         except Exception as e:
-            frappe.log_error("Error getting Charge Details", str(e))
+            frappe.log_error(frappe.get_traceback(), _("Error getting Charge Details"))
             return None
 
 def get_balance_transaction_details(id, api_key):
@@ -811,6 +809,33 @@ def generate_realtime_notification_email_message(title, description, merchant_pa
             "gross_amount": fmt_money(merchant_payment.gross_amount)
         },
     )
+
+
+def notify_error_to_user_merchant_payment(merchant_payment_name, summary, error_message):
+    recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+
+    if frappe.db.exists("Merchant Payment", merchant_payment_name):
+        reference_name = merchant_payment_name + "_error_" + now()
+
+        if recipients and not frappe.db.exists("Email Queue", {"reference_doctype": "Merchant Payment", "reference_name": reference_name}):
+            message = frappe.render_template(
+                "erpusa/templates/html/merchant_payment_errors.html",
+                {
+                    "merchant_payment": merchant_payment_name,
+                    "summary": summary,
+                    "error_message": error_message
+                },
+            )
+
+            frappe.sendmail(
+                recipients=recipients.split(),
+                subject=_("Merchant Payment failed"),
+                message=message,
+                reference_doctype="Merchant Payment",
+                reference_name=reference_name,
+                now=True
+            )
+
 
 def notify_user(merchant_payment):
     # check if realtime notifications is enabled

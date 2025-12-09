@@ -1,0 +1,42 @@
+
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b>{{ _("An advance payment was created for subscription ") }} {{ subscription }} {{ _(" as there are no unpaid invoices at the moment.") }}</b>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<p>
+				{{ _("More information about this advance payment is shown below.") }}
+			</p>
+		</td>
+	</tr>
+</table>
+<table class="table table-bordered text-medium" cellpadding="0" cellspacing="0" border="0">
+	<thead>
+		<tr>
+			<th> Subscription </th>
+			<th> Customer </th>
+			<th> Amount </th>
+			<th> Payment Entry </th>
+			<th> Merchant Payment </th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td> 
+            <a href="{{ subscription_url }}" target="_blank">{{ subscription }}</a>
+         </td>
+			<td> {{ customer }}</td>
+			<td> {{ frappe.utils.fmt_money(amount) }}</td>
+			<td> 
+            <a href="{{ payment_entry_url }}" target="_blank">{{ payment_entry }}</a>
+         </td>
+         <td> 
+            <a href="{{ merchant_payment_url }}" target="_blank">{{ merchant_payment }}</a>
+         </td>
+		</tr>
+	</tbody>
+</table>
+
