@@ -277,8 +277,8 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
       
       if subscription.trial_period_end:
-        trial_period_end = datetime.strptime(subscription.trial_period_end, "%Y-%d-%m")
-        date_today = datetime.strptime(frappe.utils.today(), "%Y-%d-%m")
+        trial_period_end = datetime.strptime(subscription.trial_period_end, "%Y-%m-%d")
+        date_today = datetime.strptime(frappe.utils.today(), "%Y-%m-%d")
         
         if (trial_period_end - date_today).days < 2:
           frappe.throw(_("The Trial Period End Date has to be at least 2 days in the future."))
@@ -678,8 +678,11 @@ def setup_stripe_subscription_registration(subscription, method=None):
         if stripe_product_id:
           create_stripe_price(plan.plan, plan_item, stripe_product_id, stripe_settings)
 
-      if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}):
+      email_queue = frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name})
+      if not email_queue:
         send_subscription_email_to_user(subscription)
+      else:
+        frappe.throw(_("Couldn't create a Payment Setup Request because an email has already been created for this Subscription: {email}").format(email=email_queue))
 
 def send_subscription_email_to_user(subscription):
   params = {

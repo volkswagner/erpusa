@@ -268,9 +268,7 @@ frappe.ui.form.on("Subscription", {
 
     autocharge_with_stripe: function(frm) {
         frm.events.display_autocharge_notice(frm);
-        frm.events.set_user_account_representative(frm);
         frm.events.set_trial_end_date(frm);
-        frm.events.set_subscription_fields(frm);
         frm.events.toggle_stripe_plus_fields_reqd(frm);
     },
 
@@ -333,9 +331,7 @@ frappe.ui.form.on("Subscription", {
         frm.set_value("generate_new_invoices_past_due_date", 1);
         frm.set_value("submit_invoice", 1);
         frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
-        if(!frm.is_new() && !frm.doc.email_queue && frm.doc.trial_period_end) {
-            frm.set_value("billing_behavior", "Charge for the next billing period")
-        }
+        frm.set_value("billing_behavior", "Charge for the next billing period");
     },
 
     set_trial_end_date: function (frm) {
@@ -381,11 +377,8 @@ frappe.ui.form.on("Subscription", {
                     renderFieldDescription(field.value)
                 );
             });
-
-            if(!frm.is_new() && !frm.doc.email_queue) {
-                frm.set_df_property("billing_behavior", "hidden", 0);
-                frm.set_df_property("billing_behavior", "options", ["Charge for the next billing period", "Charge a prorated amount for the current billing period"]);
-            }
+            frm.set_df_property("billing_behavior", "hidden", 0);
+            frm.set_df_property("billing_behavior", "options", ["Charge for the next billing period", "Charge a prorated amount for the current billing period"]);
         }
 
         else {
@@ -397,6 +390,7 @@ frappe.ui.form.on("Subscription", {
                     null
                 );
             });
+            frm.set_df_property("billing_behavior", "hidden", 1);
         }
     },
 
@@ -407,7 +401,12 @@ frappe.ui.form.on("Subscription", {
     },
 
     display_autocharge_notice: function (frm) {
-        if (frm.doc.autocharge_with_stripe) {
+        if (
+            frm.doc.autocharge_with_stripe &&
+            (frm.doc.generate_invoice_at != "Beginning of the current subscription period" ||
+            frm.doc.generate_new_invoices_past_due_date != 1 ||
+            frm.doc.submit_invoice != 1)
+        ) {
             if (frm._toggled) {
                 frm._toggled = false;
                 return;
@@ -415,7 +414,9 @@ frappe.ui.form.on("Subscription", {
 
             frappe.confirm(renderNoticeContent(autocharge_with_stripe_fields),
                 () => {
-                    frm.set_value("autocharge_with_stripe", 1)
+                    frm.set_value("autocharge_with_stripe", 1);
+                    frm.events.set_subscription_fields(frm);
+                    frm.events.set_user_account_representative(frm);
                     frm._toggled = true;
                 },
                 () => {
@@ -520,7 +521,7 @@ function renderNoticeContent(fields) {
     })
 
     return `
-        <p>Enabling Stripe auto-charging will automatically set the fields below. Continue?</p>
+        <p>Enabling Stripe auto-charging will automatically set/override the fields below. Continue?</p>
         <table class="table table-bordered">
             ${table_content}
         </table>
