@@ -17,17 +17,6 @@ def receive_stripe_subscription_events(data, return_docs=False, submit_payment_e
             subscription_doc = frappe.get_doc("Subscription", metadata.get("erp_subscription_name"))
             if not subscription_doc.stripe_subscription_id:
                 frappe.db.set_value("Subscription", subscription_doc.name, "stripe_subscription_id", data.get("id"))
-                cancel_at = None
-                
-                # if stripe is already linked with ERPNext, update the cancellation date if appplicable
-                if not subscription_doc.stripe_subscription_status and subscription_doc.end_date and subscription_doc.cancel_at_period_end:
-                    import stripe
-                    
-                    stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
-                    stripe.Subscription.modify(
-                        data.get("id"), 
-                        cancel_at=formulate_timestamp(subscription_doc.end_date)
-                    )
                 
                 # send welcome email and create user if customer is new
                 if not subscription_doc.stripe_subscription_status and data.get("status") in ["trialing", "active"]:
@@ -83,6 +72,15 @@ def receive_stripe_subscription_events(data, return_docs=False, submit_payment_e
 
                 frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
     
+                # if stripe is already linked with ERPNext, update the cancellation date if appplicable
+                if not subscription_doc.stripe_subscription_status and subscription_doc.end_date and subscription_doc.cancel_at_period_end and data.get("status") == "active":
+                    import stripe
+                    
+                    stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
+                    stripe.Subscription.modify(
+                        data.get("id"), 
+                        cancel_at=formulate_timestamp(subscription_doc.end_date)
+                    )
     # make payment entry if subscription was succesfully set up
     if data.get("object") == "invoice" and data.get("status") == "paid" and data.get("subscription"):
         

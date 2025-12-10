@@ -97,7 +97,7 @@ frappe.ui.form.on("Subscription", {
         }
 
         if (frm.doc.stripe_subscription_id) {
-            ["autocharge_with_stripe","payment_gateway_account", "payment_method_configuration"].forEach(function(field) {
+            ["plans", "autocharge_with_stripe", "payment_gateway_account", "payment_method_configuration", "mode_of_payment", "billing_behavior"].forEach(function(field) {
                 frm.set_df_property(field, "read_only", true);
             })
 
@@ -264,6 +264,7 @@ frappe.ui.form.on("Subscription", {
         frm.events.toggle_autocharge_with_stripe_fields(frm);
         frm.events.toggle_stripe_plus_fields_reqd(frm);
         frm.events.insert_reload_button(frm);
+        frm.events.insert_advance_payments_link(frm);
     },
 
     autocharge_with_stripe: function(frm) {
