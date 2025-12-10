@@ -162,10 +162,10 @@ def create_fetch_payment_intent():
                 # create new intent if cancelled
                 
                 else:
-                    return create_payment_intent(data)
+                    return create_payment_intent(data, stripe_customer_id)
                 
             else:
-                return create_payment_intent(data)
+                return create_payment_intent(data, stripe_customer_id)
             
         except Exception as e:
             return {"error": str(e)}, 403
