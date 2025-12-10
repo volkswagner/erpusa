@@ -212,7 +212,7 @@ def get_user_account_representative(customer):
     doctype="Contact",
     txt="",
     searchfield="name",
-    start=0,P
+    start=0,
     page_len=1,
     filters={
       "customer": customer
