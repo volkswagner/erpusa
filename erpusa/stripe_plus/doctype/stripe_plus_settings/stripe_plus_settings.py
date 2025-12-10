@@ -8,7 +8,8 @@ from frappe.model.document import Document
 import stripe
 from jinja2 import Template
 import re
-from frappe.utils import cint
+from frappe.utils import cint, today
+from datetime import datetime
 
 METHODS_FULLNAME = {
   "acss_debit": "Pre-authorized Debit Payments",
@@ -213,7 +214,7 @@ def get_user_account_representative(customer):
     doctype="Contact",
     txt="",
     searchfield="name",
-    start=0,P
+    start=0,
     page_len=1,
     filters={
       "customer": customer
@@ -272,6 +273,13 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
 
       if not subscription.payment_gateway_account:
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
+      
+      if subscription.trial_period_end:
+        trial_period_end = datetime.strptime(subscription.trial_period_end, "%Y-%d-%m")
+        date_today = datetime.strptime(frappe.utils.today(), "%Y-%d-%m")
+        
+        if (trial_period_end - date_today).days < 2:
+          frappe.throw(_("The Trial Period End Date has to be at least 2 days in the future."))
 
 @frappe.whitelist()
 def get_users_with_write_access(doctype, txt, searchfield, start, page_len, filters):

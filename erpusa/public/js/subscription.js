@@ -270,10 +270,8 @@ frappe.ui.form.on("Subscription", {
         frm.events.display_autocharge_notice(frm);
         frm.events.set_user_account_representative(frm);
         frm.events.set_trial_end_date(frm);
-        frm.events.toggle_autocharge_with_stripe_fields(frm);
-        frm.events.toggle_stripe_plus_fields_reqd(frm);
         frm.events.set_subscription_fields(frm);
-        frm.events.toggle_stripe_plus_fields_read_only(frm);
+        frm.events.toggle_stripe_plus_fields_reqd(frm);
     },
 
     party_type: function (frm) {
@@ -288,6 +286,10 @@ frappe.ui.form.on("Subscription", {
 
     mode_of_payment: function (frm) {
         frm.events.set_account_and_payment_gateway_account(frm);
+    },
+
+    start_date: function (frm) {
+        frm.events.set_trial_end_date(frm);
     },
 
     trial_period_start: function (frm) {
@@ -327,33 +329,12 @@ frappe.ui.form.on("Subscription", {
     },
 
     set_subscription_fields: function (frm) {
-        frm.events.toggle_locked_fields(frm);
+        frm.events.toggle_autocharge_with_stripe_fields(frm);
         frm.set_value("generate_new_invoices_past_due_date", 1);
         frm.set_value("submit_invoice", 1);
         frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
-    },
-
-    toggle_locked_fields: function (frm) {
-        if (frm.doc.autocharge_with_stripe) {
-            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"];
-            const locked_message = `
-                <div class="alert alert-warning p-2 mt-2" role="alert">
-                        <small>Field is locked to allow autocharging with Stripe.</small>
-                </div>`;
-
-            locked_fields.forEach(function(field) {
-                frm.set_df_property(field, "read_only", 1);
-                frm.set_df_property(
-                    field,
-                    "description",
-                    locked_message
-                );
-            });
-        }
-
-        else {
-            frm.set_df_property("generate_invoice_at", "read_only", 0);
-            frm.set_df_property("generate_invoice_at", "description", null);
+        if(!frm.is_new() && !frm.doc.email_queue && frm.doc.trial_period_end) {
+            frm.set_value("billing_behavior", "Charge for the next billing period")
         }
     },
 
@@ -394,7 +375,6 @@ frappe.ui.form.on("Subscription", {
         if (frm.doc.autocharge_with_stripe) {
             autocharge_with_stripe_fields.forEach(function(field) {
                 frm.set_df_property(field.name, "read_only", 1);
-                frm.set_value(field.name, field.value);
                 frm.set_df_property(
                     field.name,
                     "description",
@@ -403,15 +383,20 @@ frappe.ui.form.on("Subscription", {
             });
 
             if(!frm.is_new() && !frm.doc.email_queue) {
-                frm.set_df_property("billing_behavior", "hidden", 0)
-                frm.set_df_property("billing_behavior", "options", ["Charge for the next billing period", "Charge a prorated amount for the current billing period"])
-                frm.set_value("billing_behavior", "Charge for the next billing period")
+                frm.set_df_property("billing_behavior", "hidden", 0);
+                frm.set_df_property("billing_behavior", "options", ["Charge for the next billing period", "Charge a prorated amount for the current billing period"]);
             }
         }
 
         else {
-            frm.set_df_property("generate_invoice_at", "read_only", 0);
-            frm.set_df_property("generate_invoice_at", "description", null);
+            autocharge_with_stripe_fields.forEach(function(field) {
+                frm.set_df_property(field.name, "read_only", 0);
+                frm.set_df_property(
+                    field.name,
+                    "description",
+                    null
+                );
+            });
         }
     },
 

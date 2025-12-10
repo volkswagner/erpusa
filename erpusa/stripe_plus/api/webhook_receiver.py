@@ -308,7 +308,7 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, p
             
             frappe.sendmail(
                 recipients=split_emails(frappe.db.get_value("Payment Request", payment_request_docname, "email_to")),
-                subject="Your payment was successfully processed" if started_from_pending else "Thank you for your payment",
+                subject=_("Your payment was successfully processed") if started_from_pending else _("Thank you for your payment"),
                 message=frappe.render_template(
                     "erpusa/templates/html/payment_receipt.html",
                     {
@@ -849,7 +849,7 @@ def notify_user(merchant_payment):
     # check if realtime notifications is enabled
     if frappe.db.get_single_value("Stripe Plus Settings", "turn_on_email_notifications") and frappe.db.get_single_value("Stripe Plus Settings", "notification_method") == "Realtime":
         recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
-        subject = f"Received {fmt_money(merchant_payment.gross_amount)} from {merchant_payment.customer}"
+        subject = _("Received {amount} from {customer}").format(amount=fmt_money(merchant_payment.gross_amount, customer=merchant_payment.customer))
         reference_name = None
 
         if merchant_payment.source:
@@ -860,7 +860,7 @@ def notify_user(merchant_payment):
                 recipients=recipients.split(),
                 subject=subject,
                 message=generate_realtime_notification_email_message(
-                    title=f"{merchant_payment.customer} sent {fmt_money(merchant_payment.gross_amount)}",
+                    title=_("{customer} sent {amount}").format(customer=merchant_payment.customer, amount=fmt_money(merchant_payment.gross_amount)),
                     description=_("More information about this payment is shown below."),
                     merchant_payment=merchant_payment
                 ),
