@@ -85,7 +85,8 @@ def create_checkout_session(subscription_name, api_key):
 
     subscription_data = {
         "metadata": {
-            "erp_subscription_name": subscription_doc.name
+            "erp_subscription_name": subscription_doc.name,
+            "proration_behavior": "none"
         },
     }
 
@@ -113,15 +114,6 @@ def create_checkout_session(subscription_name, api_key):
         subscription_data['billing_cycle_anchor'] = int(
             formulate_timestamp(billing_cycle_anchor)
         )
-
-
-        if subscription_doc.billing_behavior == "Charge a prorated amount for the current billing period":
-            subscription_data['proration_behavior'] = "create_prorations"
-
-        else:
-            subscription_data['proration_behavior'] = "none"
-
-    frappe.log_error(str(add_to_date(subscription_doc.current_invoice_end, days=1) ))
 
     try:
         session = stripe.checkout.Session.create(

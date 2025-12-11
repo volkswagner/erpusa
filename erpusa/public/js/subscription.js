@@ -97,7 +97,7 @@ frappe.ui.form.on("Subscription", {
         }
 
         if (frm.doc.stripe_subscription_id) {
-            ["plans", "autocharge_with_stripe", "payment_gateway_account", "payment_method_configuration", "mode_of_payment", "billing_behavior"].forEach(function(field) {
+            ["plans", "autocharge_with_stripe", "payment_gateway_account", "payment_method_configuration", "mode_of_payment"].forEach(function(field) {
                 frm.set_df_property(field, "read_only", true);
             })
 
@@ -332,7 +332,6 @@ frappe.ui.form.on("Subscription", {
         frm.set_value("generate_new_invoices_past_due_date", 1);
         frm.set_value("submit_invoice", 1);
         frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
-        frm.set_value("billing_behavior", "Charge for the next billing period");
     },
 
     set_trial_end_date: function (frm) {
@@ -378,8 +377,6 @@ frappe.ui.form.on("Subscription", {
                     renderFieldDescription(field.value)
                 );
             });
-            frm.set_df_property("billing_behavior", "hidden", 0);
-            frm.set_df_property("billing_behavior", "options", ["Charge for the next billing period", "Charge a prorated amount for the current billing period"]);
         }
 
         else {
@@ -391,7 +388,6 @@ frappe.ui.form.on("Subscription", {
                     null
                 );
             });
-            frm.set_df_property("billing_behavior", "hidden", 1);
         }
     },
 
@@ -452,6 +448,7 @@ frappe.ui.form.on("Subscription", {
                 },
                 callback: function (r) {
                     if (r.message) {
+                        let advance_payment_list = r.message
                         let payment_entry_node = $('.document-link[data-doctype="Payment Entry"]');
 
                         // Advance Payment Link is already inserted update the count instead
@@ -461,7 +458,7 @@ frappe.ui.form.on("Subscription", {
                                 $(`
                                     <div class="document-link" data-doctype="Payment Entry">
                                         <div class="document-link-badge" data-doctype="Payment Entry"> 
-                                            <span class="count">${r.message.length}</span>
+                                            <span class="count ${advance_payment_list.length == 0? "hidden" : ""}">${advance_payment_list.length}</span>
                                             <a class="badge-link" href="${link}" target="_blank">Advance Payment</a>
                                         </div> 
                                         <span class="open-notification hidden" title="Advance Payment"></span>
@@ -473,7 +470,8 @@ frappe.ui.form.on("Subscription", {
                             payment_entry_node.find('.count').html(r.message.length);
                         }
                         // force the Advance Paymetn count to always show
-                        payment_entry_node.find('.count').removeClass('hidden');
+                        if (advance_payment_list.length > 0)  payment_entry_node.find('.count').removeClass('hidden');
+                       
                     }
                 }
             });
