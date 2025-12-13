@@ -23,7 +23,7 @@
  "list_columns": [],
  "login_required": 1,
  "max_attachment_size": 0,
- "modified": "2025-09-10 04:15:29.413262",
+ "modified": "2025-12-12 10:47:37.331201",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "subscription-update-request-form",
@@ -34,7 +34,7 @@
  "show_attachments": 0,
  "show_list": 1,
  "show_sidebar": 0,
- "success_message": "Your request was received. You'll be notified about updates via email.",
+ "success_message": "Your request was received. You will be notified about updates via email.",
  "success_title": "Request Submitted",
  "title": "Subscription Update Request Form",
  "web_form_fields": [
@@ -92,6 +92,21 @@
   },
   {
    "allow_read_on_all_link_options": 0,
+   "default": "Plan Change",
+   "fieldname": "request_type",
+   "fieldtype": "Select",
+   "hidden": 0,
+   "label": "Request Type",
+   "max_length": 0,
+   "max_value": 0,
+   "options": "Plan Change\nEnd Date Change\nPlan and End Date Change\nCancellation\nResubscription",
+   "precision": "",
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
    "description": "The current price, quantity, and total amount for each plan are shown next to the plan name. To change a plan, enter a new quantity. To remove a plan, enter zero (0).",
    "fieldname": "plans",
    "fieldtype": "Table",
@@ -102,7 +117,7 @@
    "options": "Update Request Plan",
    "precision": "",
    "read_only": 0,
-   "reqd": 1,
+   "reqd": 0,
    "show_in_filter": 0
   },
   {
@@ -156,21 +171,6 @@
    "precision": "",
    "read_only": 0,
    "reqd": 0,
-   "show_in_filter": 0
-  },
-  {
-   "allow_read_on_all_link_options": 0,
-   "default": "Plan Change",
-   "fieldname": "request_type",
-   "fieldtype": "Select",
-   "hidden": 1,
-   "label": "Request Type",
-   "max_length": 0,
-   "max_value": 0,
-   "options": "Plan Change\nEnd Date Change\nPlan and End Date Change\nCancellation\nResubscription",
-   "precision": "",
-   "read_only": 0,
-   "reqd": 1,
    "show_in_filter": 0
   }
  ]
