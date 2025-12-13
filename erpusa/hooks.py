@@ -294,7 +294,7 @@ fixtures = [
 portal_menu_items = [
     {
         "title": "Subscriptions",
-        "route": "/subscriptions",
+        "route": "/subscriptions?status=Active",
         "reference_doctype": "Subscription",
         "role": "Customer"
     }
