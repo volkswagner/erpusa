@@ -10,7 +10,7 @@ def get_context(context):
     context.no_cache = 1
     context.show_sidebar = True
     context.title = "My Subscriptions"
-    context.customer = frappe.db.exists("Customer", {"user": frappe.session.user})
+    context.customer = frappe.db.get_value("Portal User", {"user": frappe.session.user}, "parent")
     context.subscriptions = []
     if context.customer:
         for subscription in frappe.db.get_all("Subscription", filters={"party": context.customer}, pluck="name", order_by="status ASC"):

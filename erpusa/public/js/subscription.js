@@ -38,6 +38,55 @@ frappe.ui.form.on("Subscription", {
 				__("Actions")
 			);
 		}
+        frm.events.set_intro(frm);
+        frm.events.toggle_customer_conversion_notice_and_button(frm);
+        frm.events.insert_look_for_unallocated_stripe_transactions_button(frm);
+        frm.events.toggle_locked_fields(frm);
+        frm.events.toggle_stripe_plus_fields_read_only(frm);
+        frm.events.toggle_email_queue_link(frm);
+        insertReloadButton(frm);
+    },
+
+    autocharge_with_stripe: function(frm) {
+        frm.events.set_user_account_representative(frm);
+        frm.events.set_subscription_fields(frm);
+        frm.events.toggle_stripe_plus_fields_read_only(frm);
+    },
+
+    party_type: function (frm) {
+        if (frm.doc.party_type !== "Customer") {
+            frm.set_value("autocharge_with_stripe", 0);
+        }
+    },
+
+    party: function (frm) {
+        frm.events.set_user_account_representative(frm);
+    },
+
+    set_user_account_representative: function (frm) {
+        if (frm.doc.autocharge_with_stripe && frm.doc.party) {
+            frappe.call({
+                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_user_account_representative",
+                args: {
+                    customer: frm.doc.party
+                },
+                callback: function (r) {
+                    if (r.message) {
+                        frm.set_value("user_account_representative", r.message)
+                    }
+                }
+            });
+        }
+    },
+
+    set_subscription_fields: function (frm) {
+        frm.events.toggle_locked_fields(frm);
+        frm.set_value("generate_new_invoices_past_due_date", 1);
+        frm.set_value("submit_invoice", 1);
+        frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
+    },
+
+    set_intro: function (frm) {
         if (frm.doc.email_queue) {
             if (frm.doc.stripe_subscription_id) {
                 displayIntro(frm, frm.doc.stripe_subscription_status)
@@ -62,12 +111,96 @@ frappe.ui.form.on("Subscription", {
                 });
             }
         }
+    },
 
+    toggle_locked_fields: function (frm) {
+        if (frm.doc.autocharge_with_stripe) {
+            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"];
+            const locked_message = `
+                <div class="alert alert-warning p-2 mt-2" role="alert">
+                        <small>Field is locked to allow autocharging with Stripe.</small>
+                </div>`;
+
+            locked_fields.forEach(function(field) {
+                frm.set_df_property(field, "read_only", 1);
+                frm.set_df_property(
+                    field,
+                    "description",
+                    locked_message
+                );
+            });
+        }
+
+        else {
+            frm.set_df_property("generate_invoice_at", "read_only", 0);
+            frm.set_df_property("generate_invoice_at", "description", null);
+        }
+    },
+
+    toggle_stripe_plus_fields_read_only: function (frm) {
+        frm.set_df_property("payment_gateway_account", "reqd", frm.doc.autocharge_with_stripe);
+        frm.set_df_property("user_account_representative", "reqd", frm.doc.autocharge_with_stripe);
+    },
+
+    cancel_subscription: function (frm) {
+		cancel_subscription_dialog = frappe.confirm(
+			__("This action will stop future billing. Are you sure you want to cancel this subscription?"),
+			() => {
+				frappe.call({
+                    method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.cancel_subscription",
+                    args: {
+                        subscription_name: frm.doc.name
+                    },
+                    callback: function (r) {
+                        if (!r.exec) {
+                            frm.reload_doc();
+                        }
+                    }
+                });
+			},
+		);
+	},
+
+    insert_advance_payments_link: function (frm) {
+        if (frm.doc.party_type && frm.doc.party) {
+            frappe.call({
+                method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_advance_payments",
+                args: {
+                    customer: frm.doc.party
+                },
+                callback: function (r) {
+                    if (r.message) {
+                        let payment_entry_node = $('.document-link[data-doctype="Payment Entry"]');
+
+                        // Advance Payment Link is already inserted update the count instead
+                        if (payment_entry_node.length == 0) {
+                            let link = window.location.origin + "/app/payment-entry?status=Submitted&reference_no=%5B%22like%22%2C%22pi%25%22%5D&reference_name=%5B%22is%22%2C%22not+set%22%5D&party=" + encodeURI(frm.doc.party);
+                            $('[data-page-route="Subscription"] .document-link[data-doctype="Sales Invoice"]').after(
+                                $(`
+                                    <div class="document-link" data-doctype="Payment Entry">
+                                        <div class="document-link-badge" data-doctype="Payment Entry"> 
+                                            <span class="count">${r.message.length}</span>
+                                            <a class="badge-link" href="${link}" target="_blank">Advance Payment</a>
+                                        </div> 
+                                        <span class="open-notification hidden" title="Advance Payment"></span>
+                                    </div>
+                                `)
+                            );
+                        }
+                        else {
+                            payment_entry_node.find('.count').html(r.message.length);
+                        }
+                        // force the Advance Paymetn count to always show
+                        payment_entry_node.find('.count').removeClass('hidden');
+                    }
+                }
+            });
+
+        } 
+    },
+
+    toggle_customer_conversion_notice_and_button: function (frm) {
         if (frm.doc.stripe_subscription_id) {
-            ["autocharge_with_stripe","payment_gateway_account", "payment_method_configuration"].forEach(function(field) {
-                frm.set_df_property(field, "read_only", true);
-            })
-
             frappe.call({
                 method: "erpusa.stripe_plus.api.webhook_receiver_subscription.is_customer_user",
                 args: {
@@ -75,11 +208,11 @@ frappe.ui.form.on("Subscription", {
                 },
                 callback: function (r) {
                     if (!r.message.user) {
-                        frm.add_custom_button("Convert Customer to User", function() {
+                        frm.add_custom_button("Grant Access to Portal Page", function() {
                             frappe.call({
                                 method: "erpusa.stripe_plus.api.webhook_receiver_subscription.convert_customer_to_user",
                                 freeze: true,
-                                freeze_message: __("Converting Customer to User"),
+                                freeze_message: __("Granting Portal Page Access"),
                                 args: {
                                     representative: frm.doc.user_account_representative,
                                     email_address: r.message.email_address,
@@ -91,9 +224,32 @@ frappe.ui.form.on("Subscription", {
                                     }
                                 }
                             })
-                        }, `${stripe_logo} Tools`)
+                        }, `${stripe_logo} Tools`);
+
+                        frm.set_df_property(
+                            "user_account_representative",
+                            "description",
+                            `<div class="alert alert-warning p-2 mt-2" role="alert">
+                                <small>Customer doesn't have access to the portal page and won't be able to manage their Subscriptions. Grant access by clicking on <i>Tools > Grant Access to Portal Page</i>.</small>
+                            </div>`
+                        );
                     }
                 }
+            })
+        }
+        else {
+            frm.set_df_property(
+                "user_account_representative",
+                "description",
+                null
+            );
+        }
+    },
+
+    insert_look_for_unallocated_stripe_transactions_button: function (frm) {
+        if (frm.doc.stripe_subscription_id) {
+            ["autocharge_with_stripe","payment_gateway_account", "payment_method_configuration"].forEach(function(field) {
+                frm.set_df_property(field, "read_only", true);
             })
         
             frm.add_custom_button("Look for Unallocated Stripe Transactions", function() {
@@ -196,135 +352,21 @@ frappe.ui.form.on("Subscription", {
             }, `${stripe_logo} Tools`)
 
         }
-        
-        frm.events.toggle_locked_fields(frm);
-        frm.events.toggle_stripe_plus_fields_read_only(frm);
-        insertReloadButton(frm);
     },
 
-    autocharge_with_stripe: function(frm) {
-        frm.events.set_user_account_representative(frm);
-        frm.events.set_subscription_fields(frm);
-        frm.events.toggle_stripe_plus_fields_read_only(frm);
-    },
-
-    party_type: function (frm) {
-        if (frm.doc.party_type !== "Customer") {
-            frm.set_value("autocharge_with_stripe", 0);
-        }
-    },
-
-    party: function (frm) {
-        frm.events.set_user_account_representative(frm);
-    },
-
-    set_user_account_representative: function (frm) {
-        if (frm.doc.autocharge_with_stripe && frm.doc.party) {
+    toggle_email_queue_link: function (frm) {
+        if (frm.doc.email_queue) {
             frappe.call({
-                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_user_account_representative",
+                method: "frappe.db.exists",
                 args: {
-                    customer: frm.doc.party
+                    doctype: "Email Queue",
+                    name: frm.doc.email_queue
                 },
                 callback: function (r) {
-                    if (r.message) {
-                        frm.set_value("user_account_representative", r.message)
-                    }
+                    console.log(r)
                 }
-            });
+            })
         }
-    },
-
-    set_subscription_fields: function (frm) {
-        frm.events.toggle_locked_fields(frm);
-        frm.set_value("generate_new_invoices_past_due_date", 1);
-        frm.set_value("submit_invoice", 1);
-        frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
-    },
-
-    toggle_locked_fields: function (frm) {
-        if (frm.doc.autocharge_with_stripe) {
-            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"];
-            const locked_message = `
-                <div class="alert alert-warning p-2 mt-2" role="alert">
-                        <small>Field is locked to allow autocharging with Stripe.</small>
-                </div>`;
-
-            locked_fields.forEach(function(field) {
-                frm.set_df_property(field, "read_only", 1);
-                frm.set_df_property(
-                    field,
-                    "description",
-                    locked_message
-                );
-            });
-        }
-
-        else {
-            frm.set_df_property("generate_invoice_at", "read_only", 0);
-            frm.set_df_property("generate_invoice_at", "description", null);
-        }
-    },
-
-    toggle_stripe_plus_fields_read_only: function (frm) {
-        frm.set_df_property("payment_gateway_account", "reqd", frm.doc.autocharge_with_stripe);
-        frm.set_df_property("user_account_representative", "reqd", frm.doc.autocharge_with_stripe);
-    },
-
-    cancel_subscription: function (frm) {
-		cancel_subscription_dialog = frappe.confirm(
-			__("This action will stop future billing. Are you sure you want to cancel this subscription?"),
-			() => {
-				frappe.call({
-                    method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.cancel_subscription",
-                    args: {
-                        subscription_name: frm.doc.name
-                    },
-                    callback: function (r) {
-                        if (!r.exec) {
-                            frm.reload_doc();
-                        }
-                    }
-                });
-			},
-		);
-	},
-
-    insert_advance_payments_link: function (frm) {
-        if (frm.doc.party_type && frm.doc.party) {
-            frappe.call({
-                method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_advance_payments",
-                args: {
-                    customer: frm.doc.party
-                },
-                callback: function (r) {
-                    if (r.message) {
-                        let payment_entry_node = $('.document-link[data-doctype="Payment Entry"]');
-
-                        // Advance Payment Link is already inserted update the count instead
-                        if (payment_entry_node.length == 0) {
-                            let link = window.location.origin + "/app/payment-entry?status=Submitted&reference_no=%5B%22like%22%2C%22pi%25%22%5D&reference_name=%5B%22is%22%2C%22not+set%22%5D&party=" + encodeURI(frm.doc.party);
-                            $('[data-page-route="Subscription"] .document-link[data-doctype="Sales Invoice"]').after(
-                                $(`
-                                    <div class="document-link" data-doctype="Payment Entry">
-                                        <div class="document-link-badge" data-doctype="Payment Entry"> 
-                                            <span class="count">${r.message.length}</span>
-                                            <a class="badge-link" href="${link}" target="_blank">Advance Payment</a>
-                                        </div> 
-                                        <span class="open-notification hidden" title="Advance Payment"></span>
-                                    </div>
-                                `)
-                            );
-                        }
-                        else {
-                            payment_entry_node.find('.count').html(r.message.length);
-                        }
-                        // force the Advance Paymetn count to always show
-                        payment_entry_node.find('.count').removeClass('hidden');
-                    }
-                }
-            });
-
-        } 
     }
 })
 
