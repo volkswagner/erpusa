@@ -5,7 +5,7 @@ def get_context(context):
 	if frappe.session.user == "Guest":
 		frappe.throw(_("You must be logged in to access this page."), frappe.PermissionError)
 	
-	context.customer = frappe.db.exists("Customer", {"user": frappe.session.user})
+	context.customer = frappe.db.get_value("Portal User", {"user": frappe.session.user}, "parent")
 	context.data = frappe.form_dict
 	context.subscription_name = context.data.get("subscription")
 	context.end_date = frappe.db.get_value("Subscription", context.subscription_name, "end_date")
