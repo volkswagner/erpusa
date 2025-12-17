@@ -15,20 +15,35 @@
   <div class="py-5 my-5"></div>
   <div id="success" class="d-flex align-items-center justify-content-center w-100 p-1 p-xl-5 m-1 my-xl-5 hidden">
     {% if session_status == "succeeded" %}
-    <div id="payment-status" style="border-color: #30B130; box-shadow: 0px 15px 25px 5px rgba(48, 177, 48, 0.25)">
-        <div id="status-icon" style="background-color: #30B130">
-          `<svg width="50" height="50" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M15.4695 0.232963C15.8241 0.561287 15.8454 1.1149 15.5171 1.46949L6.14206 11.5945C5.97228 11.7778 5.73221 11.8799 5.48237 11.8748C5.23253 11.8698 4.99677 11.7582 4.83452 11.5681L0.459523 6.44311C0.145767 6.07557 0.18937 5.52327 0.556912 5.20951C0.924454 4.89575 1.47676 4.93936 1.79051 5.3069L5.52658 9.68343L14.233 0.280522C14.5613 -0.0740672 15.1149 -0.0953599 15.4695 0.232963Z" fill="white"/>
-          </svg>`
+      <div id="payment-status" style="border-color: #30B130; box-shadow: 0px 15px 25px 5px rgba(48, 177, 48, 0.25)">
+          <div id="status-icon" style="background-color: #30B130">
+            <svg width="50" height="50" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M15.4695 0.232963C15.8241 0.561287 15.8454 1.1149 15.5171 1.46949L6.14206 11.5945C5.97228 11.7778 5.73221 11.8799 5.48237 11.8748C5.23253 11.8698 4.99677 11.7582 4.83452 11.5681L0.459523 6.44311C0.145767 6.07557 0.18937 5.52327 0.556912 5.20951C0.924454 4.89575 1.47676 4.93936 1.79051 5.3069L5.52658 9.68343L14.233 0.280522C14.5613 -0.0740672 15.1149 -0.0953599 15.4695 0.232963Z" fill="white"/>
+            </svg>
+          </div>
+          <h2 id="status-text"  class="h3 font-weight-bold">
+            Payment Method for {{  subscription_display_name }} Was Successfully Changed!
+          </h2>
+          <hr class="w-100"/>
+          <p id="payment-description" class="text-center">
+            Future invoices will now be paid via the new payment method.
+          </p>
+      </div>
+    {% else %}
+      <div id="payment-status" style="border-color: #DF1B41; box-shadow: 0px 15px 25px 5px rgba(223, 27, 65, 0.25)">
+        <div id="status-icon" style="background-color: #DF1B41">
+          <svg width="50" height="50" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25628 1.25628C1.59799 0.914573 2.15201 0.914573 2.49372 1.25628L8 6.76256L13.5063 1.25628C13.848 0.914573 14.402 0.914573 14.7437 1.25628C15.0854 1.59799 15.0854 2.15201 14.7437 2.49372L9.23744 8L14.7437 13.5063C15.0854 13.848 15.0854 14.402 14.7437 14.7437C14.402 15.0854 13.848 15.0854 13.5063 14.7437L8 9.23744L2.49372 14.7437C2.15201 15.0854 1.59799 15.0854 1.25628 14.7437C0.914573 14.402 0.914573 13.848 1.25628 13.5063L6.76256 8L1.25628 2.49372C0.914573 2.15201 0.914573 1.59799 1.25628 1.25628Z" fill="white"/>
+          </svg>
         </div>
-        <h2 id="status-text">
-          Payment Method Was Successfully Changed!
+        <h2 id="status-text" class="h3 font-weight-bold">
+          Couldn't Change Payment Method for {{  subscription_display_name }}
         </h2>
         <hr class="w-100"/>
         <p id="payment-description" class="text-center">
-          Future invoices will now be paid via the new payment method.
+          {{ session_status }}
         </p>
-    </div>
+      </div>
     {% endif %}
   </div>
   <div class="py-5 my-5"></div>
