@@ -59,8 +59,9 @@ frappe.ui.form.on("Subscription", {
 			);
 		}
         frm.events.set_intro(frm);
-        frm.events.toggle_customer_conversion_notice_and_button(frm);
         frm.events.insert_look_for_unallocated_stripe_transactions_button(frm);
+        frm.events.insert_advance_payments_link(frm);
+        frm.events.toggle_customer_conversion_notice_and_button(frm);
         frm.events.toggle_locked_fields(frm);
         frm.events.toggle_stripe_plus_fields_read_only(frm);
         frm.events.toggle_email_queue_link(frm);
@@ -382,15 +383,21 @@ frappe.ui.form.on("Subscription", {
     toggle_email_queue_link: function (frm) {
         if (frm.doc.email_queue) {
             frappe.call({
-                method: "frappe.db.exists",
+                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.email_queue_exists",
                 args: {
-                    doctype: "Email Queue",
-                    name: frm.doc.email_queue
+                    email_queue: frm.doc.email_queue
                 },
                 callback: function (r) {
-                    console.log(r)
+                    if (r.message) {
+                        frm.set_df_property("email_queue", "description", 
+                            `<small><a href=${r.message} target="_blank">Open Email Queue doc</a></small>`
+                        )
+                    }
+                    else {
+                        frm.set_df_property("email_queue", "description", "<small>Email Queue doc already deleted and can't be viewed.</small>")
+                    }
                 }
-            })
+            });
         }
     }
 })
