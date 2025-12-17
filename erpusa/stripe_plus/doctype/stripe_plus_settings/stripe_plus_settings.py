@@ -789,6 +789,13 @@ def is_text_editor_set(html_content):
   text = re.sub('<[^<]+?>', '', html_content or '')
   return text.strip()
 
+@frappe.whitelist()
+def email_queue_exists(email_queue):
+    email_queue = frappe.db.exists("Email Queue", email_queue)
 
+    if email_queue:
+      email_queue = frappe.utils.get_url_to_form("Email Queue", email_queue)
+
+    return email_queue
   
 

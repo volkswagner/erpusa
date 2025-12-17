@@ -81,7 +81,7 @@ def create_change_payment_session():
                     "stripe_subscription_id": frappe.db.get_value("Subscription", data.get("subscription"), "stripe_subscription_id")
                 }
             },
-            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_change_payment_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}&payment_gateway={frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')}",
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_change_payment_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}",
             payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", data.get("payment_configuration"), "stripe_configuration_id")
         )
         

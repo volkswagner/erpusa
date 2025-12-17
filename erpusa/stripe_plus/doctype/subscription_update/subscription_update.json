@@ -8,10 +8,12 @@
  "field_order": [
   "update_type",
   "update_datetime",
-  "reference"
+  "reference",
+  "remarks"
  ],
  "fields": [
   {
+   "columns": 3,
    "fieldname": "update_type",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -19,6 +21,7 @@
    "reqd": 1
   },
   {
+   "columns": 2,
    "fieldname": "update_datetime",
    "fieldtype": "Datetime",
    "in_list_view": 1,
@@ -26,22 +29,35 @@
    "reqd": 1
   },
   {
+   "columns": 2,
    "fieldname": "reference",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Reference",
    "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "remarks",
+   "fieldtype": "Long Text",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "Remarks"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-14 12:28:46.528305",
+ "modified": "2025-12-16 10:00:43.149332",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Subscription Update",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
