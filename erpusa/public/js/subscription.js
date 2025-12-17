@@ -368,27 +368,14 @@ frappe.ui.form.on("Subscription", {
 	},
 
     toggle_autocharge_with_stripe_fields: function (frm) {
-        if (frm.doc.autocharge_with_stripe) {
-            autocharge_with_stripe_fields.forEach(function(field) {
-                frm.set_df_property(field.name, "read_only", 1);
-                frm.set_df_property(
-                    field.name,
-                    "description",
-                    renderFieldDescription(field.value)
-                );
-            });
-        }
-
-        else {
-            autocharge_with_stripe_fields.forEach(function(field) {
-                frm.set_df_property(field.name, "read_only", 0);
-                frm.set_df_property(
-                    field.name,
-                    "description",
-                    null
-                );
-            });
-        }
+        autocharge_with_stripe_fields.forEach(function(field) {
+            frm.set_df_property(field.name, "read_only", frm.doc.autocharge_with_stripe);
+            frm.set_df_property(
+                field.name,
+                "description",
+                frm.doc.autocharge_with_stripe? renderFieldDescription(field.value) : null
+            );
+        });
     },
 
     toggle_stripe_plus_fields_reqd: function (frm) {
