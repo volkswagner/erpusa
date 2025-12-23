@@ -7,7 +7,7 @@ frappe.ready(function() {
 	if (is_new) {
 		frappe.web_form.set_value("subscription", "{{ data.subscription }}");
 		frappe.web_form.set_value("customer", "{{ customer }}");
-		console.log(is_cancellation)
+
 		if (!(is_cancellation || is_resubscription)) {
 			frappe.web_form.set_df_property("request_type", "hidden", 1);
 			frappe.web_form.set_df_property("plans", "reqd", 1);
@@ -30,6 +30,7 @@ frappe.ready(function() {
 							let grid_rows = field.grid.grid_rows;
 							let last_row = grid_rows[grid_rows.length - 1];
 
+							last_row.doc.plan_id = plan.name
 							last_row.doc.plan = plan.plan;
 							last_row.doc.price = plan.price;
 							last_row.doc.qty = plan.qty;

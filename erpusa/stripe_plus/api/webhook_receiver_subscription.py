@@ -699,7 +699,7 @@ def find_advance_payments(customer):
 def fetch_subscription_update_requests(subscription):
     request_list = frappe.db.get_all(
         "Subscription Update Request",
-        fields=["name", "request_type", "creation", "additional_information", "new_end_date", "cancellation_date", "resubscription_start_date", "resubscription_end_date"],
+        fields=["name", "request_type", "creation", "additional_information", "new_end_date"],
         filters={
             "subscription": subscription,
             "status": ["not in", ["Approved", "Rejected"]]
@@ -714,42 +714,27 @@ def fetch_subscription_update_requests(subscription):
         
         cancellation_date = request.get("cancellation_date")
         if cancellation_date:
-            request_list[index]["cancel_today"] = cancellation_date <= subscription_details["end_date"]
-            request_list[index]["details"] = _("Cancellation Date: ") + str(cancellation_date)
-            
-            if request_list[index]["cancel_today"]:
-                request_list[index]["details"] = request_list[index]["details"] + _(" (will be cancelled today)")
+            request_list[index]["cancel_today"] = cancellation_date <= subscription["end_date"]
+            request_list[index]["details"] = cancellation_date
         
         resubscription_start_date = request.get("resubscription_start_date")
         if resubscription_start_date:
-            reference_date = subscription_details["cancelation_date"] or subscription_details["end_date"]
-            request_list[index]["resubscribe_today"] = reference_date <= resubscription_start_date 
-            request_list[index]["details"] = _("Resubscription Start Date: ") + str(resubscription_start_date)
-            
-            resubscription_end_date = request.get("resubscription_end_date")
-            if resubscription_end_date:
-                request_list[index]["details"] = request_list[index]["details"] + "\n" + _("Resubscription End Date: ") + str(resubscription_end_date)
-            
-            if request_list[index]["resubscribe_today"]:
-                request_list[index]["details"] = request_list[index]["details"] + "\n" + _("NOTE: Renewal will be made today but billing will start on the set start date.")
+            reference_date = subscription_details["end_date"] or subscription_details["cancelation_date"]
+            request_list[index]["resubscribe_today"] = reference_date <= subscription["end_date"]
+            request_list[index]["details"] = resubscription_start_date
     
     return request_list
 
 @frappe.whitelist()
-def approve_update_request(update_request_name, notes=None):
+def approve_update_request(update_request_name, notes):
     update_request_doc = frappe.get_doc("Subscription Update Request", update_request_name)
-    if notes:
-        update_request_doc.append("notes", {
-            "description": notes,
-            "status_when_written": update_request_doc.status
-        })
     update_request_doc.status = "Approved"
-    update_request_doc.reviewer = frappe.session.user
+    update_request_doc.notes = notes
     
     try:
         update_request_doc.save()
     except Exception as e:
-        frappe.throw(_("Couldn't approve the update request."))
+        frappe.throw(_("Couldn't Approve the Update Request."))
         
     notify_customer_approval(update_request_doc)
         
@@ -765,11 +750,11 @@ def notify_customer_approval(update_request):
     recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
     reference_name= update_request.name + "_approved"
     subscription_name = frappe.db.get_value("Subscription", update_request.subscription, "friendly_name") or update_request.subscription
-    message = _("{subscription}{status}").format(subscription=subscription_name, status=request_type_expanded[update_request.request_type])
+    message = ("{subscription}{status}").format(subscription=subscription_name, status=request_type_expanded[update_request.request_type])
     
     if update_request.notes:
         notes_list = [f"<li>{note.description}</li>" for note in update_request.notes]
-        message = message + "<br/>" + _("The reviewer wrote:") + f"<ol>{''.join(notes_list)}</ol>"
+        message = message + "<br/>" + _("The reviewer wrote:") + f"<ol>{notes_list}</ol>"
             
     
     if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription Update Request", "reference_name": reference_name}):

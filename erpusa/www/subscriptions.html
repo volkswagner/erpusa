@@ -193,13 +193,21 @@
 					<div class="dropdown-menu">
 						{% if subscription.status not in ["Cancelled", "Completed"] %}
 							{% if subscription.stripe_subscription_id %}
-								<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" href="{{ subscription.payment_url | replace('stripe_plus_subs_checkout', 'stripe_plus_subs_change_payment') }}">Update Payment Method</a>
+								<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" href="{{ subscription.payment_url | replace('stripe_plus_subs_checkout', 'stripe_plus_subs_change_payment') }}">
+									Change Payment Method
+								</a>
 							{% endif %}
-							<a class="dropdown-item" data-action="request-plan-change" data-subscription="{{ subscription.name }}" href="{{ subscription.update_request_url }}">Request Plan Change</a>
+							<a class="dropdown-item" data-action="request-plan-change" data-subscription="{{ subscription.name }}" href="{{ subscription.update_request_url }}">
+								Request Plan/Subscription End Date Change
+							</a>
 							<div class="dropdown-divider"></div>
-							<a class="dropdown-item" data-action="cancel" data-subscription="{{ subscription.name }}" href="{{ subscription.cancellation_request_url }}">Request Cancellation</a>
+							<a class="dropdown-item" data-action="cancel" data-subscription="{{ subscription.name }}" href="{{ subscription.cancellation_request_url }}">
+								Request Cancellation
+							</a>
 						{% else %}
-							<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" href="{{ subscription.resubscription_request_url }}">Re-subscribe</a>
+							<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" href="{{ subscription.resubscription_request_url }}">
+								Re-subscribe
+							</a>
 						{% endif%}
 					</div>
 				</div>
