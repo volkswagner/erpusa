@@ -8,7 +8,20 @@ frappe.ui.form.on("Subscription Update Request", {
                 frm.save();
             });
         }
+        frm.events.toggle_reviewer_reqd(frm);
 	},
+
+    status: function (frm) {
+        frm.events.toggle_reviewer_reqd(frm);
+    },
+
+    toggle_reviewer_reqd: function (frm) {
+        frm.set_df_property(
+            "reviewer", 
+            "reqd", 
+            frm.doc.status !== "Requested"
+        )
+    }
 });
 
 frappe.ui.form.on("Update Request Note", {

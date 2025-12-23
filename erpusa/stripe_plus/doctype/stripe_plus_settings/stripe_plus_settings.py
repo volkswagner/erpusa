@@ -334,14 +334,17 @@ def get_default_pm_configuration_methods(payment_gateway):
             return ",<br/>".join(methods)
 
 @frappe.whitelist()
-def get_pm_configuration_methods(payment_method_configuration):
+def get_pm_configuration_methods(payment_method_configuration, is_multiline=True):
   pmc = frappe.get_doc("Stripe Payment Method Configuration", payment_method_configuration)
   methods = []
 
   for method in pmc.payment_methods:
     methods.append(frappe.db.get_value("Stripe Payment Method", method.payment_method, "payment_method_name"))
-        
-  return ",<br/>".join(methods)
+  
+  if is_multiline:
+    return ",<br/>".join(methods)
+  
+  return ", ".join(methods)
     
 
 @frappe.whitelist()
@@ -611,6 +614,7 @@ def calculate_subscription_plan_total(subscription, is_doc=True, include_billing
       price = frappe.db.get_value("Subscription Plan", subscription_plan.plan, "cost")
     
     temp_plan = {
+      "name": subscription_plan.name,
       "plan": subscription_plan.plan,
       "qty": subscription_plan.qty,
       "price": price,
