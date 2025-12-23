@@ -17,6 +17,10 @@ const stripe_subscription_status_color = {
     'Paused': 'yellow'
 }
 
+const tools_button = `${stripe_logo} Tools`
+
+let currently_editing = null;
+
 frappe.ui.form.on("Subscription", {
     setup: function (frm) {
         frm.set_query("user_account_representative", function (doc) {
@@ -30,7 +34,7 @@ frappe.ui.form.on("Subscription", {
     },
 
     refresh: async function(frm) {
-        if (frm.doc.status !== "Cancelled") {
+        if (frm.doc.status !== "Cancelled" && !frm.is_new()) {
             frm.remove_custom_button(__("Cancel Subscription"), __("Actions"));
 			frm.add_custom_button(
 				__("Cancel Subscription"),
@@ -41,6 +45,7 @@ frappe.ui.form.on("Subscription", {
         frm.events.set_intro(frm);
         frm.events.insert_look_for_unallocated_stripe_transactions_button(frm);
         frm.events.insert_advance_payments_link(frm);
+        frm.events.insert_update_subscription(frm);
         frm.events.toggle_customer_conversion_notice_and_button(frm);
         frm.events.toggle_locked_fields(frm);
         frm.events.toggle_stripe_plus_fields_read_only(frm);
@@ -227,7 +232,7 @@ frappe.ui.form.on("Subscription", {
                                     }
                                 }
                             })
-                        }, `${stripe_logo} Tools`);
+                        }, tools_button);
 
                         frm.set_df_property(
                             "user_account_representative",
@@ -352,8 +357,216 @@ frappe.ui.form.on("Subscription", {
                         }
                     }
                 })
-            }, `${stripe_logo} Tools`)
+            }, tools_button)
 
+        }
+    },
+
+    insert_update_subscription: function (frm) {
+        if (!frm.is_new()) {
+            frm.add_custom_button(
+                __("Apply an Update Request"),
+                function () {
+                    frappe.call({
+                        method: "erpusa.stripe_plus.api.webhook_receiver_subscription.fetch_subscription_update_requests",
+                        args: {
+                            subscription: frm.doc.name
+                        },
+                        callback: function (r) {
+                            if (r.message) {
+                                let update_request_select_dialog = new frappe.ui.Dialog({
+                                    title: __("Choose an Update Request to Apply"),
+                                    size: "extra-large",
+                                    fields: [
+                                        {
+                                            fieldtype: "HTML",
+                                            options: `<p>${__("Select an update request from the table below. Click the 'Apply Update/s from Request' button to automatically apply the changes requested by the customer.")}</p>`
+                                        },
+                                        {
+                                            fieldtype: "Table",
+                                            fieldname: "update_requests",
+                                            fields: [
+                                                {
+                                                    fieldname: "name",
+                                                    fieldtype: "Link",
+                                                    label: "Request ID",
+                                                    options: "Subscription Update Request",
+                                                    in_list_view: 1,
+                                                    read_only: 1,
+                                                    columns: 2
+                                                },
+                                                {
+                                                    fieldname: "creation",
+                                                    fieldtype: "Datetime",
+                                                    label: "Date Requested",
+                                                    in_list_view: 1,
+                                                    read_only: 1,
+                                                    columns: 2
+                                                },
+                                                {
+                                                    fieldname: "request_type",
+                                                    fieldtype: "Data",
+                                                    label: "Type",
+                                                    in_list_view: 1,
+                                                    read_only: 1,
+                                                    columns: 2
+                                                },
+                                                {
+                                                    fieldname: "additional_information",
+                                                    fieldtype: "Long Text",
+                                                    label: "Customer Notes",
+                                                    in_list_view: 1,
+                                                    read_only: 1,
+                                                    columns: 2
+                                                },
+                                                {
+                                                    fieldname: "details",
+                                                    fieldtype: "Long Text",
+                                                    label: "Request Details",
+                                                    in_list_view: 1,
+                                                    read_only: 1,
+                                                    columns: 2
+                                                }
+                                            ],
+                                            data: r.message
+                                        }
+                                    ]
+                                });
+
+                                update_request_select_dialog.set_primary_action(
+                                    __("Apply Update/s from Request"),
+                                    function () {
+                                        update_request_select_dialog.hide();
+
+                                        let selected_rows = update_request_select_dialog.get_values().update_requests;
+                                        let selected_row_count = selected_rows.filter(row => row.__checked === 1).length;
+
+                                        if (selected_row_count === 0) frappe.throw(__("Select a request."))
+
+                                        if (selected_row_count > 1) frappe.throw(__("You can only apply a request one at a time."))
+                                        
+                                        let selected = selected_rows[0];
+                                        let request_type = selected.request_type;
+                                        let changes = selected.to_change;
+                                        if (!["Cancellation", "Resubscription"].includes(request_type)) {
+                                            changes.forEach(function (change) {
+                                                if (Array.isArray(change.new_value)) {
+                                                    change.new_value.forEach(function (nv) {
+                                                        let fieldname = change.fieldname;
+                                                        let plan_index = frm.doc[fieldname].findIndex(plan => plan.name === nv.plan_id);
+                                                        frm.doc[fieldname][plan_index].qty = nv.new_qty;
+                                                    })
+                                                }
+                                                else {
+                                                    frm.set_value(change.fieldname, change.new_value);
+                                                }
+                                                frm.refresh_field(change.fieldname);
+                                            }); 
+                                        }
+                                        
+                                        frappe.show_alert({
+                                            message: __("Sucessfully Applied " + request_type),
+                                            indicator: "green"
+                                        });
+                                        changes.forEach(function (change, index) {
+                                            setTimeout(() => {
+                                                frm.scroll_to_field(change.fieldname);
+                                            }, index === 0? 0 : 1500);
+                                        });
+                                        frm.dirty();
+                                        frm.disable_save();
+                                        frm.page.set_primary_action(__("Apply Changes"), 
+                                            function () {
+                                                let subscription_update_request_prompt = frappe.prompt([
+                                                    {
+                                                        fieldname: "name",
+                                                        fieldtype: "Data",
+                                                        label: "Request ID",
+                                                        read_only: 1,
+                                                        default: selected_rows[0].name
+                                                    },
+                                                    {
+                                                        fieldname: "status",
+                                                        fieldtype: "Data",
+                                                        label: "Status",
+                                                        read_only: 1,
+                                                        default: "Approved"
+                                                    },
+                                                    {
+                                                        fieldname: "notes",
+                                                        fieldtype: "Long Text",
+                                                        label: "Notes",
+                                                    },
+                                                ], (values) => {
+                                                    frappe.call({
+                                                        callback: function (r) {
+                                                            if (request_type == "Cancellation") {
+                                                                if (selected.cancel_today) {
+                                                                    frm.trigger("cancel_subscription");
+                                                                    frappe.show_alert({
+                                                                        message: __("Sucessfully Cancelled Subscription"),
+                                                                        indicator: "green"
+                                                                    });
+                                                                }
+                                                                else {
+                                                                    frm.set_value("end_date", selected.cancellation_date);
+                                                                    frm.set_value("cancel_at_period_end", 1);
+                                                                    frm.refresh_field("end_date");
+                                                                    frm.refresh_field("cancel_at_period_end");
+                                                                    frm.scroll_to_field("end_date");
+                                                                    frappe.show_alert({
+                                                                        message: __("Sucessfully Scheduled a Cancellation"),
+                                                                        indicator: "green"
+                                                                    });
+                                                                }
+                                                            }
+                                                            else if(request_type == "Resubscription") {
+                                                                if (selected.resubscribe_today) {
+                                                                    frm.trigger("renew_this_subscription");
+                                                                    frappe.show_alert({
+                                                                        message: __("Sucessfully Renewed Subscription"),
+                                                                        indicator: "green"
+                                                                    });
+                                                                }
+                                                                else {
+                                                                    frm.set_value("start_date", selected.resubscription_start_date);
+                                                                    frm.refresh_field("start_date");
+                                                                    frm.scroll_to_field("start_date");
+                                                                    frappe.show_alert({
+                                                                        message: __("Sucessfully Scheduled a Renewal"),
+                                                                        indicator: "green"
+                                                                    });
+                                                                }
+                                                            }
+                                                            else {
+                                                                changes.forEach(function (change) {
+                                                                    if (Array.isArray(change.new_value)) {
+                                                                        change.new_value.forEach(function (nv) {
+                                                                            let fieldname = change.fieldname;
+                                                                            let plan_index = frm.doc[fieldname].findIndex(plan => plan.name === nv.plan_id);
+                                                                            frm.doc[fieldname][plan_index].qty = nv.new_qty;
+                                                                        })
+                                                                    }
+                                                                    else {
+                                                                        frm.set_value(change.fieldname, change.new_value);
+                                                                    }
+                                                                    frm.refresh_field(change.fieldname);
+                                                                }); 
+                                                            }
+                                                        }
+                                                    })
+                                                })
+                                            }
+                                        );
+                                    }
+                                );
+                                update_request_select_dialog.show();
+                            }
+                        }
+                    })
+                },
+                tools_button
+            );
         }
     },
 

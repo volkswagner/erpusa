@@ -1,0 +1,54 @@
+
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b>{{ _("Customer ") }} {{ customer }} {{ _(" is asking for a ")}} {{ request.request_type }} {{ _(" to ") }} {{ request.subscription }}.</b>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<p>
+				{{ _("More information is displayed below.") }}
+			</p>
+		</td>
+	</tr>
+</table>
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<th>Request ID</th>
+		<th>Type</th>
+		{% if request.request_type == "Cancellation" %}
+			<th>Cancellation Date</th>
+		{% elif request.request_type == "Resubscription" %}
+			<th>Resubscription Date</th>
+		{% else %}
+			<th>Details</th>
+		{% endif %}
+		<th>
+			{% if request.request_type == "Cancellation" %}
+				Cancellation Reason
+			{% elif request.request_type == "Resubscription" %}
+				Resubscription Reason
+			{% else %}
+				Additional Information
+			{% endif %}
+		</th>
+	</tr>
+	<tr>
+		<td> 
+			<a href="{{ frappe.utils.get_url_to_form('Subscription Update Request', request.name) }}">
+				{{ request.name }}
+			</a>
+		</td>
+		<td> {{ request.request_type }} </td>
+		{% if request.request_type == "Cancellation" %}
+			<td>{{ request.cancellation_date or "-" }}</td>
+		{% elif request.request_type == "Resubscription" %}
+			<td>{{ request.resubscription_start_date or "-" }}</td>
+		{% else %}
+			<td>{{ details }}</td>
+		{% endif %}
+		<td>{{ request.additional_information or "-"}}</td>
+	</tr>
+</table>
+

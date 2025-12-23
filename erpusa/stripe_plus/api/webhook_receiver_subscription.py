@@ -335,11 +335,6 @@ def find_unallocated_payments(subscription_name, customer_name, stripe_subscript
         }
     )
   invoice_count = frappe.db.count("Sales Invoice", filters={"status": ["not in", ["Draft", "Paid", "Cancelled"]], "subscription": subscription_name})
-  unallocated_stripe_transactions = []
-
-#   for t in stripe_transactions:
-#     if not frappe.db.exists("Payment Entry", {"reference_no": t.payment_intent, "status": "Submitted"}):
-#       unallocated_stripe_transactions.append(t)
 
   return {
     'unallocated_stripe_transactions': stripe_transactions,
@@ -351,20 +346,6 @@ def allocate_payments(subscription, stripe_transactions, invoice_count, payment_
   api_key = get_api_key_secret(gateway_controller=frappe.db.get_value("Payment Gateway", payment_gateway, "gateway_controller"))
   stripe_transactions = json.loads(stripe_transactions)
   checked_count = 0
-
-#   for index in range(int(invoice_count)):
-#     stripe_invoice = get_invoice_details(stripe_transactions[index]['invoice'], api_key)
-
-#     if stripe_invoice:
-#       try:
-#         sales_invoice = receive_stripe_subscription_events(stripe_invoice)
-#       except Exception as e:
-#         frappe.throw(_("Alllocation Failed"), str(e))
-
-#       frappe.msgprint(
-#         title=_("Allocation Successful"),
-#         msg=_("Stripe Transaction {} allocated for {}.").format(stripe_transactions[index]['invoice'], sales_invoice)
-#       )
 
   for st in stripe_transactions:
     if "__checked" in st and st['__checked'] == 1:
@@ -440,3 +421,137 @@ def find_advance_payments(customer):
         },
         pluck="name"
     )
+    
+@frappe.whitelist()
+def fetch_subscription_update_requests(subscription):
+    request_list = frappe.db.get_all(
+        "Subscription Update Request",
+        fields=["name", "request_type", "creation", "additional_information", "new_end_date"],
+        filters={
+            "subscription": subscription,
+            "status": ["not in", ["Approved", "Rejected"]]
+        }
+    )
+    
+    subscription_details = frappe.db.get_value("Subscription", subscription, ["end_date", "start_date", "cancelation_date"], as_dict=True)
+    
+    for index, request in enumerate(request_list):
+        request_list[index]["details"] = generate_details(subscription_details["end_date"], request)
+        request_list[index]["to_change"] = get_update_request_to_update(subscription, request)
+        
+        cancellation_date = request.get("cancellation_date")
+        if cancellation_date:
+            request_list[index]["cancel_today"] = cancellation_date <= subscription["end_date"]
+            request_list[index]["details"] = cancellation_date
+        
+        resubscription_start_date = request.get("resubscription_start_date")
+        if resubscription_start_date:
+            reference_date = subscription_details["end_date"] or subscription_details["cancelation_date"]
+            request_list[index]["resubscribe_today"] = reference_date <= subscription["end_date"]
+            request_list[index]["details"] = resubscription_start_date
+    
+    return request_list
+
+@frappe.whitelist()
+def approve_update_request(update_request_name, notes):
+    update_request_doc = frappe.get_doc("Subscription Update Request", update_request_name)
+    update_request_doc.status = "Approved"
+    update_request_doc.notes = notes
+    
+    try:
+        update_request_doc.save()
+    except Exception as e:
+        frappe.throw(_("Couldn't Approve the Update Request."))
+        
+    notify_customer_approval(update_request_doc)
+        
+
+def notify_customer_approval(update_request):
+    request_type_expanded = {
+        "Plan Change": "'s plans were successfully changed.",
+        "Plan and End Date Change": "'s plans and subscription end date were successfully changed.",
+        "End Date Change": "'s subscription end date was successfully changed.",
+        "Cancellation": " was successfully cancelled.",
+        "Resubscription": " was successfully renewed."
+    }
+    recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+    reference_name= update_request.name + "_approved"
+    subscription_name = frappe.db.get_value("Subscription", update_request.subscription, "friendly_name") or update_request.subscription
+    message = ("{subscription}{status}").format(subscription=subscription_name, status=request_type_expanded[update_request.request_type])
+    
+    if update_request.notes:
+        notes_list = [f"<li>{note.description}</li>" for note in update_request.notes]
+        message = message + "<br/>" + _("The reviewer wrote:") + f"<ol>{notes_list}</ol>"
+            
+    
+    if not frappe.db.exists("Email Queue", {"reference_doctype": "Subscription Update Request", "reference_name": reference_name}):
+        frappe.sendmail(
+            recipients=recipients.split(),
+            subject=_("Your Request for a {type} to Subscription {subscription} Was Approved.").format(type=update_request.request_type,subscription=subscription_name),
+            message=message,
+            reference_doctype="Subscription Update Request",
+            reference_name=reference_name,
+            now=True
+        )
+
+def generate_details(subscription_end_date, request):
+    def formulate_end_date_change_text():
+        return "End Date:" + str(subscription_end_date) + " => " + str(request.get("new_end_date"))
+    
+    def formulate_plan_change_text():
+        request_plans = frappe.db.get_all(
+            "Update Request Plan",
+            filters={
+                "parent": request.get("name")
+            },
+            fields=["plan", "qty", "new_qty"]
+        )
+        plans_text = []
+        for request_plan in request_plans:
+            plans_text.append(f'PLAN: {request_plan["plan"]}, CURRENT QTY: {request_plan["qty"]}, NEW QTY: {request_plan["new_qty"]}')
+        
+        return "<br/>".join(plans_text)
+    
+    if request.get("request_type") == "Plan Change":
+        return formulate_plan_change_text()
+    
+    if request.get("request_type") == "End Date Change":
+        return formulate_end_date_change_text()
+    
+    if request.get("request_type") == "Plan and End Date Change":
+        return f"""
+            {formulate_plan_change_text()}
+            <br/>
+            {formulate_end_date_change_text()}
+            """
+            
+def get_update_request_to_update(subscription, request):
+    def get_end_date_changes():
+        return {
+            "fieldname": "end_date",
+            "new_value": request.get("new_end_date")
+        }
+    
+    def get_plan_changes():
+        return {
+            "fieldname": "plans",
+            "new_value": frappe.db.get_all(
+                "Update Request Plan",
+                filters={
+                    "parent": request.get("name")
+                },
+                fields=["plan_id", "new_qty"]
+            )
+        }
+        
+    if request.get("request_type") == "Plan Change":
+        return [get_plan_changes()]
+    
+    if request.get("request_type") == "End Date Change":
+        return [get_end_date_changes()]
+    
+    if request.get("request_type") == "Plan and End Date Change":
+        return [
+            get_end_date_changes(),
+            get_plan_changes()
+        ]

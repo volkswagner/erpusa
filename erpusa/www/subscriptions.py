@@ -12,6 +12,13 @@ def get_context(context):
     context.title = "My Subscriptions"
     context.customer = frappe.db.get_value("Portal User", {"user": frappe.session.user}, "parent")
     context.subscriptions = []
+    context.total_count = frappe.db.count("Subscription", {"party": context.customer})
+    context.active_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Active"})
+    context.trialling_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Trialling"})
+    context.unpaid_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Unpaid"})
+    context.past_due_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Past Due Date"})
+    context.cancelled_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Cancelled"})
+    context.completed_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Completed"})
     if context.customer:
         for subscription in frappe.db.get_all("Subscription", filters={"party": context.customer}, pluck="name", order_by="status ASC"):
             subscription_data = frappe.get_doc("Subscription", subscription).as_dict()

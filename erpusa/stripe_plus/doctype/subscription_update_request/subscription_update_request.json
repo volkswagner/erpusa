@@ -11,13 +11,17 @@
   "column_break_fqre",
   "status",
   "request_type",
+  "section_break_hgfa",
+  "plans",
   "section_break_yqfr",
   "change_end_date",
   "column_break_agrp",
   "new_end_date",
+  "section_break_oxgu",
+  "cancellation_date",
+  "resubscription_start_date",
   "section_break_jcqa",
   "additional_information",
-  "plans",
   "section_break_meld",
   "reviewer",
   "notes"
@@ -85,9 +89,10 @@
    "default": "0",
    "fieldname": "change_end_date",
    "fieldtype": "Check",
-   "label": "Change End Date"
+   "label": "Change Subscription End Date"
   },
   {
+   "depends_on": "eval: ![\"Cancellation\", \"Resubscription\"].includes(doc.request_type);",
    "fieldname": "section_break_yqfr",
    "fieldtype": "Section Break",
    "hide_border": 1
@@ -96,7 +101,7 @@
    "depends_on": "eval: doc.change_end_date;",
    "fieldname": "new_end_date",
    "fieldtype": "Date",
-   "label": "New End Date"
+   "label": "New Subscription End Date"
   },
   {
    "fieldname": "column_break_agrp",
@@ -114,8 +119,30 @@
    "fieldtype": "Table",
    "label": "Plans",
    "options": "Update Request Plan"
+  },
+  {
+   "depends_on": "eval: doc.request_type == \"Cancellation\";",
+   "fieldname": "cancellation_date",
+   "fieldtype": "Date",
+   "label": "Cancellation Date"
+  },
+  {
+   "depends_on": "eval: doc.request_type == \"Resubscription\";",
+   "fieldname": "resubscription_start_date",
+   "fieldtype": "Date",
+   "label": "Resubscription Start Date"
+  },
+  {
+   "fieldname": "section_break_oxgu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "eval: ![\"Cancellation\", \"Resubscription\"].includes(doc.request_type);",
+   "fieldname": "section_break_hgfa",
+   "fieldtype": "Section Break"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [
   {
@@ -123,7 +150,7 @@
    "link_fieldname": "reference_name"
   }
  ],
- "modified": "2025-09-09 01:39:11.080391",
+ "modified": "2025-12-18 10:42:25.405690",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Subscription Update Request",
@@ -156,6 +183,8 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
