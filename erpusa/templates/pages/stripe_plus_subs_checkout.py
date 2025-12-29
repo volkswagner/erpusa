@@ -18,6 +18,8 @@ def get_context(context):
         )
         context.publishable_key = get_api_key("Subscription", context.gateway_controller)
         context.subscription = frappe.form_dict["subscription_name"]
+        subscription_details = frappe.db.get_value("Subscription", context.subscription, ["friendly_name", "status", "stripe_subscription_id", "stripe_subscription_status"], as_dict=True)
+        context.subscription_display_name = subscription_details["friendly_name"] or context.subscription
         context.customer = frappe.form_dict["customer"]
         context.payment_configuration = frappe.form_dict["payment_configuration"]
         settings_company = frappe.db.get_single_value("Stripe Plus Settings", "payment_page_company_name")
@@ -35,18 +37,18 @@ def get_context(context):
         else:
             context.header_image = frappe.db.get_value("Company", context.company, "company_logo")
         
-        if frappe.db.get_value("Subscription", context.subscription, "status") == "Cancelled":
+        if subscription_details["status"] == "Cancelled":
             frappe.redirect_to_message(
                 _("Subscription is no longer active.").format(context.subscription),
-                _("Subscription <b>{}</b> was cancelled. If you believe this is a mistake, please contact {}.").format(context.subscription, context.company),
+                _("Subscription <b>{}</b> was cancelled. If you believe this is a mistake, please contact {}.").format(context.subscription_display_name, context.company),
             )
             frappe.local.flags.redirect_location = frappe.local.response.location
             raise frappe.Redirect
         
-        if frappe.db.get_value("Subscription", context.subscription, "stripe_subscription_id"):
+        if subscription_details["stripe_subscription_id"]:
             frappe.redirect_to_message(
-                _("Payment has already been initiated.").format(context.subscription),
-                _("Subscription <b>{}</b> is already {}. Thank you for your business!").format(context.subscription, frappe.db.get_value("Subscription", context.subscription, "stripe_subscription_status").lower()),
+                _("Payment has already been initiated.").format(context.subscription_display_name),
+                _("Subscription <b>{}</b> is already {}. Thank you for your business!").format(context.subscription, subscription_details["stripe_subscription_status"].lower()),
             )
             frappe.local.flags.redirect_location = frappe.local.response.location
             raise frappe.Redirect
