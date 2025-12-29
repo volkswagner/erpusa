@@ -426,7 +426,7 @@ def find_advance_payments(customer):
 def fetch_subscription_update_requests(subscription):
     request_list = frappe.db.get_all(
         "Subscription Update Request",
-        fields=["name", "request_type", "creation", "additional_information", "new_end_date"],
+        fields=["name", "request_type", "creation", "additional_information", "new_end_date", "cancellation_date", "resubscription_start_date"],
         filters={
             "subscription": subscription,
             "status": ["not in", ["Approved", "Rejected"]]
@@ -441,14 +441,20 @@ def fetch_subscription_update_requests(subscription):
         
         cancellation_date = request.get("cancellation_date")
         if cancellation_date:
-            request_list[index]["cancel_today"] = cancellation_date <= subscription["end_date"]
+            request_list[index]["cancel_today"] = cancellation_date <= subscription_details["end_date"]
             request_list[index]["details"] = cancellation_date
+            
+            if request_list[index]["cancel_today"]:
+                request_list[index]["details"] = str(request_list[index]["details"]) + "(will be cancelled today)"
         
         resubscription_start_date = request.get("resubscription_start_date")
         if resubscription_start_date:
             reference_date = subscription_details["end_date"] or subscription_details["cancelation_date"]
-            request_list[index]["resubscribe_today"] = reference_date <= subscription["end_date"]
+            request_list[index]["resubscribe_today"] = resubscription_start_date <= reference_date
             request_list[index]["details"] = resubscription_start_date
+            
+            if request_list[index]["resubscribe_today"]:
+                request_list[index]["details"] = str(request_list[index]["details"]) + "(will be renewed today)"
     
     return request_list
 

@@ -34,14 +34,7 @@ frappe.ui.form.on("Subscription", {
     },
 
     refresh: async function(frm) {
-        if (frm.doc.status !== "Cancelled" && !frm.is_new()) {
-            frm.remove_custom_button(__("Cancel Subscription"), __("Actions"));
-			frm.add_custom_button(
-				__("Cancel Subscription"),
-				() => frm.trigger("cancel_subscription"),
-				__("Actions")
-			);
-		}
+        frm.events.override_actions_buttons(frm);
         frm.events.set_intro(frm);
         frm.events.insert_look_for_unallocated_stripe_transactions_button(frm);
         frm.events.insert_advance_payments_link(frm);
@@ -90,6 +83,27 @@ frappe.ui.form.on("Subscription", {
         frm.set_value("generate_new_invoices_past_due_date", 1);
         frm.set_value("submit_invoice", 1);
         frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
+    },
+
+    override_actions_buttons: function (frm) {
+        if (!frm.is_new() && frm.doc.email_queue) {
+            if (frm.doc.status !== "Cancelled") {
+                frm.remove_custom_button(__("Cancel Subscription"), __("Actions"));
+                frm.add_custom_button(
+                    __("Cancel Subscription"),
+                    () => frm.trigger("cancel_subscription"),
+                    __("Actions")
+                );
+            }
+            else {
+                frm.remove_custom_button(__("Restart Subscription"), __("Actions"));
+                frm.add_custom_button(
+                    __("Restart Subscription"),
+                    () => frm.events.restart_subscription(frm),
+                    __("Actions")
+                );
+            }
+        }
     },
 
     set_intro: function (frm) {
@@ -148,23 +162,109 @@ frappe.ui.form.on("Subscription", {
         frm.set_df_property("user_account_representative", "reqd", frm.doc.autocharge_with_stripe);
     },
 
-    cancel_subscription: function (frm) {
-		cancel_subscription_dialog = frappe.confirm(
-			__("This action will stop future billing. Are you sure you want to cancel this subscription?"),
-			() => {
-				frappe.call({
-                    method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.cancel_subscription",
+    cancel_subscription: function (frm, should_confirm=true) {
+        function cancel_subscription_now() {
+            frappe.call({
+                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.cancel_subscription",
+                args: {
+                    subscription_name: frm.doc.name
+                },
+                callback: function (r) {
+                    if (!r.exec) {
+                        frm.reload_doc();
+                    }
+                }
+            });
+        }
+
+        if (should_confirm) {
+            frappe.confirm(
+                __("This action will stop future billing. Are you sure you want to cancel this subscription?"),
+                () => {
+                    cancel_subscription_now()
+                },
+            );
+        }
+        else {
+            cancel_subscription_now();
+        }
+	},
+
+    restart_subscription: function (frm, new_start_date=null, new_end_date=null) {
+        let current_start_date = frm.doc.start_date? __("Current Start Date: ") + frm.doc.start_date : "Defaults to today";
+        let current_end_date = frm.doc.start_date? __("Current End Date: ") + frm.doc.end_date : "";
+        let request_new_start_date = new_start_date? " | " + __("Request Start Date: ") + new_start_date : "";
+        let request_end_start_date = new_end_date? " | " + __("Request End Date: ") + new_end_date : "";
+
+        let renew_dialog = new frappe.ui.Dialog({
+            title: __("Confirm"),
+            fields: [
+                {
+                    fieldtype: "HTML",
+                    options: "<p>" + __("You are about to restart this subscription. You may set new settings for the renewal:") + "</p>"
+                },
+                {
+                    fieldname: "new_start_date",
+                    fieldtype: "Date",
+                    label: "New Start Date",
+                    default: new_start_date || frm.doc.start_date || frappe.datetime.get_today(),
+                    reqd: 1,
+                    description: "<small>" + current_start_date + request_new_start_date + "</small>"
+                },
+                {
+                    fieldname: "new_end_date",
+                    fieldtype: "Date",
+                    label: "New End Date",
+                    default: new_end_date|| frm.doc.end_date,
+                    description: "<small>" + current_end_date + request_end_start_date + "</small>"
+                },
+                {
+                    fieldname: "autocharge_with_stripe",
+                    fieldtype: "Check",
+                    label: "Autocharge with Stripe",
+                    default: frm.doc.autocharge_with_stripe,
+                    description: "<small>" + __("Current Value: ") + (frm.doc.autocharge_with_stripe? __("Checked") : __("Unchecked")) + "</small>"
+                }
+            ],
+            primary_action_label: __("Yes"),
+            primary_action: function (values) {
+                frappe.call({
+                    method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.renew_subscription",
                     args: {
-                        subscription_name: frm.doc.name
+                        subscription_name: frm.doc.name,
+                        new_start_date: values.new_start_date,
+                        new_end_date: values.new_end_date,
+                        autocharge_with_stripe: values.autocharge_with_stripe
                     },
                     callback: function (r) {
                         if (!r.exec) {
+                            renew_dialog.hide();
                             frm.reload_doc();
                         }
                     }
                 });
-			},
-		);
+            },
+            secondary_action_label: __("No"),
+            secondary_action: function () {
+                renew_dialog.hide();
+            }
+        });
+
+        renew_dialog.show();
+        
+        // frappe.confirm(message, () => {
+        //     frappe.call({
+        //         method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.cancel_subscription",
+        //         args: {
+        //             subscription_name: frm.doc.name
+        //         },
+        //         callback: function (r) {
+        //             if (!r.exec) {
+        //                 frm.reload_doc();
+        //             }
+        //         }
+        //     });
+		// });
 	},
 
     insert_advance_payments_link: function (frm) {
@@ -242,6 +342,11 @@ frappe.ui.form.on("Subscription", {
                             </div>`
                         );
                     }
+                    frm.set_df_property(
+                        "user_account_representative",
+                        "description",
+                        null
+                    );
                 }
             })
         }
@@ -385,6 +490,9 @@ frappe.ui.form.on("Subscription", {
                                         {
                                             fieldtype: "Table",
                                             fieldname: "update_requests",
+                                            cannot_add_rows: 1,
+                                            cannot_delete_rows: 1,
+                                            in_place_edit: 0,
                                             fields: [
                                                 {
                                                     fieldname: "name",
@@ -440,44 +548,18 @@ frappe.ui.form.on("Subscription", {
 
                                         let selected_rows = update_request_select_dialog.get_values().update_requests;
                                         let selected_row_count = selected_rows.filter(row => row.__checked === 1).length;
-
-                                        if (selected_row_count === 0) frappe.throw(__("Select a request."))
-
-                                        if (selected_row_count > 1) frappe.throw(__("You can only apply a request one at a time."))
-                                        
                                         let selected = selected_rows[0];
                                         let request_type = selected.request_type;
-                                        let changes = selected.to_change;
-                                        if (!["Cancellation", "Resubscription"].includes(request_type)) {
-                                            changes.forEach(function (change) {
-                                                if (Array.isArray(change.new_value)) {
-                                                    change.new_value.forEach(function (nv) {
-                                                        let fieldname = change.fieldname;
-                                                        let plan_index = frm.doc[fieldname].findIndex(plan => plan.name === nv.plan_id);
-                                                        frm.doc[fieldname][plan_index].qty = nv.new_qty;
-                                                    })
-                                                }
-                                                else {
-                                                    frm.set_value(change.fieldname, change.new_value);
-                                                }
-                                                frm.refresh_field(change.fieldname);
-                                            }); 
-                                        }
-                                        
-                                        frappe.show_alert({
-                                            message: __("Sucessfully Applied " + request_type),
-                                            indicator: "green"
-                                        });
-                                        changes.forEach(function (change, index) {
-                                            setTimeout(() => {
-                                                frm.scroll_to_field(change.fieldname);
-                                            }, index === 0? 0 : 1500);
-                                        });
-                                        frm.dirty();
-                                        frm.disable_save();
-                                        frm.page.set_primary_action(__("Apply Changes"), 
-                                            function () {
-                                                let subscription_update_request_prompt = frappe.prompt([
+
+                                        if (selected_row_count === 0) frappe.throw(__("Select a request."));
+
+                                        if (selected_row_count > 1) frappe.throw(__("You can only apply a request one at a time."));
+
+                                        let approve_update_request_dialog = null;
+
+                                        function displayApproveRequestDialog () {
+                                            if (!approve_update_request_dialog) {
+                                                approve_update_request_dialog = frappe.prompt([
                                                     {
                                                         fieldname: "name",
                                                         fieldtype: "Data",
@@ -499,63 +581,97 @@ frappe.ui.form.on("Subscription", {
                                                     },
                                                 ], (values) => {
                                                     frappe.call({
+                                                        method: "erpusa.stripe_plus.api.webhook_receiver_subscription.approve_update_request",
+                                                        args: {
+                                                            update_request_name: values.name,
+                                                            notes: values.notes 
+                                                        },
                                                         callback: function (r) {
-                                                            if (request_type == "Cancellation") {
-                                                                if (selected.cancel_today) {
-                                                                    frm.trigger("cancel_subscription");
-                                                                    frappe.show_alert({
-                                                                        message: __("Sucessfully Cancelled Subscription"),
-                                                                        indicator: "green"
-                                                                    });
-                                                                }
-                                                                else {
-                                                                    frm.set_value("end_date", selected.cancellation_date);
-                                                                    frm.set_value("cancel_at_period_end", 1);
-                                                                    frm.refresh_field("end_date");
-                                                                    frm.refresh_field("cancel_at_period_end");
-                                                                    frm.scroll_to_field("end_date");
-                                                                    frappe.show_alert({
-                                                                        message: __("Sucessfully Scheduled a Cancellation"),
-                                                                        indicator: "green"
-                                                                    });
-                                                                }
-                                                            }
-                                                            else if(request_type == "Resubscription") {
-                                                                if (selected.resubscribe_today) {
-                                                                    frm.trigger("renew_this_subscription");
-                                                                    frappe.show_alert({
-                                                                        message: __("Sucessfully Renewed Subscription"),
-                                                                        indicator: "green"
-                                                                    });
-                                                                }
-                                                                else {
-                                                                    frm.set_value("start_date", selected.resubscription_start_date);
-                                                                    frm.refresh_field("start_date");
-                                                                    frm.scroll_to_field("start_date");
-                                                                    frappe.show_alert({
-                                                                        message: __("Sucessfully Scheduled a Renewal"),
-                                                                        indicator: "green"
-                                                                    });
-                                                                }
-                                                            }
-                                                            else {
-                                                                changes.forEach(function (change) {
-                                                                    if (Array.isArray(change.new_value)) {
-                                                                        change.new_value.forEach(function (nv) {
-                                                                            let fieldname = change.fieldname;
-                                                                            let plan_index = frm.doc[fieldname].findIndex(plan => plan.name === nv.plan_id);
-                                                                            frm.doc[fieldname][plan_index].qty = nv.new_qty;
-                                                                        })
-                                                                    }
-                                                                    else {
-                                                                        frm.set_value(change.fieldname, change.new_value);
-                                                                    }
-                                                                    frm.refresh_field(change.fieldname);
-                                                                }); 
-                                                            }
+
                                                         }
                                                     })
-                                                })
+                                                });
+                                            }
+                                            else {
+                                                approve_update_request_dialog.show();
+                                            }
+
+                                        }
+
+                                        if (!["Cancellation", "Resubscription"].includes(request_type)) {
+                                            let changes = selected.to_change;
+                                            changes.forEach(function (change) {
+                                                if (Array.isArray(change.new_value)) {
+                                                    change.new_value.forEach(function (nv) {
+                                                        let fieldname = change.fieldname;
+                                                        let plan_index = frm.doc[fieldname].findIndex(plan => plan.name === nv.plan_id);
+                                                        frm.doc[fieldname][plan_index].qty = nv.new_qty;
+                                                    })
+                                                }
+                                                else {
+                                                    frm.set_value(change.fieldname, change.new_value);
+                                                }
+                                                frm.refresh_field(change.fieldname);
+                                            });
+                                            
+                                            changes.forEach(function (change, index) {
+                                                setTimeout(() => {
+                                                    frm.scroll_to_field(change.fieldname);
+                                                }, index === 0? 0 : 1500);
+                                            });
+                                        
+                                            frappe.show_alert({
+                                                message: __("Sucessfully Applied " + request_type),
+                                                indicator: "green"
+                                            });
+                                        }
+
+                                        if (request_type == "Cancellation") {
+                                            if (selected.cancel_today) {
+                                                frm.trigger("cancel_subscription");
+                                                frappe.show_alert({
+                                                    message: __("Sucessfully Cancelled Subscription"),
+                                                    indicator: "green"
+                                                });
+                                            }
+                                            else {
+                                                frm.set_value("end_date", selected.cancellation_date);
+                                                frm.set_value("cancel_at_period_end", 1);
+                                                frm.refresh_field("end_date");
+                                                frm.refresh_field("cancel_at_period_end");
+                                                frm.scroll_to_field("end_date");
+                                                frappe.show_alert({
+                                                    message: __("Sucessfully Scheduled a Cancellation"),
+                                                    indicator: "green"
+                                                });
+                                            }
+                                        }
+
+                                        if(request_type == "Resubscription") {
+                                            if (selected.resubscribe_today) {
+                                                frm.trigger("renew_this_subscription");
+                                                frappe.show_alert({
+                                                    message: __("Sucessfully Renewed Subscription"),
+                                                    indicator: "green"
+                                                });
+                                            }
+                                            else {
+                                                frm.set_value("start_date", selected.resubscription_start_date);
+                                                frm.refresh_field("start_date");
+                                                frm.scroll_to_field("start_date");
+                                                frappe.show_alert({
+                                                    message: __("Sucessfully Scheduled a Renewal"),
+                                                    indicator: "green"
+                                                });
+                                            }
+                                        }
+
+                                        frm.dirty();
+                                        frm.disable_save();
+                                        
+                                        frm.page.set_primary_action(__("Apply Changes"), 
+                                            function () {
+                                                displayApproveRequestDialog();
                                             }
                                         );
                                     }

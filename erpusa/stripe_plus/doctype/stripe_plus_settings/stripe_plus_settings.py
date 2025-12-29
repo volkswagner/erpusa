@@ -747,6 +747,76 @@ def cancel_subscription(subscription_name):
         frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
         
       frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
+      
+@frappe.whitelist()
+def renew_subscription(subscription_name, new_start_date, autocharge_with_stripe, new_end_date=None):
+  # frappe.throw(str())
+  if new_start_date < str(frappe.utils.getdate()) or (new_end_date and new_end_date < str(frappe.utils.getdate())):
+    frappe.throw(_("The new dates should be set in the future."))
+    
+    
+  if new_end_date and new_start_date > new_end_date:
+    frappe.throw(_("The New End Date cannot be before the New Start Date."))
+    
+  subscription_doc = frappe.get_doc("Subscription", subscription_name)
+
+  old_start_date = subscription_doc.start_date
+  old_end_date = subscription_doc.end_date
+  old_autocharge_with_stripe = subscription_doc.autocharge_with_stripe
+  # new_current_invoice_start = subscription_doc.get_current_invoice_start(new_start_date)
+  # new_current_invoice_end = subscription_doc.get_current_invoice_end(new_current_invoice_start)
+  
+  try:
+    frappe.db.set_value(
+      "Subscription", 
+      subscription_name, 
+      {
+        "start_date": new_start_date,
+        "end_date": new_end_date,
+        # "current_invoice_start": new_current_invoice_start,
+        # "current_invoice_end": new_current_invoice_end,
+        "autocharge_with_stripe": autocharge_with_stripe
+      }  
+    )
+  except Exception as e:
+    frappe.throw(_("Failed to set new dates for subscription"), str(e))
+  
+  try:
+    subscription_doc = frappe.get_doc("Subscription", subscription_name)
+    subscription_doc.restart_subscription(new_start_date)
+  except Exception as e:
+    frappe.db.set_value(
+      "Subscription", 
+      subscription_name, 
+      {
+        "start_date": old_start_date,
+        "end_date": old_end_date,
+        "autocharge_with_stripe": old_autocharge_with_stripe
+      }  
+    )
+    frappe.throw(_("Failed to renew subscription"), str(e))
+  
+  subscription_doc = frappe.get_doc("Subscription", subscription_name)
+  old_stripe_subscription_id = subscription_doc.stripe_subscription_id
+  subscription_doc.stripe_subscription_id = None
+  subscription_doc.stripe_subscription_status = None
+  subscription_doc.email_queue = None
+  subscription_doc.payment_url = None
+  subscription_doc.append("update_history", {
+    "update_type": "Renewal",
+    "update_datetime": frappe.utils.now_datetime(),
+    "reference": old_stripe_subscription_id or "None"
+  })
+  
+  if autocharge_with_stripe:
+    subscription_doc.autocharge_with_stripe = 1
+    
+  try:
+    subscription_doc.save()
+    
+  except Exception as e:
+    frappe.throw(_("Failed to renew associated Stripe.com subscription."), str(e))
+
 
 def validate_subscription_plan_stripe_price(subscription_plan, method=None):
   if subscription_plan.stripe_price_id and (subscription_plan.has_value_changed("currency") or \

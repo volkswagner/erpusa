@@ -215,11 +215,16 @@
 			<div class="card-body">
 				<div class="card-text">
 					<p>
-						<span class="text-muted">Subscribed from </span>
-						<span>{{ subscription.start_date.strftime('%B %d, %Y') }}</span>
-						<span class="text-muted">to </span>
-						{% if subscription.end_date %}
-						<span>{{ subscription.end_date.strftime('%B %d, %Y') }}</span>
+						{% if subscription.start_date %}
+							{% if subscription.end_date %}
+								<span class="text-muted">Subscribed from </span>
+								<span>{{ subscription.start_date.strftime('%B %d, %Y') }}</span>
+								<span class="text-muted">to </span>
+								<span>{{ subscription.end_date.strftime('%B %d, %Y') }}</span>
+							{% else %}
+								<span class="text-muted">Subscribed since </span>
+								<span>{{ subscription.start_date.strftime('%B %d, %Y') }}</span>
+							{% endif %}
 						{% endif %}
 					</p>
 					<p>
