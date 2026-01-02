@@ -28,7 +28,7 @@ required_apps = [
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = "/assets/erpusa/css/stripe_plus.css?v=202509030651"
+app_include_css = "/assets/erpusa/css/stripe_plus.css?v=202601010930"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpusa/css/erpusa.css"
@@ -161,8 +161,7 @@ doc_events = {
 	},
 	"Subscription": {
         "validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_subscription_stripe_plus_fields",
-        "on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.setup_stripe_subscription_registration",
-        "on_trash": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.unbind_email_queue_from_subscription"
+        "on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.setup_stripe_subscription_registration"
 	},
 	"Subscription Plan": {
 		"validate": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.validate_subscription_plan_stripe_price"

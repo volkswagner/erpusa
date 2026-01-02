@@ -699,7 +699,7 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
 
                 je_doc.append("accounts", {
                     "account": stripe_fee_account,
-                    "bank_account": get_bank_account_for_payment_entry("Receive", stripe_fee_account, stripe_fee_account, False, as_dict=False),
+                    "bank_account": get_bank_account_for_payment_entry("Receive", stripe_fee_account, stripe_fee_account, as_dict=False),
                     "debit_in_account_currency": abs(stripe_fees),
                     "cost_center": stripe_fee_cost_center
                 })
