@@ -17,9 +17,25 @@ const stripe_subscription_status_color = {
     'Paused': 'yellow'
 }
 
+const autocharge_with_stripe_fields = [
+    {
+        "name": "generate_invoice_at",
+        "value": "Beginning of the current subscription period"
+    },
+    {
+        "name": "generate_new_invoices_past_due_date",
+        "value": 1
+    },
+    {
+        "name": "submit_invoice",
+        "value": 1
+    },
+];
+
 const tools_button = `${stripe_logo} Tools`
 
 let currently_editing = null;
+
 
 frappe.ui.form.on("Subscription", {
     setup: function (frm) {
@@ -40,8 +56,8 @@ frappe.ui.form.on("Subscription", {
         frm.events.insert_advance_payments_link(frm);
         frm.events.insert_update_subscription(frm);
         frm.events.toggle_customer_conversion_notice_and_button(frm);
-        frm.events.toggle_locked_fields(frm);
-        frm.events.toggle_stripe_plus_fields_read_only(frm);
+        frm.events.toggle_autocharge_with_stripe_fields(frm);
+        frm.events.toggle_stripe_plus_fields_reqd(frm);
         frm.events.toggle_email_queue_link(frm);
         insertReloadButton(frm);
     },
@@ -49,7 +65,7 @@ frappe.ui.form.on("Subscription", {
     autocharge_with_stripe: function(frm) {
         frm.events.set_user_account_representative(frm);
         frm.events.set_subscription_fields(frm);
-        frm.events.toggle_stripe_plus_fields_read_only(frm);
+        frm.events.toggle_stripe_plus_fields_reqd(frm);
     },
 
     party_type: function (frm) {
@@ -79,7 +95,7 @@ frappe.ui.form.on("Subscription", {
     },
 
     set_subscription_fields: function (frm) {
-        frm.events.toggle_locked_fields(frm);
+        frm.events.toggle_autocharge_with_stripe_fields(frm);
         frm.set_value("generate_new_invoices_past_due_date", 1);
         frm.set_value("submit_invoice", 1);
         frm.set_value("generate_invoice_at", "Beginning of the current subscription period");
@@ -133,68 +149,84 @@ frappe.ui.form.on("Subscription", {
         }
     },
 
-    toggle_locked_fields: function (frm) {
-        if (frm.doc.autocharge_with_stripe) {
-            const locked_fields = ["generate_invoice_at", "generate_new_invoices_past_due_date", "submit_invoice"];
-            const locked_message = `
-                <div class="alert alert-warning p-2 mt-2" role="alert">
-                        <small>Field is locked to allow autocharging with Stripe.</small>
-                </div>`;
-
-            locked_fields.forEach(function(field) {
-                frm.set_df_property(field, "read_only", 1);
-                frm.set_df_property(
-                    field,
-                    "description",
-                    locked_message
-                );
-            });
-        }
-
-        else {
-            frm.set_df_property("generate_invoice_at", "read_only", 0);
-            frm.set_df_property("generate_invoice_at", "description", null);
-        }
+    toggle_autocharge_with_stripe_fields: function (frm) {
+        autocharge_with_stripe_fields.forEach(function(field) {
+            frm.set_df_property(field.name, "read_only", frm.doc.autocharge_with_stripe);
+            frm.set_df_property(
+                field.name,
+                "description",
+                frm.doc.autocharge_with_stripe? renderFieldDescription(field.value) : null
+            );
+        });
     },
 
-    toggle_stripe_plus_fields_read_only: function (frm) {
-        frm.set_df_property("payment_gateway_account", "reqd", frm.doc.autocharge_with_stripe);
-        frm.set_df_property("user_account_representative", "reqd", frm.doc.autocharge_with_stripe);
+    toggle_stripe_plus_fields_reqd: function (frm) {
+        ["mode_of_payment", "user_account_representative", "start_date"].forEach(
+            (field) => frm.set_df_property(field, "reqd", frm.doc.autocharge_with_stripe)
+        );
     },
 
-    cancel_subscription: function (frm, should_confirm=true) {
-        function cancel_subscription_now() {
+    cancel_subscription: function (frm, approval_dialog=null) {
+        function cancel_now() {
             frappe.call({
-                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.cancel_subscription",
+                method: "erpusa.stripe_plus.api.webhook_receiver_subscription.cancel_subscription",
                 args: {
                     subscription_name: frm.doc.name
                 },
                 callback: function (r) {
                     if (!r.exec) {
                         frm.reload_doc();
+                        frappe.show_alert({
+                            message: __("Successfully Cancelled Subscription"),
+                            indicator: "green"
+                        });
                     }
                 }
             });
         }
 
-        if (should_confirm) {
-            frappe.confirm(
-                __("This action will stop future billing. Are you sure you want to cancel this subscription?"),
-                () => {
-                    cancel_subscription_now()
-                },
-            );
-        }
-        else {
-            cancel_subscription_now();
-        }
+        frappe.confirm(
+            __("This action will stop future billing. Are you sure you want to cancel this subscription?"),
+            () => {
+                if (approval_dialog) {
+                    approval_dialog(cancel_now);
+                }
+                else {
+                    cancel_now()
+                }
+            },
+        );
 	},
 
-    restart_subscription: function (frm, new_start_date=null, new_end_date=null) {
+    restart_subscription: function (frm, new_start_date=null, new_end_date=null, approval_dialog=null) {
         let current_start_date = frm.doc.start_date? __("Current Start Date: ") + frm.doc.start_date : "Defaults to today";
         let current_end_date = frm.doc.start_date? __("Current End Date: ") + frm.doc.end_date : "";
         let request_new_start_date = new_start_date? " | " + __("Request Start Date: ") + new_start_date : "";
-        let request_end_start_date = new_end_date? " | " + __("Request End Date: ") + new_end_date : "";
+        let request_new_end_date = new_end_date? " | " + __("Request End Date: ") + new_end_date : "";
+
+        function renew_now(values) {
+            frappe.call({
+                method: "erpusa.stripe_plus.api.webhook_receiver_subscription.renew_subscription",
+                args: {
+                    subscription_name: frm.doc.name,
+                    new_start_date: values.new_start_date,
+                    new_end_date: values.new_end_date,
+                    autocharge_with_stripe: values.autocharge_with_stripe,
+                    mode_of_payment: values.mode_of_payment,
+                    payment_method_configuration: values.payment_method_configuration
+                },
+                callback: function (r) {
+                    if (!r.exec) {
+                        renew_dialog.hide();
+                        frm.reload_doc();
+                        frappe.show_alert({
+                            message: __("Successfully Renewed Subscription"),
+                            indicator: "green"
+                        });
+                    }
+                }
+            });
+        }
 
         let renew_dialog = new frappe.ui.Dialog({
             title: __("Confirm"),
@@ -216,7 +248,7 @@ frappe.ui.form.on("Subscription", {
                     fieldtype: "Date",
                     label: "New End Date",
                     default: new_end_date|| frm.doc.end_date,
-                    description: "<small>" + current_end_date + request_end_start_date + "</small>"
+                    description: "<small>" + current_end_date + request_new_end_date + "</small>"
                 },
                 {
                     fieldname: "autocharge_with_stripe",
@@ -224,25 +256,34 @@ frappe.ui.form.on("Subscription", {
                     label: "Autocharge with Stripe",
                     default: frm.doc.autocharge_with_stripe,
                     description: "<small>" + __("Current Value: ") + (frm.doc.autocharge_with_stripe? __("Checked") : __("Unchecked")) + "</small>"
+                },
+                {
+                    fieldname: "mode_of_payment",
+                    fieldtype: "Link",
+                    label: "Mode of Payment",
+                    options: "Mode of Payment",
+                    default: frm.doc.mode_of_payment,
+                    depends_on: "eval: doc.autocharge_with_stripe",
+                    description: "<small>" + __("Current Value: ") + frm.doc.mode_of_payment + "</small>"
+                },
+                {
+                    fieldname: "payment_method_configuration",
+                    fieldtype: "Link",
+                    label: "Payment Method Configuration",
+                    options: "Stripe Payment Method Configuration",
+                    default: frm.doc.payment_method_configuration,
+                    depends_on: "eval: doc.autocharge_with_stripe",
+                    description: "<small>" + __("Current Value: ") + (frm.doc.payment_method_configuration || "None") + "</small>"
                 }
             ],
             primary_action_label: __("Yes"),
             primary_action: function (values) {
-                frappe.call({
-                    method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.renew_subscription",
-                    args: {
-                        subscription_name: frm.doc.name,
-                        new_start_date: values.new_start_date,
-                        new_end_date: values.new_end_date,
-                        autocharge_with_stripe: values.autocharge_with_stripe
-                    },
-                    callback: function (r) {
-                        if (!r.exec) {
-                            renew_dialog.hide();
-                            frm.reload_doc();
-                        }
-                    }
-                });
+                if (approval_dialog) {
+                    approval_dialog(renew_now, values)
+                }
+                else {
+                    renew_now(values);
+                }
             },
             secondary_action_label: __("No"),
             secondary_action: function () {
@@ -251,20 +292,6 @@ frappe.ui.form.on("Subscription", {
         });
 
         renew_dialog.show();
-        
-        // frappe.confirm(message, () => {
-        //     frappe.call({
-        //         method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.cancel_subscription",
-        //         args: {
-        //             subscription_name: frm.doc.name
-        //         },
-        //         callback: function (r) {
-        //             if (!r.exec) {
-        //                 frm.reload_doc();
-        //             }
-        //         }
-        //     });
-		// });
 	},
 
     insert_advance_payments_link: function (frm) {
@@ -361,7 +388,7 @@ frappe.ui.form.on("Subscription", {
 
     insert_look_for_unallocated_stripe_transactions_button: function (frm) {
         if (frm.doc.stripe_subscription_id) {
-            ["autocharge_with_stripe","payment_gateway_account", "payment_method_configuration"].forEach(function(field) {
+            ["autocharge_with_stripe", "payment_gateway_account", "payment_method_configuration", "plans"].forEach(function(field) {
                 frm.set_df_property(field, "read_only", true);
             })
         
@@ -520,20 +547,20 @@ frappe.ui.form.on("Subscription", {
                                                     columns: 2
                                                 },
                                                 {
-                                                    fieldname: "additional_information",
-                                                    fieldtype: "Long Text",
-                                                    label: "Customer Notes",
-                                                    in_list_view: 1,
-                                                    read_only: 1,
-                                                    columns: 2
-                                                },
-                                                {
                                                     fieldname: "details",
                                                     fieldtype: "Long Text",
                                                     label: "Request Details",
                                                     in_list_view: 1,
                                                     read_only: 1,
-                                                    columns: 2
+                                                    columns: 3
+                                                },
+                                                {
+                                                    fieldname: "additional_information",
+                                                    fieldtype: "Long Text",
+                                                    label: "Customer Notes",
+                                                    in_list_view: 1,
+                                                    read_only: 1,
+                                                    columns: 1
                                                 }
                                             ],
                                             data: r.message
@@ -557,7 +584,7 @@ frappe.ui.form.on("Subscription", {
 
                                         let approve_update_request_dialog = null;
 
-                                        function displayApproveRequestDialog () {
+                                        function displayApproveRequestDialog (run_after=null, args=null) {
                                             if (!approve_update_request_dialog) {
                                                 approve_update_request_dialog = frappe.prompt([
                                                     {
@@ -580,16 +607,43 @@ frappe.ui.form.on("Subscription", {
                                                         label: "Notes",
                                                     },
                                                 ], (values) => {
-                                                    frappe.call({
-                                                        method: "erpusa.stripe_plus.api.webhook_receiver_subscription.approve_update_request",
-                                                        args: {
-                                                            update_request_name: values.name,
-                                                            notes: values.notes 
-                                                        },
-                                                        callback: function (r) {
-
-                                                        }
-                                                    })
+                                                    if (run_after) {
+                                                        frappe.call({
+                                                            method: "erpusa.stripe_plus.api.webhook_receiver_subscription.approve_update_request",
+                                                            args: {
+                                                                update_request_name: values.name,
+                                                                notes: values.notes 
+                                                            },
+                                                            callback: function (r) {
+                                                                if (!r.exec) {
+                                                                    if (args) {
+                                                                        run_after(args);
+                                                                    }
+                                                                    else {
+                                                                        run_after();
+                                                                    }
+                                                                }
+                                                            }
+                                                        });
+                                                    }
+                                                    else {
+                                                        frappe.call({
+                                                            method: "erpusa.stripe_plus.api.webhook_receiver_subscription.update_subscription",
+                                                            args: {
+                                                                subscription_name: frm.doc.name,
+                                                                payment_gateway: frm.doc.payment_gateway,
+                                                                stripe_subscription_id: frm.doc.stripe_subscription_id,
+                                                                update_request_name: values.name,
+                                                                notes: values.notes 
+                                                            },
+                                                            callback: function (r) {
+                                                                if (!r.exec) {
+                                                                    frm.reload_doc();
+                                                                }
+                                                            }
+                                                        });
+                                                    }
+                                                    
                                                 });
                                             }
                                             else {
@@ -621,18 +675,14 @@ frappe.ui.form.on("Subscription", {
                                             });
                                         
                                             frappe.show_alert({
-                                                message: __("Sucessfully Applied " + request_type),
+                                                message: __("Successfully Applied " + request_type),
                                                 indicator: "green"
                                             });
                                         }
 
                                         if (request_type == "Cancellation") {
                                             if (selected.cancel_today) {
-                                                frm.trigger("cancel_subscription");
-                                                frappe.show_alert({
-                                                    message: __("Sucessfully Cancelled Subscription"),
-                                                    indicator: "green"
-                                                });
+                                                frm.events.cancel_subscription(frm, displayApproveRequestDialog);
                                             }
                                             else {
                                                 frm.set_value("end_date", selected.cancellation_date);
@@ -641,7 +691,7 @@ frappe.ui.form.on("Subscription", {
                                                 frm.refresh_field("cancel_at_period_end");
                                                 frm.scroll_to_field("end_date");
                                                 frappe.show_alert({
-                                                    message: __("Sucessfully Scheduled a Cancellation"),
+                                                    message: __("Successfully Scheduled a Cancellation"),
                                                     indicator: "green"
                                                 });
                                             }
@@ -649,18 +699,14 @@ frappe.ui.form.on("Subscription", {
 
                                         if(request_type == "Resubscription") {
                                             if (selected.resubscribe_today) {
-                                                frm.trigger("renew_this_subscription");
-                                                frappe.show_alert({
-                                                    message: __("Sucessfully Renewed Subscription"),
-                                                    indicator: "green"
-                                                });
+                                                frm.events.restart_subscription(frm, selected.resubscription_start_date, selected.resubscription_end_date, displayApproveRequestDialog);
                                             }
                                             else {
                                                 frm.set_value("start_date", selected.resubscription_start_date);
                                                 frm.refresh_field("start_date");
                                                 frm.scroll_to_field("start_date");
                                                 frappe.show_alert({
-                                                    message: __("Sucessfully Scheduled a Renewal"),
+                                                    message: __("Successfully Scheduled a Renewal"),
                                                     indicator: "green"
                                                 });
                                             }

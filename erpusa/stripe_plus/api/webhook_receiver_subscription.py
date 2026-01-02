@@ -288,52 +288,47 @@ def list_subscription_invoices(stripe_subscription, api_key):
 
 @frappe.whitelist()
 def cancel_subscription(subscription_name):
-    subscription_doc = frappe.get_doc("Subscription", subscription_name)
-
-    # cancel ERP Subscriptin
+  subscription_doc = frappe.get_doc("Subscription", subscription_name)
+  
+  # cancel ERP Subscriptin
+  try:
+    subscription_doc.cancel_subscription()
+  except Exception as e:
+    frappe.throw(_("Failed to cancel subscription"))
+  
+  # cancel Stripe Subscription
+  if subscription_doc.stripe_subscription_id:
+    stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
+    
+    # verify Subscription status
     try:
-        subscription_doc.cancel_subscription()
+      subscription = stripe.Subscription.retrieve(subscription_doc.stripe_subscription_id)
     except Exception as e:
-        frappe.throw(_("Failed to cancel subscription"))
+      frappe.throw(_("Failed to find the associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id))
 
-    # cancel Stripe Subscription
-    if subscription_doc.stripe_subscription_id:
-        stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
-
-        # verify Subscription status
+    # update Subscription status if not Active
+    if subscription.status in ["canceled", "incomplete_expired", "incomplete"]:
+      frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[subscription.status])
+    
+    # proceed with cancellation if Active
+    else:
         try:
-            subscription = stripe.Subscription.retrieve(subscription_doc.stripe_subscription_id)
+            subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
         except Exception as e:
-            frappe.throw(_("Failed to find the associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id))
+            frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id))
 
-        # update Subscription status if not Active
-        if subscription.status in ["canceled", "incomplete_expired", "incomplete"]:
-            frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[subscription.status])
-
-        # proceed with cancellation if Active
-        else:
-            try:
-                subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
-            except Exception as e:
-                frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id))
-
-            # update stripe_subscription_status value
-            frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
-
-    subscription_doc = frappe.get_doc("Subscription", subscription_name)
-    # log cancellation to Update History
-    subscription_doc.append("update_history", {
-        "update_type": "Cancellation",
-        "update_datetime": frappe.utils.now_datetime(),
-        "reference": "None"
-    })
-    try:
-        subscription_doc.save()
-    except Exception as e:
-        frappe.throw(_("Failed to update Subscription history."))
+        # update stripe_subscription_status value
+        frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
+        
+        # log cancellation to Update History
+        subscription_doc.append("update_history", {
+            "update_type": "Cancellation",
+            "update_datetime": frappe.utils.now_datetime(),
+            "reference": "None"
+        })
       
 @frappe.whitelist()
-def renew_subscription(subscription_name, new_start_date, autocharge_with_stripe, mode_of_payment, payment_method_configuration, company, new_end_date=None):
+def renew_subscription(subscription_name, new_start_date, autocharge_with_stripe, mode_of_payment, payment_method_configuration, new_end_date=None):
   if new_start_date < str(frappe.utils.getdate()) or (new_end_date and new_end_date < str(frappe.utils.getdate())):
     frappe.throw(_("The new dates should be set in the future."))
     
@@ -341,7 +336,6 @@ def renew_subscription(subscription_name, new_start_date, autocharge_with_stripe
     frappe.throw(_("The New End Date cannot be before the New Start Date."))
     
   subscription_doc = frappe.get_doc("Subscription", subscription_name)
-  account_details = get_bank_account_for_payment_request(mode_of_payment=mode_of_payment, company=company)
 
     # save old values in case of resubsription failure
   old_start_date = subscription_doc.start_date
@@ -358,10 +352,7 @@ def renew_subscription(subscription_name, new_start_date, autocharge_with_stripe
         "end_date": new_end_date,
         "autocharge_with_stripe": autocharge_with_stripe,
         "mode_of_payment": mode_of_payment,
-        "payment_method_configuration": payment_method_configuration,
-        "account": account_details["account"],
-        "payment_gateway_account": account_details["payment_gateway_account"],
-        "payment_gateway": frappe.db.get_value("Payment Gateway Account", account_details["payment_gateway_account"], "payment_gateway")
+        "payment_method_configuration": payment_method_configuration
       }  
     )
   except Exception as e:
@@ -387,17 +378,6 @@ def renew_subscription(subscription_name, new_start_date, autocharge_with_stripe
   # reset Stripe Plus fields to generate new Stripe Subscription
   subscription_doc = frappe.get_doc("Subscription", subscription_name)
   old_stripe_subscription_id = subscription_doc.stripe_subscription_id
-  
-  if subscription_doc.email_queue:
-      frappe.db.set_value(
-          "Email Queue",
-          subscription_doc.email_queue,
-          {
-              "reference_doctype": None,
-              "reference_name": None
-          }
-        )
-  
   subscription_doc.stripe_subscription_id = None
   subscription_doc.stripe_subscription_status = None
   subscription_doc.email_queue = None
@@ -699,7 +679,7 @@ def find_advance_payments(customer):
 def fetch_subscription_update_requests(subscription):
     request_list = frappe.db.get_all(
         "Subscription Update Request",
-        fields=["name", "request_type", "creation", "additional_information", "new_end_date", "cancellation_date", "resubscription_start_date"],
+        fields=["name", "request_type", "creation", "additional_information", "new_end_date", "cancellation_date", "resubscription_start_date", "resubscription_end_date"],
         filters={
             "subscription": subscription,
             "status": ["not in", ["Approved", "Rejected"]]
@@ -715,32 +695,41 @@ def fetch_subscription_update_requests(subscription):
         cancellation_date = request.get("cancellation_date")
         if cancellation_date:
             request_list[index]["cancel_today"] = cancellation_date <= subscription_details["end_date"]
-            request_list[index]["details"] = cancellation_date
+            request_list[index]["details"] = _("Cancellation Date: ") + str(cancellation_date)
             
             if request_list[index]["cancel_today"]:
-                request_list[index]["details"] = str(request_list[index]["details"]) + "(will be cancelled today)"
+                request_list[index]["details"] = request_list[index]["details"] + _(" (will be cancelled today)")
         
         resubscription_start_date = request.get("resubscription_start_date")
         if resubscription_start_date:
-            reference_date = subscription_details["end_date"] or subscription_details["cancelation_date"]
-            request_list[index]["resubscribe_today"] = resubscription_start_date <= reference_date
-            request_list[index]["details"] = resubscription_start_date
+            reference_date = subscription_details["cancelation_date"] or subscription_details["end_date"]
+            request_list[index]["resubscribe_today"] = reference_date <= resubscription_start_date 
+            request_list[index]["details"] = _("Resubscription Start Date: ") + str(resubscription_start_date)
+            
+            resubscription_end_date = request.get("resubscription_end_date")
+            if resubscription_end_date:
+                request_list[index]["details"] = request_list[index]["details"] + "\n" + _("Resubscription End Date: ") + str(resubscription_end_date)
             
             if request_list[index]["resubscribe_today"]:
-                request_list[index]["details"] = str(request_list[index]["details"]) + "(will be renewed today)"
+                request_list[index]["details"] = request_list[index]["details"] + "\n" + _("NOTE: Renewal will be made today but billing will start on the set start date.")
     
     return request_list
 
 @frappe.whitelist()
-def approve_update_request(update_request_name, notes):
+def approve_update_request(update_request_name, notes=None):
     update_request_doc = frappe.get_doc("Subscription Update Request", update_request_name)
+    if notes:
+        update_request_doc.append("notes", {
+            "description": notes,
+            "status_when_written": update_request_doc.status
+        })
     update_request_doc.status = "Approved"
-    update_request_doc.notes = notes
+    update_request_doc.reviewer = frappe.session.user
     
     try:
         update_request_doc.save()
     except Exception as e:
-        frappe.throw(_("Couldn't Approve the Update Request."))
+        frappe.throw(_("Couldn't approve the update request."))
         
     notify_customer_approval(update_request_doc)
         
