@@ -86,8 +86,17 @@ frappe.ready(function() {
 				frappe.web_form.set_value("request_type", "Cancellation");
 			}
 			else {
+				frappe.web_form.set_df_property("resubscription_end_date", "hidden", 1);
 				frappe.web_form.set_df_property("additional_information", "label", "Resubscription Reason");
 				frappe.web_form.set_value("request_type", "Resubscription");
+
+				frappe.web_form.on("resubscription_start_date", function() {
+					frappe.web_form.set_df_property(
+						"resubscription_end_date", 
+						"hidden", 
+						!frappe.web_form.get_value("resubscription_start_date")
+					);
+				});
 			}
 		}
 	}
