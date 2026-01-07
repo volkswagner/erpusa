@@ -78,6 +78,10 @@ frappe.ui.form.on("Subscription", {
         frm.events.set_user_account_representative(frm);
     },
 
+    mode_of_payment: function (frm) {
+        frm.events.set_account_and_payment_gateway_account(frm);
+    },
+
     set_user_account_representative: function (frm) {
         if (frm.doc.autocharge_with_stripe && frm.doc.party) {
             frappe.call({
@@ -94,6 +98,22 @@ frappe.ui.form.on("Subscription", {
         }
     },
 
+    set_account_and_payment_gateway_account: function (frm) {
+        frappe.call({
+            method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_bank_account_for_payment_request",
+            args: {
+                mode_of_payment: frm.doc.mode_of_payment,
+                company: frm.doc.company
+            },
+            callback: function(r) {
+                if (r.message) {
+                    frm.set_value("account", r.message.account || null)
+                    frm.set_value("payment_gateway_account", r.message.payment_gateway_account || null)
+                }
+            }
+        });
+    },
+
     set_subscription_fields: function (frm) {
         frm.events.toggle_autocharge_with_stripe_fields(frm);
         frm.set_value("generate_new_invoices_past_due_date", 1);
@@ -107,7 +127,7 @@ frappe.ui.form.on("Subscription", {
                 frm.remove_custom_button(__("Cancel Subscription"), __("Actions"));
                 frm.add_custom_button(
                     __("Cancel Subscription"),
-                    () => frm.trigger("cancel_subscription"),
+                    () => frm.events.cancel_subscription(frm),
                     __("Actions")
                 );
             }
@@ -170,6 +190,8 @@ frappe.ui.form.on("Subscription", {
         function cancel_now() {
             frappe.call({
                 method: "erpusa.stripe_plus.api.webhook_receiver_subscription.cancel_subscription",
+                freeze: !approval_dialog,
+                freeze_message: __("Cancelling Subscription"),
                 args: {
                     subscription_name: frm.doc.name
                 },
@@ -207,13 +229,16 @@ frappe.ui.form.on("Subscription", {
         function renew_now(values) {
             frappe.call({
                 method: "erpusa.stripe_plus.api.webhook_receiver_subscription.renew_subscription",
+                freeze: !approval_dialog,
+                freeze_message: __("Renewing Subscription"),
                 args: {
                     subscription_name: frm.doc.name,
                     new_start_date: values.new_start_date,
                     new_end_date: values.new_end_date,
                     autocharge_with_stripe: values.autocharge_with_stripe,
                     mode_of_payment: values.mode_of_payment,
-                    payment_method_configuration: values.payment_method_configuration
+                    payment_method_configuration: values.payment_method_configuration,
+                    company: frm.doc.company
                 },
                 callback: function (r) {
                     if (!r.exec) {
@@ -629,6 +654,8 @@ frappe.ui.form.on("Subscription", {
                                                     else {
                                                         frappe.call({
                                                             method: "erpusa.stripe_plus.api.webhook_receiver_subscription.update_subscription",
+                                                            freeze: true,
+                                                            freeze_message: __("Approving Request"),
                                                             args: {
                                                                 subscription_name: frm.doc.name,
                                                                 payment_gateway: frm.doc.payment_gateway,
@@ -678,6 +705,14 @@ frappe.ui.form.on("Subscription", {
                                                 message: __("Successfully Applied " + request_type),
                                                 indicator: "green"
                                             });
+
+                                            frm.dirty();
+                                            frm.disable_save();
+                                            frm.page.set_primary_action(__("Apply Changes"), 
+                                                function () {
+                                                    displayApproveRequestDialog();
+                                                }
+                                            );
                                         }
 
                                         if (request_type == "Cancellation") {
@@ -711,15 +746,6 @@ frappe.ui.form.on("Subscription", {
                                                 });
                                             }
                                         }
-
-                                        frm.dirty();
-                                        frm.disable_save();
-                                        
-                                        frm.page.set_primary_action(__("Apply Changes"), 
-                                            function () {
-                                                displayApproveRequestDialog();
-                                            }
-                                        );
                                     }
                                 );
                                 update_request_select_dialog.show();
