@@ -456,6 +456,7 @@ def get_bank_account_for_payment_entry(payment_type, paid_from, paid_to, as_dict
    
 @frappe.whitelist()
 def get_bank_account_for_payment_request(mode_of_payment, reference_doctype=None, reference_docname=None, company=None):
+  account = None
   bank_account = None
   payment_gateway_account = None
   
@@ -470,6 +471,7 @@ def get_bank_account_for_payment_request(mode_of_payment, reference_doctype=None
       payment_gateway_account = frappe.db.get_value("Payment Gateway Account", {"payment_account": account}, "name")
       
   return {
+    "account": account,
     "bank_account": bank_account,
     "payment_gateway_account": payment_gateway_account
   }
