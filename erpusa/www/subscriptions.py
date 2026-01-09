@@ -10,8 +10,15 @@ def get_context(context):
     context.no_cache = 1
     context.show_sidebar = True
     context.title = "My Subscriptions"
-    context.customer = frappe.db.exists("Customer", {"user": frappe.session.user})
+    context.customer = frappe.db.get_value("Portal User", {"user": frappe.session.user}, "parent")
     context.subscriptions = []
+    context.total_count = frappe.db.count("Subscription", {"party": context.customer})
+    context.active_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Active"})
+    context.trialling_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Trialling"})
+    context.unpaid_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Unpaid"})
+    context.past_due_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Past Due Date"})
+    context.cancelled_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Cancelled"})
+    context.completed_count = frappe.db.count("Subscription", {"party": context.customer, "status": "Completed"})
     if context.customer:
         for subscription in frappe.db.get_all("Subscription", filters={"party": context.customer}, pluck="name", order_by="status ASC"):
             subscription_data = frappe.get_doc("Subscription", subscription).as_dict()
@@ -20,6 +27,15 @@ def get_context(context):
             subscription_data["cancellation_request_url"] = "/subscription-update-request-form/new?" + urlencode({"subscription": subscription_data.name, "cancellation": 1})
             if subscription_data.status in ["Cancelled", "Completed"]:
                 subscription_data["resubscription_request_url"] = "/subscription-update-request-form/new?" + urlencode({"subscription": subscription_data.name, "resubscription": 1})
+            
+            url_params = {"subscription": subscription_data.name}
+            if subscription_data.friendly_name:
+                url_params['friendly_name'] = subscription_data.friendly_name
+                
+            subscription_data["update_request_url"] = "/subscription-update-request-form/new?" + urlencode(url_params)
+            subscription_data["cancellation_request_url"] = "/subscription-update-request-form/new?" + urlencode(url_params | {"cancellation": 1})
+            if subscription_data.status in ["Cancelled", "Completed"]:
+                subscription_data["resubscription_request_url"] = "/subscription-update-request-form/new?" + urlencode(url_params | {"resubscription": 1})
             
             context.subscriptions.append(subscription_data)
         

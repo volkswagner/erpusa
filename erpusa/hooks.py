@@ -28,7 +28,7 @@ required_apps = [
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = "/assets/erpusa/css/stripe_plus.css?v=202509030651"
+app_include_css = "/assets/erpusa/css/stripe_plus.css?v=202601010930"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/erpusa/css/erpusa.css"
@@ -293,7 +293,7 @@ fixtures = [
 portal_menu_items = [
     {
         "title": "Subscriptions",
-        "route": "/subscriptions",
+        "route": "/subscriptions?status=Active",
         "reference_doctype": "Subscription",
         "role": "Customer"
     }

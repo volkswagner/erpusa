@@ -60,7 +60,7 @@ SUBSCRIPTION_STATUS_VERBOSE = {
 class StripePlusSettings(Document):
   def validate(self):
     if self.signing_secret_list:
-      if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center:
+      if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center or not self.credit_account:
         frappe.throw(_("Fields User to Authorize, Merchant Fee Account and Cost Centers are empty. Fill them out to enable auto-creation of Payment Entry."))
 
       if self.card_expiry_notification_lead_time < 1:
@@ -361,14 +361,17 @@ def get_default_pm_configuration_methods(payment_gateway):
             return ",<br/>".join(methods)
 
 @frappe.whitelist()
-def get_pm_configuration_methods(payment_method_configuration):
+def get_pm_configuration_methods(payment_method_configuration, is_multiline=True):
   pmc = frappe.get_doc("Stripe Payment Method Configuration", payment_method_configuration)
   methods = []
 
   for method in pmc.payment_methods:
     methods.append(frappe.db.get_value("Stripe Payment Method", method.payment_method, "payment_method_name"))
-        
-  return ",<br/>".join(methods)
+  
+  if is_multiline:
+    return ",<br/>".join(methods)
+  
+  return ", ".join(methods)
     
 
 @frappe.whitelist()
@@ -640,6 +643,7 @@ def calculate_subscription_plan_total(subscription, is_doc=True, include_billing
       price = frappe.db.get_value("Subscription Plan", subscription_plan.plan, "cost")
     
     temp_plan = {
+      "name": subscription_plan.name,
       "plan": subscription_plan.plan,
       "qty": subscription_plan.qty,
       "price": price,
@@ -660,7 +664,7 @@ def calculate_subscription_plan_total(subscription, is_doc=True, include_billing
   return subscription_plan_list
 
 def setup_stripe_subscription_registration(subscription, method=None):
-  if subscription.autocharge_with_stripe and not subscription.email_queue:
+  if subscription.autocharge_with_stripe and not subscription.email_queue and subscription.status != "Cancelled":
     stripe_settings = get_gateway_settings_doc(subscription.payment_gateway)
     if not subscription.stripe_subscription_id:
       stripe_customer_id = frappe.db.get_value("Customer", subscription.party, "stripe_customer_id")
@@ -745,34 +749,6 @@ def send_subscription_email_to_user(subscription):
   frappe.db.set_value("Subscription", subscription.name, "email_queue", frappe.db.exists("Email Queue", {"reference_doctype": "Subscription", "reference_name": subscription.name}))
   frappe.msgprint(_("An email was queued. Refresh the page from time to time to see updates."))
 
-@frappe.whitelist()
-def cancel_subscription(subscription_name):
-  subscription_doc = frappe.get_doc("Subscription", subscription_name)
-  
-  try:
-    subscription_doc.cancel_subscription()
-  except Exception as e:
-    frappe.throw(_("Failed to cancel subscription"), str(e))
-  
-  if subscription_doc.stripe_subscription_id:
-    stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
-    
-    try:
-      subscription = stripe.Subscription.retrieve(subscription_doc.stripe_subscription_id)
-    except Exception as e:
-      frappe.throw(_("Failed to find the associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
-
-    if subscription.status in ["canceled", "incomplete_expired", "incomplete"]:
-      frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[subscription.status])
-    
-    else:
-      try:
-        subscription = stripe.Subscription.cancel(subscription_doc.stripe_subscription_id)
-      except Exception as e:
-        frappe.throw(_("Failed to cancel associated Stripe.com subscription: {}").format(subscription_doc.stripe_subscription_id), str(e))
-        
-      frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", subscription.status.title())
-
 def validate_subscription_plan_stripe_price(subscription_plan, method=None):
   if subscription_plan.stripe_price_id and (subscription_plan.has_value_changed("currency") or \
     subscription_plan.has_value_changed("item") or \
@@ -826,6 +802,5 @@ def email_queue_exists(email_queue):
       email_queue = frappe.utils.get_url_to_form("Email Queue", email_queue)
 
     return email_queue
-
   
 

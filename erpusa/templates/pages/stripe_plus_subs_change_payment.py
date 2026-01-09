@@ -9,7 +9,7 @@ from frappe.utils import now_datetime
 from datetime import timedelta
 from payments.templates.pages.stripe_checkout import get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
-from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret
+from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret, get_pm_configuration_methods
 
 no_cache = 1
 
@@ -33,7 +33,6 @@ def get_context(context):
                 ]
             }
         )
-        frappe.log_error("", str(subscription_updates_count))
         
         if subscription_updates_count >= frappe.db.get_single_value("Stripe Plus Settings", "no_of_times"):
             frappe.redirect_to_message(
@@ -48,6 +47,7 @@ def get_context(context):
         context.customer = frappe.form_dict["customer"]
         context.payment_configuration = frappe.form_dict["payment_configuration"]
         context.subscription_display_name = frappe.db.get_value("Subscription", context.subscription, "friendly_name") or context.subscription
+        context.methods = get_pm_configuration_methods(frappe.db.get_value("Subscription", context.subscription, "payment_method_configuration"), False)
         settings_company = frappe.db.get_single_value("Stripe Plus Settings", "payment_page_company_name")
         settings_header_image = frappe.db.get_single_value("Stripe Plus Settings", "payment_page_company_logo")
 
@@ -81,7 +81,7 @@ def create_change_payment_session():
                     "stripe_subscription_id": frappe.db.get_value("Subscription", data.get("subscription"), "stripe_subscription_id")
                 }
             },
-            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_change_payment_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}&payment_gateway={frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')}",
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_change_payment_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}",
             payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", data.get("payment_configuration"), "stripe_configuration_id")
         )
         

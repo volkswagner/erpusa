@@ -95,14 +95,63 @@
 	{% endblock %}
 
 	<div id="filter-buttons" class="btn-group d-flex justify-content-start align-items-center pb-5 mb-5 mt-3">
-		<button class="btn btn-default btn-sm filter-btn" data-filter="all">All</button>
-		<button class="btn btn-default btn-sm filter-btn" data-filter="Active">Active</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="all">
+			All
+			{% if total_count %}
+				<span class="badge badge-secondary" style="border-radius: 50%;">
+					{{ total_count }}
+				</span>
+			{% endif %}
+		</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Active">
+			Active
+			{% if active_count %}
+				<span class="badge badge-secondary" style="border-radius: 50%;">
+					{{ active_count }}
+				</span>
+			{% endif %}
+		</button>
 		<!-- <button class="btn btn-default btn-sm filter-btn" data-filter="Active">Autocharged with Stripe</button> -->
-		<button class="btn btn-default btn-sm filter-btn" data-filter="Trialling">Trialling</button>
-		<button class="btn btn-default btn-sm filter-btn" data-filter="Unpaid">Unpaid</button>
-		<button class="btn btn-default btn-sm filter-btn" data-filter="Past Due">Past Due Date</button>
-		<button class="btn btn-default btn-sm filter-btn" data-filter="Cancelled">Cancelled</button>
-		<button class="btn btn-default btn-sm filter-btn" data-filter="Completed">Completed</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Trialling">
+			Trialling
+			{% if trialling_count %}
+				<span class="badge badge-secondary" style="border-radius: 50%;">
+					{{ trialling_count }}
+				</span>
+			{% endif %}
+		</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Unpaid">
+			Unpaid
+			{% if unpaid_count %}
+				<span class="badge {{ 'badge-danger' if unpaid_count else 'badge-secondary' }}" style="border-radius: 50%;">
+					{{ unpaid_count }}
+				</span>
+			{% endif %}
+		</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Past Due">
+			Past Due Date
+			{% if past_due_count %}
+				<span class="badge {{ 'badge-red' if past_due_count else 'badge-secondary' }}" style="border-radius: 50%;">
+					{{ past_due_count }}
+				</span>
+			{% endif %}
+		</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Cancelled">
+			Cancelled
+			{% if cancelled_count %}
+				<span class="badge badge-secondary" style="border-radius: 50%;">
+					{{ cancelled_count }}
+				</span>
+			{% endif %}
+		</button>
+		<button class="btn btn-default btn-sm filter-btn" data-filter="Completed">
+			Completed
+			{% if completed_count %}
+				<span class="badge badge-secondary" style="border-radius: 50%;">
+					{{ completed_count }}
+				</span>
+			{% endif %}
+		</button>
 	</div>
 	<div id="no-results" class="d-none empty-apps-state flex-column align-items-center justify-content-center py-5 my-5">
 		<img class="empty-list-icon" src="/assets/frappe/images/ui-states/list-empty-state.svg">
@@ -144,13 +193,21 @@
 					<div class="dropdown-menu">
 						{% if subscription.status not in ["Cancelled", "Completed"] %}
 							{% if subscription.stripe_subscription_id %}
-								<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" href="{{ subscription.payment_url | replace('stripe_plus_subs_checkout', 'stripe_plus_subs_change_payment') }}">Update Payment Method</a>
+								<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" href="{{ subscription.payment_url | replace('stripe_plus_subs_checkout', 'stripe_plus_subs_change_payment') }}">
+									Change Payment Method
+								</a>
 							{% endif %}
-							<a class="dropdown-item" data-action="request-plan-change" data-subscription="{{ subscription.name }}" href="{{ subscription.update_request_url }}">Request Plan Change</a>
+							<a class="dropdown-item" data-action="request-plan-change" data-subscription="{{ subscription.name }}" href="{{ subscription.update_request_url }}">
+								Request Plan/Subscription End Date Change
+							</a>
 							<div class="dropdown-divider"></div>
-							<a class="dropdown-item" data-action="cancel" data-subscription="{{ subscription.name }}" href="{{ subscription.cancellation_request_url }}">Request Cancellation</a>
+							<a class="dropdown-item" data-action="cancel" data-subscription="{{ subscription.name }}" href="{{ subscription.cancellation_request_url }}">
+								Request Cancellation
+							</a>
 						{% else %}
-							<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" href="{{ subscription.resubscription_request_url }}">Re-subscribe</a>
+							<a class="dropdown-item" data-action="update-payment-method" data-subscription="{{ subscription.name }}" href="{{ subscription.resubscription_request_url }}">
+								Re-subscribe
+							</a>
 						{% endif%}
 					</div>
 				</div>
@@ -158,11 +215,16 @@
 			<div class="card-body">
 				<div class="card-text">
 					<p>
-						<span class="text-muted">Subscribed from </span>
-						<span>{{ subscription.start_date.strftime('%B %d, %Y') }}</span>
-						<span class="text-muted">to </span>
-						{% if subscription.end_date %}
-						<span>{{ subscription.end_date.strftime('%B %d, %Y') }}</span>
+						{% if subscription.start_date %}
+							{% if subscription.end_date %}
+								<span class="text-muted">Subscribed from </span>
+								<span>{{ subscription.start_date.strftime('%B %d, %Y') }}</span>
+								<span class="text-muted">to </span>
+								<span>{{ subscription.end_date.strftime('%B %d, %Y') }}</span>
+							{% else %}
+								<span class="text-muted">Subscribed since </span>
+								<span>{{ subscription.start_date.strftime('%B %d, %Y') }}</span>
+							{% endif %}
 						{% endif %}
 					</p>
 					<p>
