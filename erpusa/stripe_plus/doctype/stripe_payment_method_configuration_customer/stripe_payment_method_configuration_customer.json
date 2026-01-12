@@ -27,18 +27,22 @@
    "fieldname": "stripe_customer_id",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Stripe Customer ID"
+   "label": "Stripe Customer ID",
+   "read_only": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-18 12:06:43.143095",
+ "modified": "2026-01-11 09:36:12.658214",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Payment Method Configuration Customer",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
