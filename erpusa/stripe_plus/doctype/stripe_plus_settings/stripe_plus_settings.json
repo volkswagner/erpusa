@@ -106,7 +106,7 @@
    "fieldname": "webhook_instructions",
    "fieldtype": "HTML",
    "label": "Instructions",
-   "options": "<small>\n <span>Instructions</span>\n <ol>\n  <li>Go to your Stripe dashboard. Navigate to the bottom bar and look for 'Developers' menu button.</li>\n  <li>Click the button and choose 'Webhooks'. Wait until a pane appears.</li>\n <li>From the pane, click the 'Add destination' button.</li>\n  <li>Select all events related to Charge, Payment Intent, Setup Intent and Payout, then continue.</li>\n<ul>\nOptional: Also select Invoice and Customer.Subscription events if you intend to use Stripe Plus Subscription.\n</ul>\n  <li>Choose the destination type to 'Webhook endpoint', then continue.</li>\n  <li>Choose a destination name and set the endpoint url to <code> https://{your_domain}/api/method/erpusa.stripe_plus.api.webhook_receiver.receive_stripe_events\n   </code>.</li>\n  <li>Finally, create the destination.</li>\n  <li>Once the destination is created, look for its signing secret and copy it.</li>\n  <li>In the table below, add a row where the Stripe Settings is the account you used and the Signing Secret is the text you copied.</li>\n </ol>\n</small>"
+   "options": "<small>\n <span>Instructions</span>\n <ol>\n  <li>Go to your Stripe dashboard. Navigate to the bottom bar and look for 'Developers' menu button.</li>\n  <li>Click the button and choose 'Webhooks'. Wait until a pane appears.</li>\n <li>From the pane, click the 'Add destination' button.</li>\n  <li>Select all events related to Charge, Payment Intent, Setup Intent and Payout, then continue.</li>\n<ul>\n<li>Optional: Select all events related to Invoice and Customer.Subscription if you intend to use Stripe Plus Subscription.\n</li><li>Optional: Select product.created event specifically to allow automatic signing secret validation.</li></ul>\n  <li>Choose the destination type to 'Webhook endpoint', then continue.</li>\n  <li>Choose a destination name and set the endpoint url to <code> https://{your_domain}/api/method/erpusa.stripe_plus.api.webhook_receiver.receive_stripe_events\n   </code>.</li>\n  <li>Finally, create the destination.</li>\n  <li>Once the destination is created, look for its signing secret and copy it.</li>\n  <li>In the table below, add a row where the Stripe Settings is the account you used and the Signing Secret is the text you copied.</li>\n </ol>\n</small>"
   },
   {
    "depends_on": "eval: doc.notification_method==\"Daily Digest\"",
@@ -351,7 +351,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-01-09 01:31:08.644996",
+ "modified": "2026-01-14 05:23:42.208068",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Stripe Plus Settings",

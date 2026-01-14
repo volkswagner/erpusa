@@ -182,6 +182,33 @@ def process_stripe_events(payload, sig_header, data):
             except Exception as e:
                 frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Log Document"))
 
+            if data.get("object") == "product":
+                frappe.db.set_value("Stripe Plus Settings Webhook Validator", stripe_settings_doc.name, "status", "Valid")
+
+                recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+
+                frappe.publish_realtime(
+                    event='msgprint',  # This event triggers a standard Frappe notification/toast
+                    message=_("Validator for ") + stripe_settings_doc.stripe_settings + _(" successfully verified."),
+                    user="Administrator",  # Target a specific user
+                    after_commit=True # Ensure it's sent after the current transaction is committed
+                )
+
+                for recipient in recipients:
+                    if frappe.db.exists("User", recipient):
+                        frappe.publish_realtime(
+                            event='msgprint',  # This event triggers a standard Frappe notification/toast
+                            message=_("Validator for ") + stripe_settings_doc.stripe_settings + _(" successfully verified."),
+                            user=recipient,  # Target a specific user
+                            after_commit=True # Ensure it's sent after the current transaction is committed
+                        )
+                        frappe.log_error("Validator " + str(stripe_settings_doc.name) + " with secret " + secret + " validated.")
+
+                stripe.api_key = api_key
+                product = stripe.Product.delete(stripe_settings_doc.name)
+
+
+
             # create transaction doc
             if data.get("object") in ["charge", "payment_intent", "setup_intent", "refund"]:
                 create_update_stripe_transaction(data, api_key, log_doc)

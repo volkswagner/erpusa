@@ -36,9 +36,31 @@ frappe.ui.form.on("Stripe Plus Settings", {
             return {
               query: 'erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.get_users_with_write_access',
             };
-          });
+        });
+
+        $('button[data-fieldname="verify"]').addClass("btn-primary")
     },
 });
 
-frappe.ui.form.on('Stripe Plus Settings Notification Schedule', {
+frappe.ui.form.on('Stripe Plus Settings Webhook Validator', {
+    verify: function(frm, cdt, cdn) {
+        // cdt = Child DocType
+        // cdn = Child DocType name (row ID)
+
+        const row = locals[cdt][cdn];
+
+        console.log('Row data:', row);
+        console.log('Parent doc:', frm.doc);
+
+        frappe.call({
+            method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.verify_validator",
+            args: {
+                validator_name: row.name,
+            },
+            callback: function (r) {
+
+            }
+        })
+
+    }
 });

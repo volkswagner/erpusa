@@ -60,11 +60,22 @@ SUBSCRIPTION_STATUS_VERBOSE = {
 class StripePlusSettings(Document):
   def validate(self):
     if self.signing_secret_list:
-      if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center or not self.credit_account:
-        frappe.throw(_("Fields User to Authorize, Merchant Fee Account and Cost Centers are empty. Fill them out to enable auto-creation of Payment Entry."))
+      if not self.user_to_authorize or not self.merchant_fee_account or not self.merchant_fee_cost_center:
+        frappe.throw(_("Fields User to Authorize, Merchant Fee Account and Cost Center are empty. Fill them out to enable auto-creation of Payment Entry."))
 
       if self.card_expiry_notification_lead_time < 1:
         frappe.throw(_("Card Expiry Notification Lead Time should be at least 1 month."))
+
+      for signing_secret in self.signing_secret_list:
+        if signing_secret.status == "Unverified":
+          stripe.api_key = get_api_key_secret(gateway_controller=signing_secret.stripe_settings)
+          try:
+            product = stripe.Product.create(
+              id=signing_secret.name,
+              name=signing_secret.name
+            )
+          except Exception as e:
+            frappe.throw(_("Validator verification attempt failed."))
 
     if self.turn_on_email_notifications:
       if not self.signing_secret_list:
@@ -84,6 +95,8 @@ class StripePlusSettings(Document):
     if self.erp_stripe_accounts:
       self.validate_erp_stripe_account()
 
+      if not self.credit_account:
+        frappe.throw(_("The Default Credit Account is empty. Set the value to enable auto-creation of Journal Entry."))
 
   def validate_schedule(self):
     import datetime

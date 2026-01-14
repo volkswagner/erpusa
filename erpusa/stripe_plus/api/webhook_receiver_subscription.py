@@ -134,6 +134,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
 
         pe_doc = None
         cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
+        payment_intent = frappe.db.get_value("Stripe Transaction", mp_doc.source, "payment_intent")
         
         if sales_invoices:
             # set the customer and associated subscription
@@ -141,7 +142,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             mp_error_message = _("The Sales Invoice association failed.")
             
             ##  Create a Payment Entry for the oldest sales invoice ##
-            if not frappe.db.exists("Payment Entry Reference", { "reference_name":  sales_invoices[0]}):
+            if not frappe.db.exists("Payment Entry", { "reference_no":  payment_intent}):
                 # get the Payment Request doc and fetch the cost_center from settings
                 pe_doc = get_payment_entry("Sales Invoice", sales_invoices[0], reference_date=reference_date)
                 # set the actual amount paid by the user
@@ -156,13 +157,13 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             pe_doc.party_type = "Customer"
             pe_doc.party = mp_doc.customer
             pe_doc.received_amount = mp_doc.net_amount
-            pe_doc.mode_of_payment = pe_doc.mode_of_payment or frappe.get_value("Payment Request", mp_doc.associated_payment_request, "mode_of_payment")
-            # set the bank account
-            if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
-                pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
+            pe_doc.reference_date = getdate()
                 
             if reference_date:
                 pe_doc.reference_date = reference_date
+
+            if not pe_doc.target_exchange_rate:
+                pe_doc.target_exchange_rate = 1
 
             mp_error_message = _("The Advance Payment Entry creation failed.")
 
@@ -171,11 +172,11 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             frappe.db.get_value("Subscription", subscription, "payment_gateway_account"),
             "payment_account"
         )
+        frappe.log_error(str(account))
         
         pe_doc.paid_to = account
         pe_doc.mode_of_payment = frappe.db.get_value("Mode of Payment Account", {"default_account": pe_doc.paid_to}, "parent")
-        pe_doc.reference_no = frappe.db.get_value("Stripe Transaction", mp_doc.source, "payment_intent")
-        pe_doc.reference_date = getdate()
+        pe_doc.reference_no = payment_intent
         pe_doc.paid_amount = mp_doc.net_amount
 
         # apply Merchant Payment as deduction
@@ -187,7 +188,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         })
 
         # set the bank account
-        if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
+        if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
             pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
 
         try:
