@@ -6,6 +6,7 @@ from frappe import _, qb
 from urllib.parse import urlencode
 from frappe.model.document import Document
 import stripe
+import secrets
 from jinja2 import Template
 import re
 from frappe.utils import cint
@@ -142,6 +143,7 @@ def validate_stripe_plus_fields(payment_request, method=None):
   """ if Stripe Plus is enabled and the payment gateway settings doc is Stripe """
 
   if is_stripe_applicable:
+    payment_request.stripe_plus_access_token = secrets.token_urlsafe()
     if payment_request.party_type == "Customer":
       if payment_request.is_new() and find_customer_configuration(payment_request.party, payment_request.payment_gateway):
         payment_request.payment_method_configuration = find_customer_configuration(payment_request.party, payment_request.payment_gateway)
