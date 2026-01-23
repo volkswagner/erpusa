@@ -73,10 +73,16 @@ def formulate_timestamp(date):
 
     return timestamp
 
+
 @frappe.whitelist(allow_guest=True)
-def create_checkout_session(subscription_name, api_key):
+def create_fetch_checkout_session():
+    data = json.loads(frappe.request.data)
+    subscription_name = data.get("subscription")
+    stripe.api_key = get_api_key_secret(
+        payment_gateway=frappe.db.get_value("Subscription", subscription_name, "payment_gateway")
+    )
+
     subscription_doc = frappe.get_doc("Subscription", subscription_name)
-    stripe.api_key = api_key
     line_items = []
     
     for subscription_plan in subscription_doc.plans:
@@ -88,7 +94,6 @@ def create_checkout_session(subscription_name, api_key):
     subscription_data = {
         "metadata": {
             "erp_subscription_name": subscription_doc.name,
-            "proration_behavior": "none"
         },
     }
 
@@ -106,16 +111,21 @@ def create_checkout_session(subscription_name, api_key):
 
 
     else:
-        billing_cycle_anchor = subscription_doc.start_date
-        if str(subscription_doc.start_date) < str(frappe.utils.today()):
-            billing_cycle_anchor = subscription_doc.current_invoice_start
+        if str(subscription_doc.start_date) != str(frappe.utils.today()):
+        #     billing_cycle_anchor = subscription_doc.start_date
+        #     if str(subscription_doc.start_date) < str(frappe.utils.today()):
+        #         billing_cycle_anchor = subscription_doc.current_invoice_start
 
-        if str(subscription_doc.current_invoice_start) < str(frappe.utils.today()):
-            billing_cycle_anchor = add_to_date(subscription_doc.current_invoice_end, days=1) 
+        #     if str(subscription_doc.current_invoice_start) < str(frappe.utils.today()):
+        #         billing_cycle_anchor = add_to_date(subscription_doc.current_invoice_end, days=1)
+            trial_end = subscription_doc.start_date
+            while str(trial_end) < str(frappe.utils.today()):
+                frappe.log_error(str(trial_end))
+                trial_end = subscription_doc.get_current_invoice_start(trial_end)
 
-        subscription_data['billing_cycle_anchor'] = int(
-            formulate_timestamp(billing_cycle_anchor)
-        )
+            subscription_data['trial_end'] = int(
+                formulate_timestamp(trial_end)
+            )
 
     try:
         session = stripe.checkout.Session.create(
@@ -131,40 +141,7 @@ def create_checkout_session(subscription_name, api_key):
     except Exception as e:
         return str(e)
     
-    frappe.db.set_value("Subscription", subscription_doc.name, "stripe_session_id", session.id)
-    
     return {"clientSecret": session['client_secret']}
-
-@frappe.whitelist(allow_guest=True)
-def create_fetch_checkout_session():
-    data = json.loads(frappe.request.data)
-    subscription_name = data.get("subscription")
-    stripe.api_key = get_api_key_secret(
-        payment_gateway=frappe.db.get_value("Subscription", subscription_name, "payment_gateway")
-    )
-
-    # check if intent has already been made
-    stripe_session_id = frappe.db.get_value("Subscription", subscription_name, "stripe_session_id")
-
-    if stripe_session_id:
-        try:
-            checkout = stripe.checkout.Session.retrieve(stripe_session_id)
-
-            if checkout['status'] != "complete":
-                return create_checkout_session(subscription_name, stripe.api_key)
-                
-            else:
-                return {
-                    "clientSecret": checkout['client_secret'],
-                    "redirect": ""
-                }
-            
-        except Exception as e:
-            return {"error": str(e)}, 403
-        
-    else:
-        
-        return create_checkout_session(subscription_name, stripe.api_key)
 
 @frappe.whitelist(allow_guest=True)
 def get_session_info(session_id, gateway_controller):

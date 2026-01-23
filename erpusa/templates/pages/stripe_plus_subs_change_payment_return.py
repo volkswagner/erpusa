@@ -3,7 +3,7 @@ from frappe import _
 import stripe
 from frappe.utils import now_datetime
 
-from payments.payment_gateways.doctype.stripe_settings.stripe_settings import get_gateway_controller, 
+from payments.payment_gateways.doctype.stripe_settings.stripe_settings import get_gateway_controller
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret,  get_representative_email_address
 
 no_cache = 1

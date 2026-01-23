@@ -69,13 +69,20 @@ class StripePlusSettings(Document):
       for signing_secret in self.signing_secret_list:
         if signing_secret.status == "Unverified":
           stripe.api_key = get_api_key_secret(gateway_controller=signing_secret.stripe_settings)
+
           try:
-            product = stripe.Product.create(
-              id=signing_secret.name,
-              name=signing_secret.name
-            )
-          except Exception as e:
-            frappe.throw(_("Validator verification attempt failed."))
+              stripe.Product.retrieve(signing_secret.name)
+          except stripe.error.InvalidRequestError as e:
+              if e.code == "resource_missing":
+                try:
+                  product = stripe.Product.create(
+                    id=signing_secret.name,
+                    name=signing_secret.name
+                  )
+                except Exception as e:
+                  frappe.log_error(_("Validator verification attempt failed."))
+              else:
+                frappe.log_error(_("Validator verification attempt failed."))
 
     if self.turn_on_email_notifications:
       if not self.signing_secret_list:
@@ -187,12 +194,14 @@ def validate_stripe_plus_fields(payment_request, method=None):
   
 def validate_auto_repeat_stripe_plus_fields(auto_repeat, method=None):
   if auto_repeat.send_payment_request_instead:
-    if auto_repeat.reference_doctype in ["Sales Order", "Sales Invoice"] and (not auto_repeat.mode_of_payment or not auto_repeat.payment_gateway_account):
-      frappe.throw(_("Select a Mode of Payment or a Payment Gateway Account"))
     if not auto_repeat.submit_on_creation:
       frappe.throw(_("Enable 'Submit on creation' to allow Payment Request."))
+
     if not auto_repeat.notify_by_email:
       frappe.throw(_("Enable 'Notify by email' to allow Payment Request."))
+      
+    if auto_repeat.reference_doctype in ["Sales Order", "Sales Invoice"] and (not auto_repeat.mode_of_payment or not auto_repeat.payment_gateway_account):
+      frappe.throw(_("Select a Mode of Payment or a Payment Gateway Account"))
       
 def update_stripe_customer_info(contact, method=None):
   if contact.links and \
@@ -288,10 +297,15 @@ def validate_subscription_stripe_plus_fields(subscription, method=None):
 
       if not subscription.payment_gateway_account:
         frappe.throw(_("Payment Gateway Account is required to enable autocharging through Stripe."))
+
+      # date_today = datetime.strptime(frappe.utils.today(), "%Y-%m-%d")
       
+      # if (datetime.strptime(str(subscription.start_date), "%Y-%m-%d") - date_today).days < 0 and subscription.is_new():
+      #     frappe.throw(_("The Start Date has to be set in the future."))
+
       if subscription.trial_period_end:
-        trial_period_end = datetime.strptime(subscription.trial_period_end, "%Y-%m-%d")
         date_today = datetime.strptime(frappe.utils.today(), "%Y-%m-%d")
+        trial_period_end = datetime.strptime(subscription.trial_period_end, "%Y-%m-%d")
         
         if (trial_period_end - date_today).days < 2:
           frappe.throw(_("The Trial Period End Date has to be at least 2 days in the future."))

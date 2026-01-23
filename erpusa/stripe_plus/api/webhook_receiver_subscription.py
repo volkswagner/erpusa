@@ -14,14 +14,16 @@ def receive_stripe_subscription_events(data, return_docs=False, submit_payment_e
         # get metadata to look for associated ERPNext subscription
         metadata = data.get("metadata")
         # check if subscription exists and set the stripe id and status
-        if metadata and metadata.get("erp_subscription_name"):
-            subscription_doc = frappe.get_doc("Subscription", metadata.get("erp_subscription_name"))
+        subscription = metadata.get("erp_subscription_name")
+        status = data.get("status")
+        if metadata and subscription:
+            subscription_doc = frappe.get_doc("Subscription", subscription)
             if not subscription_doc.stripe_subscription_id:
                 frappe.db.set_value("Subscription", subscription_doc.name, "stripe_subscription_id", data.get("id"))
                 
                 # send welcome email and create user if customer is new
-                if not subscription_doc.stripe_subscription_status and data.get("status") in ["trialing", "active"]:
-                    frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
+                if not subscription_doc.stripe_subscription_status and status in ["trialing", "active"]:
+                    frappe.db.set_value("Subscription", subscription, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[status])
                     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
                     representative = subscription_doc.user_account_representative
                     email_address = get_representative_email_address(
@@ -36,13 +38,13 @@ def receive_stripe_subscription_events(data, return_docs=False, submit_payment_e
                     user_exists = frappe.db.exists("User", email_address)
                     
                     frappe.sendmail(
-                        subject=_("Welcome to {}").format(frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "company")),
+                        subject=_("Welcome to {}").format(frappe.db.get_value("Subscription", subscription, "company")),
                         recipients=[email_address],
                         message=frappe.render_template(
                             "erpusa/templates/html/subscription_welcome.html",
                             {
-                                "customer": frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"),
-                                "subscription": metadata.get("erp_subscription_name"),
+                                "customer": frappe.db.get_value("Subscription", subscription, "party"),
+                                "subscription": subscription,
                                 "user_exists": user_exists
                             },
                         ),
@@ -71,16 +73,16 @@ def receive_stripe_subscription_events(data, return_docs=False, submit_payment_e
                             })
                         customer.save()
 
-                frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
-    
-                # if stripe is already linked with ERPNext, update the cancellation date if appplicable
-                if not subscription_doc.stripe_subscription_status and subscription_doc.end_date and subscription_doc.cancel_at_period_end and data.get("status") == "active":
-                    import stripe
-                    
-                    stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
-                    stripe.Subscription.modify(
-                        data.get("id"), 
-                        cancel_at=formulate_timestamp(subscription_doc.end_date)
+            frappe.db.set_value("Subscription", subscription, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[status])
+
+            # if stripe is already linked with ERPNext, update the cancellation date if appplicable
+            if not subscription_doc.stripe_subscription_status and subscription_doc.end_date and status == "active":
+                import stripe
+                
+                stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
+                stripe.Subscription.modify(
+                    data.get("id"), 
+                    cancel_at=formulate_timestamp(subscription_doc.end_date)
                     )
     # make payment entry if subscription was succesfully set up
     if data.get("object") == "invoice" and data.get("status") == "paid" and data.get("subscription"):
@@ -104,6 +106,14 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         invoice.get("charge"),
         api_key
     )
+
+    if not frappe.db.get_value("Subscription", subscription, "card_expiration"):
+        payment_method_details = charge.get("payment_method_details")
+
+        if payment_method_details and "card" in payment_method_details:
+            card_expiration = f'{str(payment_method_details["card"]["exp_year"])}-{str(payment_method_details["card"]["exp_month"]).zfill(2)}'
+            frappe.db.set_value("Subscription", subscription, "card_expiration", card_expiration)
+
     # update/create Stripe Transaction for the charge data and get the Merchant Payment doc associated
     mp_doc = create_update_stripe_transaction(charge, api_key, return_mp_doc=True) 
     mp_doc.associated_subscription = subscription               
@@ -172,7 +182,6 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             frappe.db.get_value("Subscription", subscription, "payment_gateway_account"),
             "payment_account"
         )
-        frappe.log_error(str(account))
         
         pe_doc.paid_to = account
         pe_doc.mode_of_payment = frappe.db.get_value("Mode of Payment Account", {"default_account": pe_doc.paid_to}, "parent")
@@ -695,20 +704,35 @@ def notify_user_advance_payment(mp_doc, reference_no):
         )
 
 @frappe.whitelist()
-def find_advance_payments(customer):
-    return frappe.db.get_all(
-        "Payment Entry",
-        filters={
-            "name": ["not in", frappe.db.get_all(
-                "Payment Entry Reference",
-                pluck="parent"
-            )],
-            "reference_no": ["like", "pi%"],
-            "party": customer,
-            "status": "Submitted"
-        },
-        pluck="name"
-    )
+def find_advance_payments(subscription):
+    from frappe.query_builder import DocType
+
+    MerchantPayment = DocType("Merchant Payment")
+    StripeTransaction = DocType("Stripe Transaction")
+    PaymentEntry = DocType("Payment Entry")
+    PaymentEntryReference = DocType("Payment Entry Reference")  
+
+    payment_entries = (frappe.qb
+        .from_(MerchantPayment)
+        .join(StripeTransaction)
+        .on(StripeTransaction.name == MerchantPayment.source)
+        .join(PaymentEntry)
+        .on(PaymentEntry.reference_no == StripeTransaction.payment_intent)
+        .left_join(PaymentEntryReference)
+        .on(
+            (PaymentEntryReference.parent == PaymentEntry.name) &
+            (PaymentEntryReference.parenttype == "Payment Entry")
+        )
+        .select(PaymentEntry.name)
+        .select(PaymentEntry.name)
+        .where(MerchantPayment.associated_subscription == subscription)
+        .where(PaymentEntryReference.name.isnull())
+        .distinct()
+    ).run(pluck=True)
+
+    return payment_entries
+
+
     
 @frappe.whitelist()
 def fetch_subscription_update_requests(subscription):
@@ -721,7 +745,7 @@ def fetch_subscription_update_requests(subscription):
         }
     )
     
-    subscription_details = frappe.db.get_value("Subscription", subscription, ["end_date", "start_date", "cancelation_date"], as_dict=True)
+    subscription_details = frappe.db.get_value("Subscription", subscription, ["end_date", "start_date", "cancelation_date", "current_invoice_end"], as_dict=True)
     
     for index, request in enumerate(request_list):
         request_list[index]["details"] = generate_details(subscription_details["end_date"], request)
@@ -729,7 +753,7 @@ def fetch_subscription_update_requests(subscription):
         
         cancellation_date = request.get("cancellation_date")
         if cancellation_date:
-            request_list[index]["cancel_today"] = cancellation_date <= subscription_details["end_date"]
+            request_list[index]["cancel_today"] = cancellation_date <= subscription_details["current_invoice_end"]
             request_list[index]["details"] = _("Cancellation Date: ") + str(cancellation_date)
             
             if request_list[index]["cancel_today"]:

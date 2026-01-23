@@ -32,7 +32,7 @@ const autocharge_with_stripe_fields = [
     },
 ];
 
-const tools_button = `${stripe_logo} Tools`
+const tools_button = `${stripe_logo} ${__("Tools")}`
 
 let is_unlocked = false;
 let currently_editing = null;
@@ -130,7 +130,15 @@ frappe.ui.form.on("Subscription", {
     set_intro: function (frm) {
         if (frm.doc.email_queue) {
             if (frm.doc.stripe_subscription_id) {
-                displayIntro(frm, frm.doc.stripe_subscription_status)
+                let status = frm.doc.stripe_subscription_status;
+                let additional_info = "";
+
+                if (frm.doc.stripe_subscription_status == "Trialing" && ([null, undefined, ""].indexOf(frm.doc.trial_period_start) > 0)) {
+                    additional_info = __("Subscription is trialing because the Stripe billing starts on ") + moment(frm.doc.current_invoice_start).format("MMMM D, YYYY");
+                    status = "Trialing";
+                }
+
+                displayIntro(frm, status, additional_info);
             }
             else {
                 frappe.call({
@@ -140,10 +148,10 @@ frappe.ui.form.on("Subscription", {
                         name: frm.doc.email_queue
                     },
                     callback: function (r) {
-                        let additional_info = r.message.status == "Sent"? "Customer has been notified to set up a payment method." : "An email was scheduled to be sent to the customer.";
+                        let additional_info = r.message.status == "Sent"? __("Customer has been notified to set up a payment method.") : __("An email was scheduled to be sent to the customer.");
                         let status =  "Email " + r.message.status;
                         if (frm.doc.status == "Cancelled") {
-                            additional_info = "Subscription was cancelled before customer could pay.";
+                            additional_info = __("Subscription was cancelled before customer could pay.");
                             status = "Canceled";
                         }
 
@@ -160,11 +168,11 @@ frappe.ui.form.on("Subscription", {
                 callback: function (r) {
                     if (r.message) {
                         frm.set_df_property("email_queue", "description", 
-                            `<small><a href=${r.message} target="_blank">Open Email Queue doc</a></small>`
+                            `<small><a href=${r.message} target="_blank">${__("Open Email Queue doc")}</a></small>`
                         )
                     }
                     else {
-                        frm.set_df_property("email_queue", "description", "<small>Email Queue doc already deleted and can't be viewed.</small>")
+                        frm.set_df_property("email_queue", "description", `<small>${__("Email Queue doc already deleted and can't be viewed.")}</small>`)
                     }
                 }
             });
@@ -177,7 +185,7 @@ frappe.ui.form.on("Subscription", {
                 "trial_period_end", 
                 "description", 
                 `<div class="alert alert-warning p-2 mt-2" role="alert">
-                    <small>Field is locked to allow autocharging with Stripe.</small>
+                    <small>${__("Field is locked to allow autocharging with Stripe.")}</small>
                 </div>`
             );
             frm.set_df_property("trial_period_end", "read_only", 1);
@@ -236,7 +244,7 @@ frappe.ui.form.on("Subscription", {
                 },
                 callback: function (r) {
                     if (!r.message.user) {
-                        frm.add_custom_button("Grant Access to Portal Page", function() {
+                        frm.add_custom_button(__("Grant Access to Portal Page"), function() {
                             frappe.call({
                                 method: "erpusa.stripe_plus.api.webhook_receiver_subscription.convert_customer_to_user",
                                 freeze: true,
@@ -259,7 +267,7 @@ frappe.ui.form.on("Subscription", {
                             "user_account_representative",
                             "description",
                             `<div class="alert alert-warning p-2 mt-2" role="alert">
-                                <small>Customer doesn't have access to the portal page and won't be able to manage their Subscriptions. Grant access by clicking on <i>Tools > Grant Access to Portal Page</i>.</small>
+                                <small>${__("Customer doesn't have access to the portal page and won't be able to manage their Subscriptions. Grant access by clicking on ")}<i>${__("Tools")} > ${__("Grant Access to Portal Page")}</i>.</small>
                             </div>`
                         );
                     }
@@ -442,7 +450,7 @@ frappe.ui.form.on("Subscription", {
                 frm.set_df_property(field, "read_only", true);
             })
         
-            frm.add_custom_button("Look for Unallocated Stripe Transactions", function() {
+            frm.add_custom_button(__("Look for Unallocated Stripe Transactions"), function() {
                 frappe.call({
                     method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_unallocated_payments",
                     freeze: true,
@@ -669,6 +677,7 @@ frappe.ui.form.on("Subscription", {
                                         if (selected_row_count > 1) frappe.throw(__("You can only apply a request one at a time."));
 
                                         let approve_update_request_dialog = null;
+                                        console.log(approve_update_request_dialog)
 
                                         function displayApproveRequestDialog (run_after=null, args=null) {
                                             if (!approve_update_request_dialog) {
@@ -732,7 +741,12 @@ frappe.ui.form.on("Subscription", {
                                                         });
                                                     }
                                                     
-                                                });
+                                                },
+                                                "Approve Request",
+                                                "Approve"
+                                            
+                                            );
+                                                approve_update_request_dialog.show();
                                             }
                                             else {
                                                 approve_update_request_dialog.show();
@@ -781,7 +795,9 @@ frappe.ui.form.on("Subscription", {
                                                 frm.events.cancel_subscription(frm, displayApproveRequestDialog);
                                             }
                                             else {
+                                                console.log(selected.cancellation_date)
                                                 frm.set_value("end_date", selected.cancellation_date);
+                                                frm.set_df_property("end_date", "hidden", 0)
                                                 frm.set_value("cancel_at_period_end", 1);
                                                 frm.refresh_field("end_date");
                                                 frm.refresh_field("cancel_at_period_end");
@@ -799,7 +815,9 @@ frappe.ui.form.on("Subscription", {
                                             }
                                             else {
                                                 frm.set_value("start_date", selected.resubscription_start_date);
+                                                frm.set_value("start_date", selected.resubscription_end_date);
                                                 frm.refresh_field("start_date");
+                                                frm.refresh_field("end_date");
                                                 frm.scroll_to_field("start_date");
                                                 frappe.show_alert({
                                                     message: __("Successfully Scheduled a Renewal"),
@@ -829,11 +847,11 @@ frappe.ui.form.on("Subscription", {
                 callback: function (r) {
                     if (r.message) {
                         frm.set_df_property("email_queue", "description", 
-                            `<small><a href=${r.message} target="_blank">Open Email Queue doc</a></small>`
+                            `<small><a href=${r.message} target="_blank">${__("Open Email Queue doc")}</a></small>`
                         )
                     }
                     else {
-                        frm.set_df_property("email_queue", "description", "<small>Email Queue doc already deleted and can't be viewed.</small>")
+                        frm.set_df_property("email_queue", "description", `<small>${__("Email Queue doc already deleted and can't be viewed.")}</small>`)
                     }
                 }
             });
@@ -869,8 +887,8 @@ frappe.ui.form.on("Subscription", {
     }, 
 
     insert_reload_button: function (frm) {
-        let reload_button = frm.add_custom_button("Reload Doc", function() {
-            frappe.dom.freeze("Reloading Doc");
+        let reload_button = frm.add_custom_button(__("Reload Doc"), function() {
+            frappe.dom.freeze(__("Reloading Doc"));
 
             frm.reload_doc().then(() => {
                 frappe.dom.unfreeze();
@@ -888,7 +906,7 @@ frappe.ui.form.on("Subscription", {
             frappe.call({
                 method: "erpusa.stripe_plus.api.webhook_receiver_subscription.find_advance_payments",
                 args: {
-                    customer: frm.doc.party
+                    subscription: frm.doc.name
                 },
                 callback: function (r) {
                     if (r.message) {
@@ -897,7 +915,8 @@ frappe.ui.form.on("Subscription", {
 
                         // Advance Payment Link is already inserted update the count instead
                         if (payment_entry_node.length == 0) {
-                            let link = window.location.origin + "/app/payment-entry?status=Submitted&reference_no=%5B%22like%22%2C%22pi%25%22%5D&reference_name=%5B%22is%22%2C%22not+set%22%5D&party=" + encodeURI(frm.doc.party);
+                            let name_params = ["in", advance_payment_list]
+                            let link = window.location.origin + "/app/payment-entry?status=Submitted&name=" + encodeURIComponent(JSON.stringify(name_params));
                             $('[data-page-route="Subscription"] .document-link[data-doctype="Sales Invoice"]').after(
                                 $(`
                                     <div class="document-link" data-doctype="Payment Entry">
@@ -927,8 +946,8 @@ frappe.ui.form.on("Subscription", {
 function renderNoticeContent(fields) {
     let table_content = 
     `<tr>
-        <td><b>Field Name</b></td>
-        <td><b>Field Value</b></td>
+        <td><b>${__("Field Name<")}/b></td>
+        <td><b>${__("Field Value")}</b></td>
     <tr/>`
 
     fields.forEach((field) => {
@@ -936,7 +955,7 @@ function renderNoticeContent(fields) {
         let field_value = field.value;
 
         if (field_value == "1") {
-            field_value = "Checked"
+            field_value = __("Checked")
         }
 
         table_content = table_content + 
@@ -947,7 +966,7 @@ function renderNoticeContent(fields) {
     })
 
     return `
-        <p>Enabling Stripe auto-charging will automatically set/override the fields below. Continue?</p>
+        <p>${__("Enabling Stripe auto-charging will automatically set/override the fields below. Continue?")}</p>
         <table class="table table-bordered">
             ${table_content}
         </table>
@@ -958,15 +977,15 @@ function renderFieldDescription(value) {
     let value_phrase = null;
 
     if (value == "1") {
-        value_phrase = `checked`
+        value_phrase = __("checked")
     }
     else {
-        value_phrase = `set to "${value}"`
+        value_phrase = `${__("set to ")}"${value}"`
     }
 
     return `
         <div class="alert alert-warning p-2 mt-2" role="alert">
-            <small>Field is locked and ${value_phrase} to allow autocharging with Stripe.</small>
+            <small>${__("Field is locked and ")}${value_phrase}${__(" to allow autocharging with Stripe.")}</small>
         </div>
     `
 }
@@ -976,7 +995,7 @@ function displayIntro(frm, stripe_subscription_status, additional_info="") {
     frm.layout.show_message(
         `<div class="d-flex align-items-center" style="gap: 0.5rem;">
             ${stripe_logo}
-            <b>Stripe Status: ${stripe_subscription_status}</b>${additional_info? " &bull; ": ""}<span>${additional_info}</span>
+            <b>${__("Stripe Status: ")}${stripe_subscription_status}</b>${additional_info? " &bull; ": ""}<span>${additional_info}</span>
         </div>`, 
         stripe_subscription_status_color[stripe_subscription_status],
         true

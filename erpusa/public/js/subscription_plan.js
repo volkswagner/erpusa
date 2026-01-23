@@ -7,7 +7,11 @@ frappe.ui.form.on("Subscription Plan", {
                 frm.set_df_property(field, "read_only", 1);
             });
 
-            frm.set_intro(__("This Subscription Plan is linked to an active Stripe-enabled Subscription. Some fields are locked and cannot be edited."), "yellow")
+            frm.layout.show_message(
+                __("This Subscription Plan is linked to an active Stripe-enabled Subscription. Some fields are locked and cannot be edited."), 
+                "yellow",
+                true
+            );
         }
     }
 })
