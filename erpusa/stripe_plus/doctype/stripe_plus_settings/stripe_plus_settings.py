@@ -394,7 +394,16 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
       frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
     return
 
-  customer_contact = get_customer_contact(customer)
+  customer_contact = get_customer_contact(
+    doctype="Contact",
+    txt="",
+    searchfield="name",
+    start=0,
+    page_len=1,
+    filters={
+      "customer": customer
+    }
+  )
   if not customer_contact and show_success_message:
     frappe.throw(_("A preferred contact information does not exist for {}.").format(customer))
     
