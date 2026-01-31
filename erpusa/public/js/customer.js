@@ -22,7 +22,10 @@ frappe.ui.form.on("Customer", {
                             frm.refresh();
                         }
                     });
-                })
+                },
+                __("Select Stripe Settings"),
+                __("Continue")
+                );
             }, __("Actions"));
         }
     }

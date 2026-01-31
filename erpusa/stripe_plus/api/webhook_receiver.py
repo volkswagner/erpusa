@@ -888,7 +888,7 @@ def notify_user(merchant_payment):
     # check if realtime notifications is enabled
     if frappe.db.get_single_value("Stripe Plus Settings", "turn_on_email_notifications") and frappe.db.get_single_value("Stripe Plus Settings", "notification_method") == "Realtime":
         recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
-        subject = _("Received {amount} from {customer}").format(amount=fmt_money(merchant_payment.gross_amount, customer=merchant_payment.customer))
+        subject = _("Received {amount} from {customer}").format(amount=fmt_money(merchant_payment.gross_amount), customer=merchant_payment.customer)
         reference_name = None
 
         if merchant_payment.source:
