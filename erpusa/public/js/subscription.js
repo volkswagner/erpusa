@@ -181,7 +181,7 @@ frappe.ui.form.on("Subscription", {
     },
 
     toggle_stripe_plus_fields_reqd: function (frm) {
-        ["mode_of_payment", "user_account_representative", "start_date"].forEach(
+        ["user_account_representative", "start_date"].forEach(
             (field) => frm.set_df_property(field, "reqd", frm.doc.autocharge_with_stripe)
         );
     },
