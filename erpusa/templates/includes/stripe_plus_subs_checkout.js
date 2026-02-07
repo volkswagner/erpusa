@@ -1,4 +1,3 @@
-// This is your test secret API key.
 frappe.ready(function() {
   const stripe = Stripe("{{ publishable_key }}");
 

@@ -97,11 +97,6 @@ def create_fetch_checkout_session():
         },
     }
 
-    # if str(subscription_doc.start_date) != str(frappe.utils.today()):
-    #     subscription_data['billing_cycle_anchor'] = int(
-    #         formulate_timestamp(subscription_doc.start_date)
-    #     )
-
     if subscription_doc.trial_period_end:
         subscription_data['trial_end'] = int(
             formulate_timestamp(
@@ -109,18 +104,10 @@ def create_fetch_checkout_session():
             )
         )
 
-
     else:
-        if str(subscription_doc.start_date) != str(frappe.utils.today()):
-        #     billing_cycle_anchor = subscription_doc.start_date
-        #     if str(subscription_doc.start_date) < str(frappe.utils.today()):
-        #         billing_cycle_anchor = subscription_doc.current_invoice_start
-
-        #     if str(subscription_doc.current_invoice_start) < str(frappe.utils.today()):
-        #         billing_cycle_anchor = add_to_date(subscription_doc.current_invoice_end, days=1)
-            trial_end = subscription_doc.start_date
-            while str(trial_end) < str(frappe.utils.today()):
-                frappe.log_error(str(trial_end))
+        if str(subscription_doc.current_invoice_start) != str(frappe.utils.nowdate()):
+            trial_end = subscription_doc.current_invoice_start
+            while str(trial_end) < str(frappe.utils.nowdate()):
                 trial_end = subscription_doc.get_current_invoice_start(trial_end)
 
             subscription_data['trial_end'] = int(
