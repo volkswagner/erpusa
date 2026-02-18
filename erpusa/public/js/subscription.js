@@ -256,7 +256,7 @@ frappe.ui.form.on("Subscription", {
                                 },
                                 callback: function (r) {
                                     if (!r.message) {
-                                        frm.refresh();
+                                        frm.reload();
                                     }
                                 }
                             })
@@ -561,7 +561,7 @@ frappe.ui.form.on("Subscription", {
                     },
                     callback: function (r) {
                         if (r.message) {
-                            frm.refresh();
+                            frm.reload();
                         }
                     }
                 })

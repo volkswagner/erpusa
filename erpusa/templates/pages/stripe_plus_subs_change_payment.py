@@ -16,8 +16,9 @@ no_cache = 1
 def get_context(context):
     if frappe.form_dict:
         context.subscription = frappe.form_dict["subscription_name"]
+        subscription_data = frappe.db.get_value("Subscription", context.subscription, ["payment_gateway", "party", "payment_configuration"], as_dict=True)
         context.gateway_controller = get_gateway_controller(
-            "Subscription", context.subscription, frappe.form_dict["payment_gateway"]
+            "Subscription", context.subscription, subscription_data["payment_gateway"]
         )
         
         subscription_updates_count = frappe.db.count(
@@ -44,8 +45,8 @@ def get_context(context):
             raise frappe.Redirect
         
         context.publishable_key = get_api_key("Subscription", context.gateway_controller)
-        context.customer = frappe.form_dict["customer"]
-        context.payment_configuration = frappe.form_dict["payment_configuration"]
+        context.customer = subscription_data["party"]
+        context.payment_configuration = subscription_data["payment_configuration"]
         context.subscription_display_name = frappe.db.get_value("Subscription", context.subscription, "friendly_name") or context.subscription
         context.methods = get_pm_configuration_methods(frappe.db.get_value("Subscription", context.subscription, "payment_method_configuration"), False)
         settings_company = frappe.db.get_single_value("Stripe Plus Settings", "payment_page_company_name")
@@ -68,6 +69,7 @@ def get_context(context):
 def create_change_payment_session():
     data = json.loads(frappe.request.data)
     stripe.api_key = get_api_key_secret(data.get("gateway_controller"))
+    payment_method_configuration = frappe.db.get_value("Subscription", data.get("subscription"), "payment_method_configuration")
     
     try:
         session = stripe.checkout.Session.create(
@@ -82,7 +84,7 @@ def create_change_payment_session():
                 }
             },
             return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_change_payment_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}",
-            payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", data.get("payment_configuration"), "stripe_configuration_id")
+            payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", payment_method_configuration, "stripe_configuration_id")
         )
         
     except Exception as e:
