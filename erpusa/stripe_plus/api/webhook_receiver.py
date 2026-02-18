@@ -678,7 +678,7 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
             for index, source in enumerate(sources):
                 if source.get('merchant_payment'):
                     associated_subscription = frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_subscription")
-
+                    
                     if associated_subscription:
                         credit_account = frappe.db.get_value(
                             "Subscription",
