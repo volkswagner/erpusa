@@ -6,7 +6,7 @@ from decimal import Decimal
 from frappe import _
 from frappe.utils import fmt_money, get_url_to_form, today, now, split_emails
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
-from frappe.utils import now_datetime, add_to_date
+from frappe.exceptions import TimestampMismatchError
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_bank_account_for_payment_entry
 from erpusa.stripe_plus.api.webhook_receiver_subscription import receive_stripe_subscription_events
 
@@ -629,6 +629,9 @@ def create_payment_entry(merchant_payment):
         try:
             pe_doc.save(ignore_permissions=True)
 
+        except TimestampMismatchError:
+            pass
+
         except Exception as e:
             notify_error_to_user_merchant_payment(
                 merchant_payment.name,
@@ -641,6 +644,9 @@ def create_payment_entry(merchant_payment):
         try:
             merchant_payment.associated_payment_entry = pe_doc.name
             merchant_payment.save()
+
+        except TimestampMismatchError:
+            pass
 
         except Exception as e:
             notify_error_to_user_merchant_payment(
@@ -672,7 +678,7 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
             for index, source in enumerate(sources):
                 if source.get('merchant_payment'):
                     associated_subscription = frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_subscription")
-                    
+
                     if associated_subscription:
                         credit_account = frappe.db.get_value(
                             "Subscription",

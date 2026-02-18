@@ -4,6 +4,7 @@ import datetime
 import json
 import stripe
 from frappe.utils import get_url_to_form, getdate
+from frappe.exceptions import TimestampMismatchError
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret, get_representative_email_address, get_bank_account_for_payment_entry, get_bank_account_for_payment_request
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import SUBSCRIPTION_STATUS_VERBOSE
@@ -111,6 +112,10 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
 
     try:
         mp_doc.save()
+
+    except TimestampMismatchError:
+        pass
+    
     except Exception as e:
         notify_error_to_user_merchant_payment(
             mp_doc.name,
@@ -193,6 +198,9 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         try:
             pe_doc.save(ignore_permissions=True)
 
+        except TimestampMismatchError:
+            pass
+
         except Exception as e:
             notify_error_to_user_merchant_payment(
                 mp_doc.name,
@@ -216,6 +224,9 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         try:
             mp_doc.associated_payment_entry = pe_doc.name
             mp_doc.save()
+
+        except TimestampMismatchError:
+            pass
 
         except Exception as e:
             notify_error_to_user_merchant_payment(
