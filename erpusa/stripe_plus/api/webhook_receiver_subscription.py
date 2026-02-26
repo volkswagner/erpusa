@@ -737,6 +737,7 @@ def find_advance_payments(subscription):
         .select(PaymentEntry.name)
         .where(MerchantPayment.associated_subscription == subscription)
         .where(PaymentEntryReference.name.isnull())
+        .where(PaymentEntry.status == "Submitted")
         .distinct()
     ).run(pluck=True)
 
