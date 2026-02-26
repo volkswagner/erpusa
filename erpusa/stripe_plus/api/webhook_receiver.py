@@ -6,7 +6,7 @@ from decimal import Decimal
 from frappe import _
 from frappe.utils import fmt_money, get_url_to_form, today, now, split_emails
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
-from frappe.exceptions import TimestampMismatchError
+from frappe.exceptions import TimestampMismatchError, DuplicateEntryError
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_bank_account_for_payment_entry
 from erpusa.stripe_plus.api.webhook_receiver_subscription import receive_stripe_subscription_events
 
@@ -459,6 +459,9 @@ def create_update_stripe_payout(data, log_doc, api_key):
         doc.save()
 
     except TimestampMismatchError:
+        pass
+
+    except DuplicateEntryError:
         pass
         
     except Exception as e:
