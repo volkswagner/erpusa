@@ -78,6 +78,13 @@
   },
   {
    "default": "0",
+   "description": "When enabled, Stripe Plus will override the original checkout page for Stripe.",
+   "fieldname": "enable_stripe_plus",
+   "fieldtype": "Check",
+   "label": "Enable Stripe Plus"
+  },
+  {
+   "default": "0",
    "description": "When enabled, Sales Invoices generated from Subscriptions will automatically have their <i>Allocate Advances Automatically</i> field checked.\n<br>\nSuitable for situations where the payment gets processed before the invoice is created.",
    "fieldname": "automatically_apply_advance_payments",
    "fieldtype": "Check",
