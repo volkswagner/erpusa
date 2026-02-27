@@ -205,31 +205,32 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
             pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
 
-        try:
-            pe_doc.save(ignore_permissions=True)
+        if not frappe.db.exists("Payment Entry", {"reference_no": payment_intent}):
+            try:
+                pe_doc.save(ignore_permissions=True)
 
-        except TimestampMismatchError:
-            pass
-        except Exception:
-            notify_error_to_user_merchant_payment(
-                mp_doc.name,
-                _("The Payment Entry creation failed."),
-                frappe.get_traceback()
-            )
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
+            except TimestampMismatchError:
+                pass
+            except Exception:
+                notify_error_to_user_merchant_payment(
+                    mp_doc.name,
+                    _("The Payment Entry creation failed."),
+                    frappe.get_traceback()
+                )
+                frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
 
-        try:
-            pe_doc.submit()
+            try:
+                pe_doc.submit()
 
-        except TimestampMismatchError:
-            pass
-        except Exception:
-            notify_error_to_user_merchant_payment(
-                mp_doc.name,
-                _("The Payment Entry submission failed."),
-                frappe.get_traceback()
-            )
-            frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
+            except TimestampMismatchError:
+                pass
+            except Exception:
+                notify_error_to_user_merchant_payment(
+                    mp_doc.name,
+                    _("The Payment Entry submission failed."),
+                    frappe.get_traceback()
+                )
+                frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
                     
         # update Merchant Payment doc
         try:

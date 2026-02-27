@@ -437,7 +437,7 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
     matching_customer_list = stripe.Customer.search(query=f"metadata['erp_customer_name']:'{customer}'")
 
   except Exception as e:
-    frappe.log_error(f"Error Fetching Customers: ", str(e))
+    frappe.log_error("Error Fetching Customers: ", frappe.get_traceback())
     if show_success_message:
       frappe.throw(_("An error occured while looking for customer in stripe.com. <br><br/>{}").format(str(e)))
 

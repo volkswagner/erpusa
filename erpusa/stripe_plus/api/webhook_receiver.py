@@ -580,6 +580,9 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
         mp_doc.flags.ignore_permissions = True
         mp_doc.save()
 
+    except TimestampMismatchError:
+        pass
+
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
@@ -618,6 +621,9 @@ def create_sales_invoice(sales_order, merchant_payment):
             si_doc.save()
             si_doc.submit()
 
+        except TimestampMismatchError:
+            pass
+
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), _("Error Saving Sales Invoice Document"))
         
@@ -625,6 +631,9 @@ def create_sales_invoice(sales_order, merchant_payment):
         try:
             merchant_payment.associated_sales_invoice = si_doc.name
             merchant_payment.save()
+
+        except TimestampMismatchError:
+            pass
 
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
@@ -680,6 +689,9 @@ def create_payment_entry(merchant_payment):
         try:
             pe_doc.save(ignore_permissions=True)
 
+        except TimestampMismatchError:
+            pass
+
         except Exception as e:
             notify_error_to_user_merchant_payment(
                 merchant_payment.name,
@@ -692,6 +704,9 @@ def create_payment_entry(merchant_payment):
         try:
             merchant_payment.associated_payment_entry = pe_doc.name
             merchant_payment.save()
+
+        except TimestampMismatchError:
+            pass
 
         except Exception as e:
             notify_error_to_user_merchant_payment(
@@ -783,6 +798,9 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
             
             try:
                 je_doc.save()
+
+            except TimestampMismatchError:
+                pass
 
             except Exception as e:
                 frappe.log_error(frappe.get_traceback(), _("Error Saving Journal Entry Document"))
