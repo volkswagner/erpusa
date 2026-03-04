@@ -10,6 +10,7 @@ from payments.templates.pages.stripe_checkout import get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret
 from frappe.utils import add_to_date
+from urllib.parse import urlencode
 
 no_cache = 1
 
@@ -84,44 +85,29 @@ def create_fetch_checkout_session():
 
     subscription_doc = frappe.get_doc("Subscription", subscription_name)
     line_items = []
+    return_url_params = {
+        'session_id': "{CHECKOUT_SESSION_ID}",
+        'subscription_name': data.get('subscription'),
+        'payment_gateway': frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')
+    }
     
-    for subscription_plan in subscription_doc.plans:
+    for subscription_plan in frappe.db.get_all("Subscription Plan Detail", filters={"parent": data.get("subscription")}, fields=["plan", "qty"]):
         line_items.append({
             'price': frappe.db.get_value("Subscription Plan", subscription_plan.plan, "stripe_price_id"),
             'quantity': subscription_plan.qty
         })
-
-    subscription_data = {
-        "metadata": {
-            "erp_subscription_name": subscription_doc.name,
-        },
-    }
-
-    if subscription_doc.trial_period_end:
-        subscription_data['trial_end'] = int(
-            formulate_timestamp(
-                subscription_doc.current_invoice_start
-            )
-        )
-
-    else:
-        if str(subscription_doc.current_invoice_start) != str(frappe.utils.nowdate()):
-            trial_end = subscription_doc.current_invoice_start
-            while str(trial_end) < str(frappe.utils.nowdate()):
-                trial_end = subscription_doc.get_current_invoice_start(trial_end)
-
-            subscription_data['trial_end'] = int(
-                formulate_timestamp(trial_end)
-            )
-
     try:
         session = stripe.checkout.Session.create(
-            ui_mode="embedded",
+            ui_mode = "embedded",
             mode="subscription",
-            customer=frappe.db.get_value("Customer", subscription_doc.party, "stripe_customer_id"),
+            customer=frappe.db.get_value("Customer", data.get("customer"), "stripe_customer_id"),
             line_items=line_items,
-            subscription_data=subscription_data,
-            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={subscription_doc.name}&payment_gateway={subscription_doc.payment_gateway}",
+            subscription_data={
+                "metadata": {
+                    "erp_subscription_name": data.get("subscription")
+                }
+            },
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?{return_url_params}",
             payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", subscription_doc.payment_method_configuration, "stripe_configuration_id")
         )
         
