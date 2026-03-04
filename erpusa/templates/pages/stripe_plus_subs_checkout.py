@@ -86,7 +86,6 @@ def create_fetch_checkout_session():
     subscription_doc = frappe.get_doc("Subscription", subscription_name)
     line_items = []
     return_url_params = {
-        'session_id': "{CHECKOUT_SESSION_ID}",
         'subscription_name': data.get('subscription'),
         'payment_gateway': frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')
     }
@@ -107,7 +106,7 @@ def create_fetch_checkout_session():
                     "erp_subscription_name": data.get("subscription")
                 }
             },
-            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?{return_url_params}",
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&{urlencode(return_url_params)}",
             payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", subscription_doc.payment_method_configuration, "stripe_configuration_id")
         )
         
