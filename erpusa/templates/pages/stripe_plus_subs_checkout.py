@@ -8,6 +8,7 @@ import json
 from payments.templates.pages.stripe_checkout import get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret
+from urllib.parse import urlencode
 
 no_cache = 1
 
@@ -58,6 +59,10 @@ def get_context(context):
 def create_checkout_session(data):
     stripe.api_key = get_api_key_secret(data.get("gateway_controller"))
     line_items = []
+    return_url_params = {
+        'subscription_name': data.get('subscription'),
+        'payment_gateway': frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')
+    }
     
     for subscription_plan in frappe.db.get_all("Subscription Plan Detail", filters={"parent": data.get("subscription")}, fields=["plan", "qty"]):
         line_items.append({
@@ -75,7 +80,7 @@ def create_checkout_session(data):
                     "erp_subscription_name": data.get("subscription")
                 }
             },
-            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&subscription_name={data.get('subscription')}&payment_gateway={frappe.db.get_value('Subscription', data.get('subscription'), 'payment_gateway')}",
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&{urlencode(return_url_params)}",
             payment_method_configuration=frappe.db.get_value("Stripe Payment Method Configuration", data.get("payment_configuration"), "stripe_configuration_id")
         )
         
