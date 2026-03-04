@@ -168,6 +168,9 @@ doc_events = {
 	},
 	"Item": {
 		"on_update": "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.update_stripe_product"
+	},
+   "Sales Invoice": {
+		"on_update": "erpusa.stripe_plus.api.webhook_receiver_subscription.link_invoice_with_subscription"
 	}
 }
 
