@@ -152,7 +152,7 @@ frappe.ui.form.on("Subscription", {
                         if (r.messsage) {
                             if (r.message.status != "Sent") additional_info = __("An email was scheduled to be sent to the customer.");
                             status =  __("Email ") + r.message.status;
-                            
+
                             if (frm.doc.status == "Cancelled") {
                                 additional_info = __("Subscription was cancelled before customer could pay.");
                                 status = "Canceled";
@@ -831,7 +831,8 @@ frappe.ui.form.on("Subscription", {
             frappe.call({
                 method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.email_queue_exists",
                 args: {
-                    email_queue: frm.doc.email_queue
+                    email_queue: frm.doc.email_queue,
+                    return_link: true
                 },
                 callback: function (r) {
                     if (r.message) {
