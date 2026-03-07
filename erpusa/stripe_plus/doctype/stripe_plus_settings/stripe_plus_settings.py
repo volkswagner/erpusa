@@ -831,10 +831,10 @@ def is_text_editor_set(html_content):
   return text.strip()
 
 @frappe.whitelist()
-def email_queue_exists(email_queue):
+def email_queue_exists(email_queue, return_link=False):
     email_queue = frappe.db.exists("Email Queue", email_queue)
 
-    if email_queue:
+    if email_queue and return_link:
       email_queue = frappe.utils.get_url_to_form("Email Queue", email_queue)
 
     return email_queue

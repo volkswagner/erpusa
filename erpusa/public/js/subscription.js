@@ -142,17 +142,21 @@ frappe.ui.form.on("Subscription", {
             }
             else {
                 frappe.call({
-                    method: 'frappe.client.get',
+                    method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.email_queue_exists",
                     args: {
-                        doctype: 'Email Queue',
-                        name: frm.doc.email_queue
+                        email_queue: frm.doc.email_queue
                     },
                     callback: function (r) {
-                        let additional_info = r.message.status == "Sent"? __("Customer has been notified to set up a payment method.") : __("An email was scheduled to be sent to the customer.");
-                        let status =  "Email " + r.message.status;
-                        if (frm.doc.status == "Cancelled") {
-                            additional_info = __("Subscription was cancelled before customer could pay.");
-                            status = "Canceled";
+                        let additional_info = __("Customer has been notified to set up a payment method.");
+                        let status = __("Email Sent");
+                        if (r.messsage) {
+                            if (r.message.status != "Sent") additional_info = __("An email was scheduled to be sent to the customer.");
+                            status =  __("Email ") + r.message.status;
+                            
+                            if (frm.doc.status == "Cancelled") {
+                                additional_info = __("Subscription was cancelled before customer could pay.");
+                                status = "Canceled";
+                            }
                         }
 
                         displayIntro(frm, status, additional_info);
@@ -160,22 +164,7 @@ frappe.ui.form.on("Subscription", {
                 });
             }
             
-            frappe.call({
-                method: "erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings.email_queue_exists",
-                args: {
-                    email_queue: frm.doc.email_queue
-                },
-                callback: function (r) {
-                    if (r.message) {
-                        frm.set_df_property("email_queue", "description", 
-                            `<small><a href=${r.message} target="_blank">${__("Open Email Queue doc")}</a></small>`
-                        )
-                    }
-                    else {
-                        frm.set_df_property("email_queue", "description", `<small>${__("Email Queue doc already deleted and can't be viewed.")}</small>`)
-                    }
-                }
-            });
+            frm.events.toggle_email_queue_link(frm);
         }
     },
 
