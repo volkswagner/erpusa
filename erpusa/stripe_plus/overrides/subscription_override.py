@@ -32,10 +32,12 @@ class SubscriptionOverride(Subscription):
         else:
             super().create_invoice()
 
+    @frappe.whitelist()
     def cancel_subscription(self):
         super().cancel_subscription()
         cancel_stripe_subscription(self)
-
+        
+    @frappe.whitelist()
     def process(self, posting_date: DateTimeLikeObject | None = None) -> bool:
         previous_status = self.status
         super().process(posting_date)
