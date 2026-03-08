@@ -2,6 +2,7 @@ import frappe
 
 from erpnext.accounts.doctype.subscription.subscription import Subscription
 from erpnext.accounts.doctype.subscription.subscription import DateTimeLikeObject
+from erpusa.stripe_plus.api.webhook_receiver_subscription import cancel_stripe_subscription
 
 class SubscriptionOverride(Subscription):
     def create_invoice(
@@ -30,3 +31,16 @@ class SubscriptionOverride(Subscription):
             return invoice
         else:
             super().create_invoice()
+
+    def cancel_subscription(self):
+        super().cancel_subscription()
+        cancel_stripe_subscription(self)
+
+    def process(self, posting_date: DateTimeLikeObject | None = None) -> bool:
+        previous_status = self.status
+        super().process(posting_date)
+
+        if previous_status != self.status and self.status in ("Completed", "Cancelled"):
+            cancel_stripe_subscription(self)
+
+

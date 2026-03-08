@@ -279,24 +279,17 @@ frappe.ui.form.on("Subscription", {
 
     cancel_subscription: function (frm, approval_dialog=null) {
         function cancel_now() {
-            frappe.call({
-                method: "erpusa.stripe_plus.api.webhook_receiver_subscription.cancel_subscription",
-                freeze: !approval_dialog,
-                freeze_message: __("Cancelling Subscription"),
-                args: {
-                    subscription_name: frm.doc.name
-                },
-                callback: function (r) {
-                    if (!r.exec) {
-                        frm.reload_doc();
-                        frappe.show_alert({
-                            message: __("Successfully Cancelled Subscription"),
-                            indicator: "green"
-                        });
-                    }
+            frm.call("cancel_subscription").then((r) => {
+                if (!r.exec) {
+                    frm.reload_doc();
+                    frappe.show_alert({
+                        message: __("Successfully Cancelled Subscription"),
+                        indicator: "green"
+                    });
                 }
             });
         }
+
 
         frappe.confirm(
             __("This action will stop future billing. Are you sure you want to cancel this subscription?"),

@@ -76,15 +76,6 @@ def receive_stripe_subscription_events(data, return_docs=False, submit_payment_e
 
             frappe.db.set_value("Subscription", subscription, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[status])
 
-            # if stripe is already linked with ERPNext, update the cancellation date if appplicable
-            if not subscription_doc.stripe_subscription_status and subscription_doc.end_date and status == "active":
-                import stripe
-                
-                stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
-                stripe.Subscription.modify(
-                    data.get("id"), 
-                    cancel_at=formulate_timestamp(subscription_doc.end_date)
-                    )
     # make payment entry if subscription was succesfully set up
     if data.get("object") == "invoice" and data.get("status") == "paid" and data.get("subscription"):
         
@@ -307,7 +298,11 @@ def cancel_subscription(subscription_name):
         frappe.throw(_("Failed to cancel subscription"))
 
     # cancel Stripe Subscription
-    if subscription_doc.stripe_subscription_id:
+    cancel_stripe_subscription(subscription_doc)
+
+def cancel_stripe_subscription(subscription_doc):
+    subscription_name = subscription_doc.name
+    if subscription_doc.stripe_subscription_id and not subscription_doc.stripe_subscription_status == "Canceled":
         stripe.api_key = get_api_key_secret(payment_gateway=subscription_doc.payment_gateway)
 
         # verify Subscription status
@@ -451,25 +446,6 @@ def update_subscription(subscription_name, payment_gateway, stripe_subscription_
             frappe.throw(_("Failed to apply update."))
             
         stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
-        # update cancel_at 
-        try:
-            stripe.Subscription.modify(
-                stripe_subscription_id, 
-                cancel_at=int(
-                    (datetime.datetime.combine(update_request_doc.new_end_date, datetime.time()))
-                    .timestamp()
-                )
-            )
-        # reset changes if update failed
-        except Exception as e:
-            frappe.db.set_value(
-                "Subscription", 
-                subscription_name, 
-                {
-                    "end_date": old_end_date,
-                }  
-            )
-            frappe.throw(_("Failed to sync update with Stripe."))
     
     if update_request_doc.request_type == "Plan Change":
         # change qty directly into db
@@ -519,14 +495,6 @@ def update_subscription(subscription_name, payment_gateway, stripe_subscription_
         stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
         subscription_items = stripe.SubscriptionItem.list(subscription=stripe_subscription_id)
         try:
-            stripe.Subscription.modify(
-                stripe_subscription_id, 
-                cancel_at=int(
-                    (datetime.datetime.combine(update_request_doc.new_end_date, datetime.time()))
-                    .timestamp()
-                )
-            )
-            
             if subscription_items and subscription_items.data:
                 subscription_items = subscription_items.data
                 for plan in update_request_doc.plans:
