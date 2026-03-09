@@ -159,11 +159,11 @@ frappe.ui.form.on("Subscription", {
                         if (r.messsage) {
                             if (r.message.status != "Sent") additional_info = __("An email was scheduled to be sent to the customer.");
                             status =  __("Email ") + r.message.status;
+                        }
 
-                            if (frm.doc.status == "Cancelled") {
-                                additional_info = __("Subscription was cancelled before customer could pay.");
-                                status = "Canceled";
-                            }
+                        if (frm.doc.status == "Cancelled") {
+                            additional_info = __("Subscription was cancelled before customer could pay.");
+                            status = "Canceled";
                         }
 
                         displayIntro(frm, status, additional_info);
