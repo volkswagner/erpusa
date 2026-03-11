@@ -864,9 +864,11 @@ def get_update_request_to_update(subscription, request):
         ]
 
 def link_invoice_with_subscription(doc, method=None):
-    allocated_advances = frappe.db.get_all("Sales Invoice Advance", {"parent": doc.name}, pluck="reference_name")
+    allocated_advances = doc.advances
+    frappe.log_error(str(allocated_advances))
     if allocated_advances:
-        merchant_payment_name = frappe.db.exists("Merchant Payment", {"associated_payment_entry": allocated_advances[0]})
+        merchant_payment_name = frappe.db.exists("Merchant Payment", {"associated_payment_entry": allocated_advances[0].reference_name})
+        frappe.log_error(str(merchant_payment_name))
 
         if merchant_payment_name:
             frappe.db.set_value("Merchant Payment", merchant_payment_name, "associated_sales_invoice", doc.name)
