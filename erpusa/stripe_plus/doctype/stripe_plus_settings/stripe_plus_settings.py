@@ -190,6 +190,43 @@ def update_stripe_customer_info(contact, method=None):
         )
 
 @frappe.whitelist()
+def get_customer_email_address(customer):
+  # check if email_address is in Customer doc
+  email_address = frappe.db.get_value("Customer", customer, "email_id")
+
+  if not email_address:
+    # check in case primary_contact is set but not email_id
+    primary_contact = frappe.db.get_value("Customer", customer, "customer_primary_contact")
+    email_address = frappe.db.get_value("Contact", primary_contact, "email_id")
+
+    # check if Contact is created but not bound in Customer doc
+    if not email_address:
+      contacts = frappe.db.get_all("Dynamic Link", {"link_doctype": "Customer", "link_name": customer, "parenttype": "Contact"}, pluck="parent")
+
+      # loop through all contacts
+      for contact in contacts:
+        contact_details = frappe.db.get_value("Contact", contact, ["email_id", "is_billing_contact", "is_primary_contact"])
+        # get the email_id if set
+        email_address = contact_details[0]
+
+        # if not set, check the Email table and get the first one
+        if not email_address:
+          email_table_addresses = frappe.db.get_all("Contact Email", {"parent": contact}, pluck="email_id")
+
+          if email_table_addresses:
+            email_address = email_table_addresses[0]
+
+        # stop loop in Contact is the billing contact
+        if contact_details[1]:
+          break
+        
+        # stop loop in Contact is the primary contact
+        if contact_details[2]:
+          break
+
+  return email_address
+
+@frappe.whitelist()
 def get_customer_contact(doctype, txt, searchfield, start, page_len, filters):
   customer = filters.get("customer")
   con = qb.DocType("Contact")
@@ -392,22 +429,10 @@ def create_stripe_customer(customer, stripe_settings=None, show_success_message=
       frappe.throw(_("Can't add customer to Stripe. Customer has already been added to Stripe."))
     return
 
-  customer_contact = get_customer_contact(
-    doctype="Contact",
-    txt="",
-    searchfield="name",
-    start=0,
-    page_len=1,
-    filters={
-      "customer": customer
-    }
-  )
-  if not customer_contact and show_success_message:
-    frappe.throw(_("A preferred contact information does not exist for {}.").format(customer))
-    
-  customer_email_address = get_representative_email_address(customer_contact, as_dict=False)
+  customer_email_address = get_customer_email_address(customer)
+
   if not customer_email_address and show_success_message:
-    frappe.throw(_("{} doesn't have an email address.").format(customer_contact))
+    frappe.throw(_("{} doesn't have an email address.").format(customer))
     
   try:
     stripe_customer = stripe.Customer.create(
