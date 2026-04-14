@@ -550,6 +550,7 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
     # set initial values -> for pending transactions
     mp_doc.merchant = "Stripe"
     mp_doc.source = stripe_transaction.stripe_transaction_id
+    mp_doc.payment_status = stripe_transaction.status
     mp_doc.merchant_fee = 0.00
     mp_doc.gross_amount = 0.00
     mp_doc.net_amount = 0.00

@@ -8,12 +8,17 @@
  "field_order": [
   "merchant",
   "merchant_transaction_id",
+  "is_available_for_payout",
   "stripe_status",
-  "source",
   "column_break_pore",
   "created",
   "created_before",
   "available_on",
+  "section_break_izsx",
+  "source",
+  "payment_method",
+  "column_break_ecmi",
+  "payment_status",
   "section_break_jdhr",
   "customer",
   "associated_sales_order",
@@ -142,10 +147,7 @@
   {
    "fieldname": "stripe_status",
    "fieldtype": "Select",
-   "in_filter": 1,
-   "in_list_view": 1,
-   "in_preview": 1,
-   "in_standard_filter": 1,
+   "hidden": 1,
    "label": "Stripe Status",
    "options": "Pending\nAvailable"
   },
@@ -165,12 +167,44 @@
    "in_standard_filter": 1,
    "label": "Associated Subscription",
    "options": "Subscription"
+  },
+  {
+   "fetch_from": "source.status",
+   "fieldname": "payment_status",
+   "fieldtype": "Data",
+   "label": "Payment Status",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "source.payment_method_type",
+   "fieldname": "payment_method",
+   "fieldtype": "Data",
+   "label": "Payment Method",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_izsx",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_ecmi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_available_for_payout",
+   "fieldtype": "Check",
+   "in_filter": 1,
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "Is available for payout"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-29 07:43:14.938651",
+ "modified": "2026-04-09 03:20:41.784787",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Merchant Payment",
