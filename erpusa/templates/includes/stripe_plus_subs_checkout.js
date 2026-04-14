@@ -16,6 +16,7 @@ frappe.ready(function() {
         body: JSON.stringify({ 
           "subscription": "{{ subscription }}",
           "customer": "{{ customer }}",
+          "payment_configuration": "{{ payment_configuration }}",
           "gateway_controller": "{{ gateway_controller }}",
         })
       });

@@ -343,6 +343,9 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, p
         try:
             doc.flags.ignore_permissions = True
             doc.save()
+
+        except TimestampMismatchError:
+            pass
             
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Transaction Document"))   
@@ -419,6 +422,9 @@ def create_update_stripe_payout(data, log_doc, api_key):
     try:
         doc.flags.ignore_permissions = True
         doc.save()
+
+    except TimestampMismatchError:
+        pass
         
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
@@ -503,6 +509,7 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
     # set initial values -> for pending transactions
     mp_doc.merchant = "Stripe"
     mp_doc.source = stripe_transaction.stripe_transaction_id
+    mp_doc.payment_status = stripe_transaction.status
     mp_doc.merchant_fee = 0.00
     mp_doc.gross_amount = 0.00
     mp_doc.net_amount = 0.00
@@ -532,6 +539,9 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
     try:
         mp_doc.flags.ignore_permissions = True
         mp_doc.save()
+
+    except TimestampMismatchError:
+        pass
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
@@ -574,6 +584,9 @@ def create_sales_invoice(sales_order, merchant_payment):
         try:
             merchant_payment.associated_sales_invoice = si_doc.name
             merchant_payment.save()
+
+        except TimestampMismatchError:
+            pass
 
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
