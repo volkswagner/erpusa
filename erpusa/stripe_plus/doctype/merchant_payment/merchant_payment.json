@@ -96,6 +96,7 @@
    "reqd": 1
   },
   {
+   "description": "<p class=\"my-2\"><small>For Subscription payments, the Customer and Associated Subscription are set on invoice.finalized, while the Associated Sales Invoice and Payment Entry are set on invoice.paid.</small></p>",
    "fieldname": "section_break_jdhr",
    "fieldtype": "Section Break"
   },
@@ -198,13 +199,14 @@
    "in_list_view": 1,
    "in_preview": 1,
    "in_standard_filter": 1,
-   "label": "Is available for payout"
+   "label": "Is available for payout",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-09 03:20:41.784787",
+ "modified": "2026-04-16 12:06:29.802727",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Merchant Payment",
