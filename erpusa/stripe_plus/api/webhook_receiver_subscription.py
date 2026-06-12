@@ -132,7 +132,9 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             )
             frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
     
-        if invoice.get('status') == "paid":
+        payment_intent = frappe.db.get_value("Stripe Transaction", mp_doc.source, "payment_intent")
+
+        if invoice.get('status') == "paid" and not frappe.db.exists("Payment Entry", { "reference_no":  payment_intent}):
             user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
             if user_to_authorize:
                 frappe.set_user(user_to_authorize)
@@ -188,7 +190,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
                 
                 pe_doc.paid_to = account
                 pe_doc.mode_of_payment = frappe.db.get_value("Mode of Payment Account", {"default_account": pe_doc.paid_to}, "parent")
-                pe_doc.reference_no = frappe.db.get_value("Stripe Transaction", mp_doc.source, "payment_intent")
+                pe_doc.reference_no = payment_intent
                 pe_doc.reference_date = getdate()
                 pe_doc.paid_amount = mp_doc.net_amount
 

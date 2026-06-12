@@ -493,6 +493,9 @@ def create_update_stripe_payout(data, log_doc, api_key):
             try:
                 doc.flags.ignore_permissions = True
                 doc.save()
+
+            except TimestampMismatchError:
+                pass
                 
             except Exception as e:
                 frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
@@ -691,20 +694,26 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
             for index, source in enumerate(sources):
                 if source.get('merchant_payment'):
                     associated_subscription = frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_subscription")
+                    default_credit_account = frappe.db.get_single_value("Stripe Plus Settings", "credit_account")
 
                     if associated_subscription:
                         credit_account = frappe.db.get_value(
                             "Subscription",
                             associated_subscription,
                             "account"
-                        )
+                        ) or default_credit_account
+
                     else:
                         # fetch the credit_account and credit_bank_account using Payment Request
                         credit_account = frappe.db.get_value(
                             "Payment Request",
                             frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_payment_request"),
                             "payment_account"
-                        )
+                        ) or default_credit_account
+
+                    if not default_credit_account:
+                        frappe.log_error("The default credit account is not set in Stripe Plus Settings", "Error Creating Journal Entry")
+                        frappe.throw("Error Creating Journal Entry")
 
                     credit_bank_account = frappe.db.get_value("Bank Account", {"account": credit_account}, "name")
 

@@ -117,6 +117,9 @@ class StripePlusSettings(Document):
       if default_count > 1:
         frappe.throw(_("There can only be one default ERP-Stripe account link."))
 
+    if not self.credit_account:
+      frappe.throw(_("A default credit account is required to enable the payout journal automation"))
+
 @frappe.whitelist()
 def is_stripe_plus_applicable(payment_gateway=None):
   if payment_gateway:
