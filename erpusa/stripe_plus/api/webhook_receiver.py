@@ -181,23 +181,23 @@ def process_stripe_events(payload, sig_header):
                 frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Log Document"))
 
             # create transaction doc
-            if data.get("object") in ["charge", "payment_intent", "setup_intent", "refund"]:
-                create_update_stripe_transaction(data, api_key, log_doc)
+            if data.get("object") in ["charge", "payment_intent", "setup_intent", "refund"] and type in ["payment_intent.succeeded", "charge.pending", "charge.updated", "charge.succeeded"]:
+                create_update_stripe_transaction(data, api_key, type, log_doc)
                 
             # create payout doc
-            elif data.get("object") == "payout":
+            elif data.get("object") == "payout" and type in ["payout.created", "payout.paid"]:
                 create_update_stripe_payout(data, log_doc, api_key)
             
             # process subscription-related events  
             elif data.get("object") in ["invoice", "customer", "subscription"]:
-                receive_stripe_subscription_events(data)
+                receive_stripe_subscription_events(data, type)
 
             return "", 200
         
         except stripe.error.SignatureVerificationError:
             continue
 
-def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, payout=None, return_mp_doc=False):
+def create_update_stripe_transaction(data, api_key, event_type=None, log_doc=None, remark=None, payout=None, return_mp_doc=False):
     # check if transaction is already recorded; return id if yes, otherwise create new doc
     st_doc_name = frappe.db.exists("Stripe Transaction", data.get("id"))
 
@@ -226,6 +226,7 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, p
 
             else:
                 doc.set(field, data.get(field))
+                
     doc.set("transaction_metadata", data.get("metadata"))
 
     # set values if data has outcome
@@ -288,83 +289,134 @@ def create_update_stripe_transaction(data, api_key, log_doc=None, remark=None, p
     # link payout with transaction and add remarks for the update 
     if payout:
         doc.payout = payout
+
     if remark and doc.status != data.get("status"):
         doc.append("remarks", {
             "remark": remark
         })
     
-    if doc.object == "charge":
+    try:
+        doc.flags.ignore_permissions = True
+        doc.save()
+
+    except TimestampMismatchError:
+        pass
+        
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Transaction Document"))
+
+    if not doc.object == "charge":
+        return
+
+    metadata = doc.transaction_metadata
+    handle_email_sending_and_logging(doc, data, metadata)
+    mp_doc = handle_accounting_automation(doc, metadata, api_key, event_type)
+
+    if return_mp_doc:
+        return mp_doc         
+
+def handle_email_sending_and_logging(doc, data, metadata):
     # get the recipient email and send a payment feedback to user
-        metadata = doc.transaction_metadata
-        payment_request_docname = frappe.db.exists("Payment Request", {"reference_name": metadata.get("docname"), "docstatus": ["!=", 2]})
+    doc.reload()
+
+    # check if event_type is valid
+    if doc.status not in ["succeeded", "pending"]:
+        return
+
+    payment_request_docname = frappe.db.exists("Payment Request", {"reference_name": metadata.get("docname"), "docstatus": ["!=", 2]})
+
+    # check if payment request is valid
+    if not (payment_request_docname and frappe.db.get_value("Payment Request", payment_request_docname, "email_to")):
+        return
+
+    # check if Stripe Transaction is exists
+    if not frappe.db.exists("Stripe Transaction", data.get("id")):
+        return
+
+    # check if email has already been created for the transaction
+    if frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"}) or frappe.db.exists("Email Queue", {"reference_name": doc.name}):
+        return
+
+    started_from_pending = frappe.db.count("Stripe Transaction Email Log", filters={"parent": doc.name, "status": "pending"}) and doc.status == "succeeded"
+    
+    frappe.sendmail(
+        recipients=split_emails(frappe.db.get_value("Payment Request", payment_request_docname, "email_to")),
+        subject="Your payment was successfully processed" if started_from_pending else "Thank you for your payment",
+        message=frappe.render_template(
+            "erpusa/templates/html/payment_receipt.html",
+            {
+                "started_from_pending": started_from_pending,
+                "processing_days": METHOD_PROCESSING_DAYS.get(doc.payment_method_type),
+                "status": doc.status,
+                "receipt_url": data.get("receipt_url"),
+            },
+        ),
+        reference_doctype="Stripe Transaction",
+        reference_name=f"{doc.name}_{doc.status}",
+        now=True
+    )
+
+    # check if email was really sent and update email history
+    email_log_name = frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"})
+
+    if not email_log_name:
+        return
+
+    doc_logged_emails = [email_log.email_reference for email_log in doc.email_log]
+
+    if email_log_name in doc_logged_emails:
+        return
+
+    email_log_status = frappe.db.get_value("Email Queue", email_log_name, "status")
+    email_log_datetime_date = None
+
+    if email_log_status == "Sent":
+        email_log_datetime_date = frappe.db.get_value("Email Queue", email_log_name, "modified")
+
+    doc.append("email_log", {
+        "email_reference": email_log_name,
+        "status": doc.status,
+        "datetime_sent": email_log_datetime_date
+    })
+
+    try:
+        doc.flags.ignore_permissions = True
+        doc.save()
+
+    except TimestampMismatchError:
+        pass
         
-        if doc.status in ["succeeded", "pending"] and \
-        payment_request_docname and frappe.db.get_value("Payment Request", payment_request_docname, "email_to") and \
-        frappe.db.exists("Stripe Transaction", data.get("id")) and \
-        not (frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"}) or frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}"})):
-            started_from_pending = frappe.db.count("Stripe Transaction Email Log", filters={"parent": doc.name, "status": "pending"}) and doc.status == "succeeded"
-            
-            frappe.sendmail(
-                recipients=split_emails(frappe.db.get_value("Payment Request", payment_request_docname, "email_to")),
-                subject="Your payment was successfully processed" if started_from_pending else "Thank you for your payment",
-                message=frappe.render_template(
-                    "erpusa/templates/html/payment_receipt.html",
-                    {
-                        "started_from_pending": started_from_pending,
-                        "processing_days": METHOD_PROCESSING_DAYS.get(doc.payment_method_type),
-                        "status": doc.status,
-                        "receipt_url": data.get("receipt_url"),
-                    },
-                ),
-                reference_doctype="Stripe Transaction",
-                reference_name=f"{doc.name}_{doc.status}",
-                now=True
-            )
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), _("Error Logging Email"))
 
-        # check if email was really sent and update email history
-        email_log_name = frappe.db.exists("Email Queue", {"reference_name": f"{doc.name}_{doc.status}"})
+def handle_accounting_automation(doc, metadata, api_key, event_type=None):
+    doc.reload()
 
-        if email_log_name:
-            doc_logged_emails = [email_log.email_reference for email_log in doc.email_log]
+    # check if processing is from a charge avent and check if event type is succeeded 
+    if event_type and event_type != "charge.succeeded":
+        return
 
-            if email_log_name not in doc_logged_emails:
-                email_log_status = frappe.db.get_value("Email Queue", email_log_name, "status")
-                email_log_datetime_date = None
+    # check if payment is successful
+    if not (doc.status == "succeeded" and doc.paid and doc.receipt_url):
+        return
 
-                if email_log_status == "Sent":
-                    email_log_datetime_date = frappe.db.get_value("Email Queue", email_log_name, "modified")
+    # create a Merchant Payment doc
+    mp_doc = create_update_merchant_payment(doc, metadata, api_key)
+    
+    # check if merchant payment doc from before was successfully created
+    if not (mp_doc and frappe.db.exists("Merchant Payment", mp_doc.name)):
+        return
+    
+    # verify the metadata to create invoice
+    if (metadata and metadata.get('doctype') and metadata.get('docname')):
+        if metadata.get('doctype') == "Sales Order":
+            create_sales_invoice(metadata.get('docname'), mp_doc)
 
-                doc.append("email_log", {
-                    "email_reference": email_log_name,
-                    "status": doc.status,
-                    "datetime_sent": email_log_datetime_date
-                })
-        
-        try:
-            doc.flags.ignore_permissions = True
-            doc.save()
+        if doc.balance_transaction:
+        # create a Payment Entry doc
+            create_payment_entry(mp_doc)
 
-        except TimestampMismatchError:
-            pass
-            
-        except Exception as e:
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Transaction Document"))   
-
-        # create a Merchant Payment doc
-        mp_doc = create_update_merchant_payment(doc, metadata, api_key)
-
-        # create a Sales Invoice doc
-        if doc.status == "succeeded" and mp_doc and frappe.db.exists("Merchant Payment", mp_doc.name):
-            if metadata and metadata.get('doctype') and metadata.get('docname'):
-                if metadata.get('doctype') == "Sales Order":
-                    create_sales_invoice(metadata.get('docname'), mp_doc)
-
-                if doc.balance_transaction:
-                # create a Payment Entry doc
-                    create_payment_entry(mp_doc)
-
-        if return_mp_doc:
-            return mp_doc         
+    return mp_doc
 
 def create_update_stripe_payout(data, log_doc, api_key):
     # check if transaction is already recorded; return id if yes, otherwise create new doc
@@ -429,76 +481,91 @@ def create_update_stripe_payout(data, log_doc, api_key):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
     
-    # update the charges and compute the involved in payout
-    if doc.status == "paid":
-        balance_transactions = stripe.BalanceTransaction.list(payout=doc.name, limit=100)
-        sources = []
-        charges = 0.0
-        stripe_fees = 0.0
-        refunds = 0.0
-        adjustments = 0.0
+    if not doc.status == "paid":
+        return
 
-        # update charges involved in payout
-        for txn in balance_transactions.auto_paging_iter():
-            if txn.type in ["charge", "payment"] and frappe.db.exists("Stripe Transaction", txn.source):
-                charge_data = get_charge_details(txn.source, api_key)
-                charge_remark = f'Updated {doc.created.strftime("%B %d, %Y")} through payout {doc.name}.'
-                sources.append({
-                    "source_id": txn.source,
-                    "net_amount": txn.net,
-                    "currency": txn.currency,
-                    "fee_details": txn.fee_details,
-                    "merchant_payment": frappe.db.exists("Merchant Payment", {"source": txn.source})
-                })
-
-                if charge_data:
-                    create_update_stripe_transaction(charge_data, api_key, remark=charge_remark, payout=doc.name)
+    # validate stripe payout data
+    sources, stripe_fees = validate_stripe_payout_data(doc, api_key)
+    frappe.log_error(str(sources and stripe_fees is not None))
+    if not (sources and stripe_fees is not None):
+        return
         
-        # total the charges, stripe_fees, refunds and adjustments         
-        for txn in balance_transactions.auto_paging_iter():
-            if txn.type in ["charge", "payment"] and frappe.db.exists("Stripe Transaction", txn.source):
-                charges = charges + txn.net
-                
-            if txn.type == "stripe_fee":
-                stripe_fees = stripe_fees + txn.net
-                
-            if txn.type == "refund":
-                refunds = refunds + txn.net
-                
-            if txn.type == "adjustment":
-                adjustments = adjustments + txn.net
-                
-        total = charges + stripe_fees
+    # create journal entry
+    je_doc = create_journal_entry(doc, sources, stripe_fees/100)
+    
+    if je_doc:
+        doc.journal_entry = je_doc.name
+
+    try:
+        doc.flags.ignore_permissions = True
+        doc.save()
+
+    except TimestampMismatchError:
+        pass
         
-        # refunds and adjustments are not handled at the moment, error message will be sent via email
-        if refunds or adjustments or (Decimal(total) / Decimal('100') != Decimal(str(doc.amount))):
-            notify_error_to_user(
-                doc.name,
-                charges/100,
-                stripe_fees/100,
-                refunds/100,
-                adjustments/100,
-                total/100,
-                doc.amount,
-                True if (refunds or adjustments) else False
-            )
-            
-        else:
-            # create journal entry
-            je_doc = create_journal_entry(doc, sources, stripe_fees/100)
-            
-            if je_doc:
-                doc.journal_entry = je_doc.name
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
 
-            try:
-                doc.flags.ignore_permissions = True
-                doc.save()
 
-            except TimestampMismatchError:
-                pass
-                
-            except Exception as e:
-                frappe.log_error(frappe.get_traceback(), _("Error Saving Stripe Payout Document"))
+
+def validate_stripe_payout_data(doc, api_key):
+    doc.reload()
+
+    balance_transactions = stripe.BalanceTransaction.list(payout=doc.name, limit=100)
+    sources = []
+    charges = 0.0
+    stripe_fees = 0.0
+    refunds = 0.0
+    adjustments = 0.0
+
+    # update charges involved in payout and store them as sources
+    for txn in balance_transactions.auto_paging_iter():
+        if txn.type in ["charge", "payment"] and frappe.db.exists("Stripe Transaction", txn.source):
+            charge_data = get_charge_details(txn.source, api_key)
+            charge_remark = f'Updated {doc.created.strftime("%B %d, %Y")} through payout {doc.name}.'
+            sources.append({
+                "source_id": txn.source,
+                "net_amount": txn.net,
+                "currency": txn.currency,
+                "fee_details": txn.fee_details,
+                "merchant_payment": frappe.db.exists("Merchant Payment", {"source": txn.source})
+            })
+
+            if charge_data:
+                create_update_stripe_transaction(charge_data, api_key, remark=charge_remark, payout=doc.name)
+    
+    # total the charges, stripe_fees, refunds and adjustments         
+    for txn in balance_transactions.auto_paging_iter():
+        if txn.type in ["charge", "payment"] and frappe.db.exists("Stripe Transaction", txn.source):
+            charges = charges + txn.net
+            
+        if txn.type == "stripe_fee":
+            stripe_fees = stripe_fees + txn.net
+            
+        if txn.type == "refund":
+            refunds = refunds + txn.net
+            
+        if txn.type == "adjustment":
+            adjustments = adjustments + txn.net
+            
+    total = charges + stripe_fees
+    
+    # refunds and adjustments are not handled at the moment, error message will be sent via email
+    if refunds or adjustments or (Decimal(total) / Decimal('100') != Decimal(str(doc.amount))):
+        notify_error_to_user(
+            doc.name,
+            charges/100,
+            stripe_fees/100,
+            refunds/100,
+            adjustments/100,
+            total/100,
+            doc.amount,
+            True if (refunds or adjustments) else False
+        )
+
+        return None, None
+
+    return sources, stripe_fees
 
 def create_update_merchant_payment(stripe_transaction, metadata, api_key):
     mp_doc_name = frappe.db.exists("Merchant Payment", {"source": stripe_transaction.stripe_transaction_id})
@@ -559,242 +626,270 @@ def create_sales_invoice(sales_order, merchant_payment):
     # get the authorized user
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
 
-    # check if authorized user is set, do_not_create_invoice is disabled and if sales order was already paid
-    if user_to_authorize and \
-    not frappe.db.get_value("Payment Request", merchant_payment.associated_payment_request, "do_not_create_invoice") and \
-    frappe.db.get_value("Sales Order", sales_order, "per_billed") == 0 :
+     # check if authorized user is set
+    if not user_to_authorize:
+        return
+
+    # check if do_not_create_invoice is disabled 
+    if frappe.db.get_value("Payment Request", merchant_payment.associated_payment_request, "do_not_create_invoice"):
+        return
+
+    # check if sales order was already paid
+    if frappe.db.get_value("Sales Order", sales_order, "per_billed") != 0:
+        return
             
-        frappe.set_user(user_to_authorize)
-        si_doc = make_sales_invoice(sales_order)
-        si_meta = frappe.get_meta("Sales Invoice")
-        update_stock_field = next((f for f in si_meta.fields if f.fieldname == "update_stock"), None)
-        update_stock = 0
+    frappe.set_user(user_to_authorize)
+    si_doc = make_sales_invoice(sales_order)
+    si_meta = frappe.get_meta("Sales Invoice")
+    update_stock_field = next((f for f in si_meta.fields if f.fieldname == "update_stock"), None)
+    update_stock = 0
 
-        if update_stock_field:
-            update_stock = update_stock_field.default
-            
-        si_doc.update_stock = update_stock
+    if update_stock_field:
+        update_stock = update_stock_field.default
         
-        try:
-            si_doc.flags.ignore_permissions = True
-            si_doc.save()
-            si_doc.submit()
+    si_doc.update_stock = update_stock
+    
+    try:
+        si_doc.flags.ignore_permissions = True
+        si_doc.save()
+        si_doc.submit()
 
-        except Exception as e:
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Sales Invoice Document"))
-        
-        # update Merchant Payment doc
-        try:
-            merchant_payment.associated_sales_invoice = si_doc.name
-            merchant_payment.save()
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Sales Invoice Document"))
+    
+    # update Merchant Payment doc
+    try:
+        merchant_payment.associated_sales_invoice = si_doc.name
+        merchant_payment.save()
 
-        except TimestampMismatchError:
-            pass
+    except TimestampMismatchError:
+        pass
 
-        except Exception as e:
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
 def create_payment_entry(merchant_payment):
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
+
+    # check if authorized user is set
+    if not user_to_authorize:
+        return
+    
     do_not_create_invoice = frappe.db.get_value("Payment Request", merchant_payment.associated_payment_request, "do_not_create_invoice")
+    # check if payment entry already exists
     per_exists = frappe.db.exists(
         "Payment Entry Reference", 
         { "reference_name": merchant_payment.associated_sales_order if do_not_create_invoice else merchant_payment.associated_sales_invoice }
     )
+    if per_exists:
+        return
+    
+    frappe.set_user(user_to_authorize)
 
-    if user_to_authorize and not per_exists:
-        frappe.set_user(user_to_authorize)
+    # get the Payment Request doc and fetch the cost_center from settings
+    pr_doc = frappe.get_doc("Payment Request", merchant_payment.associated_payment_request)
+    cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
 
-        # get the Payment Request doc and fetch the cost_center from settings
-        pr_doc = frappe.get_doc("Payment Request", merchant_payment.associated_payment_request)
-        cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
+    # reference the invoice instead of sales order if do_not_create_invoice is disabled
+    if not do_not_create_invoice:
+        pr_doc.reference_doctype = "Sales Invoice"
+        pr_doc.reference_name = merchant_payment.associated_sales_invoice
 
-        # reference the invoice instead of sales order if do_not_create_invoice is disabled
-        if not do_not_create_invoice:
-            pr_doc.reference_doctype = "Sales Invoice"
-            pr_doc.reference_name = merchant_payment.associated_sales_invoice
+        si_doc = frappe.get_doc("Sales Invoice", merchant_payment.associated_sales_invoice) # get the invoice
+        si_items_with_cost_center = [item for item in si_doc.items if item.cost_center] # find the items in the invoice with cost center
+        max_si_item = max(si_items_with_cost_center, key=lambda item: item.net_amount) if si_items_with_cost_center else None # find the highest amount in the list
+        cost_center = max_si_item.cost_center if max_si_item.cost_center else frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
 
-            si_doc = frappe.get_doc("Sales Invoice", merchant_payment.associated_sales_invoice) # get the invoice
-            si_items_with_cost_center = [item for item in si_doc.items if item.cost_center] # find the items in the invoice with cost center
-            max_si_item = max(si_items_with_cost_center, key=lambda item: item.net_amount) if si_items_with_cost_center else None # find the highest amount in the list
-            cost_center = max_si_item.cost_center if max_si_item.cost_center else frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
-
-        pe_doc = pr_doc.create_payment_entry(submit=False)
-        
-        # sets the actual amount paid by the user
-        for index, reference in enumerate(pe_doc.references):
-            if reference.reference_name == pr_doc.reference_name:
-                pe_doc.references[index].allocated_amount = merchant_payment.gross_amount
-                
-        pe_doc.mode_of_payment = frappe.get_value("Payment Request", merchant_payment.associated_payment_request, "mode_of_payment") 
-        pe_doc.reference_no = frappe.get_value("Stripe Transaction", merchant_payment.source, "payment_intent")
-        pe_doc.paid_amount = merchant_payment.net_amount
-
-        # apply Merchant Payment as deduction
-        pe_doc.append("deductions", {
-            "account": frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account"),
-            "cost_center": cost_center,
-            "amount": merchant_payment.merchant_fee,
-            "description": merchant_payment.name,
-        })
-        
-        # set the bank account
-        if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
-            pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
-
-        try:
-            pe_doc.save(ignore_permissions=True)
-
-        except TimestampMismatchError:
-            pass
-
-        except Exception as e:
-            notify_error_to_user_merchant_payment(
-                merchant_payment.name,
-                _("The Payment Entry creation failed."),
-                frappe.get_traceback()
-            )
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
-        
-        # update Merchant Payment doc
-        try:
-            merchant_payment.associated_payment_entry = pe_doc.name
-            merchant_payment.save()
-
-        except TimestampMismatchError:
-            pass
-
-        except Exception as e:
-            notify_error_to_user_merchant_payment(
-                merchant_payment.name,
-                _("The Payment Entry association failed."),
-                frappe.get_traceback()
-            )
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
+    pe_doc = pr_doc.create_payment_entry(submit=False)
+    
+    # sets the actual amount paid by the user
+    for index, reference in enumerate(pe_doc.references):
+        if reference.reference_name == pr_doc.reference_name:
+            pe_doc.references[index].allocated_amount = merchant_payment.gross_amount
             
-        # submit Payment Entry doc according to settings
-        if frappe.db.get_single_value("Stripe Plus Settings", "auto_submit_payment"):
-            try:
-                pe_doc.submit() 
+    pe_doc.mode_of_payment = frappe.get_value("Payment Request", merchant_payment.associated_payment_request, "mode_of_payment") 
+    pe_doc.reference_no = frappe.get_value("Stripe Transaction", merchant_payment.source, "payment_intent")
+    pe_doc.paid_amount = merchant_payment.net_amount
 
-            except Exception as e:
-                frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
+    # apply Merchant Payment as deduction
+    pe_doc.append("deductions", {
+        "account": frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account"),
+        "cost_center": cost_center,
+        "amount": merchant_payment.merchant_fee,
+        "description": merchant_payment.name,
+    })
+    
+    # set the bank account
+    if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
+        pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
+
+    try:
+        pe_doc.save(ignore_permissions=True)
+
+    except TimestampMismatchError:
+        pass
+
+    except Exception as e:
+        notify_error_to_user_merchant_payment(
+            merchant_payment.name,
+            _("The Payment Entry creation failed."),
+            frappe.get_traceback()
+        )
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
+    
+    # update Merchant Payment doc
+    try:
+        merchant_payment.associated_payment_entry = pe_doc.name
+        merchant_payment.save()
+
+    except TimestampMismatchError:
+        pass
+
+    except Exception as e:
+        notify_error_to_user_merchant_payment(
+            merchant_payment.name,
+            _("The Payment Entry association failed."),
+            frappe.get_traceback()
+        )
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
+        
+    # submit Payment Entry doc according to settings
+    if frappe.db.get_single_value("Stripe Plus Settings", "auto_submit_payment"):
+        try:
+            pe_doc.submit() 
+
+        except Exception as e:
+            frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
              
 def create_journal_entry(payout, sources=None, stripe_fees=None):
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
 
-    # create a new journal entry based on the Balance Transaction object
-    if user_to_authorize and \
-    not frappe.db.exists("Journal Entry", {"cheque_no": payout.name}) and \
-    frappe.db.exists("Stripe Plus Settings Payout Account", {"payout_account": payout.destination}):
-        frappe.set_user(user_to_authorize)
+    # check if authorized user is set
+    if not user_to_authorize:
+        return
 
-        # loop through the sources to create journal entry
-        if sources:
-            for index, source in enumerate(sources):
-                if source.get('merchant_payment'):
-                    associated_subscription = frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_subscription")
-                    default_credit_account = frappe.db.get_single_value("Stripe Plus Settings", "credit_account")
+    # check if payout already exists
+    if frappe.db.exists("Journal Entry", {"cheque_no": payout.name}):
+        return
 
-                    if associated_subscription:
-                        credit_account = frappe.db.get_value(
-                            "Subscription",
-                            associated_subscription,
-                            "account"
-                        ) or default_credit_account
+    # check if payout destination is set
+    if not frappe.db.exists("Stripe Plus Settings Payout Account", {"payout_account": payout.destination}):
+        return
 
-                    else:
-                        # fetch the credit_account and credit_bank_account using Payment Request
-                        credit_account = frappe.db.get_value(
-                            "Payment Request",
-                            frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_payment_request"),
-                            "payment_account"
-                        ) or default_credit_account
+    # check if sources is not empty
+    if not sources:
+        return
 
-                    if not default_credit_account:
-                        frappe.log_error("The default credit account is not set in Stripe Plus Settings", "Error Creating Journal Entry")
-                        frappe.throw("Error Creating Journal Entry")
+    frappe.set_user(user_to_authorize)
+    # loop through the sources to create journal entry
+    for index, source in enumerate(sources):
+        if source.get('merchant_payment'):
+            associated_subscription = frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_subscription")
+            default_credit_account = frappe.db.get_single_value("Stripe Plus Settings", "credit_account")
 
-                    credit_bank_account = frappe.db.get_value("Bank Account", {"account": credit_account}, "name")
+            if associated_subscription:
+                credit_account = frappe.db.get_value(
+                    "Subscription",
+                    associated_subscription,
+                    "account"
+                ) or default_credit_account
 
-            # fetch matching debit_account from settings; otherwise use default
-            debit_accounts_name = frappe.db.exists("Stripe Plus Settings Payout Account", {"payout_account": payout.destination})
+            else:
+                # fetch the credit_account and credit_bank_account using Payment Request
+                credit_account = frappe.db.get_value(
+                    "Payment Request",
+                    frappe.db.get_value("Merchant Payment", source.get('merchant_payment'), "associated_payment_request"),
+                    "payment_account"
+                ) or default_credit_account
 
-            if not debit_accounts_name:
-                debit_accounts_name = frappe.db.exists("Stripe Plus Settings Payout Account", {"is_default_payout_account": True})
+            if not default_credit_account:
+                frappe.log_error("The default credit account is not set in Stripe Plus Settings", "Error Creating Journal Entry")
+                frappe.throw("Error Creating Journal Entry")
 
-            je_doc = frappe.new_doc("Journal Entry")
-            je_doc.entry_type = "Journal Entry"
-            je_doc.posting_date = today()
-            je_doc.cheque_no = payout.name
-            je_doc.cheque_date = payout.created
+            credit_bank_account = frappe.db.get_value("Bank Account", {"account": credit_account}, "name")
 
-            # add credit row if there are stripe fees
-            if stripe_fees:
-                stripe_fee_account = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account")
-                stripe_fee_cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
+    # fetch matching debit_account from settings; otherwise use default
+    debit_accounts_name = frappe.db.exists("Stripe Plus Settings Payout Account", {"payout_account": payout.destination})
 
-                je_doc.append("accounts", {
-                    "account": stripe_fee_account,
-                    "bank_account": get_bank_account_for_payment_entry("Receive", stripe_fee_account, stripe_fee_account, as_dict=False),
-                    "debit_in_account_currency": abs(stripe_fees),
-                    "cost_center": stripe_fee_cost_center
-                })
+    if not debit_accounts_name:
+        debit_accounts_name = frappe.db.exists("Stripe Plus Settings Payout Account", {"is_default_payout_account": True})
 
-            # fill credit row
-            je_doc.append("accounts", {
-                "account": credit_account,
-                "bank_account": credit_bank_account,
-                "credit_in_account_currency": abs(payout.amount) + abs(stripe_fees)
-            })
+    je_doc = frappe.new_doc("Journal Entry")
+    je_doc.entry_type = "Journal Entry"
+    je_doc.posting_date = today()
+    je_doc.cheque_no = payout.name
+    je_doc.cheque_date = payout.created
 
-            # fill debit row
-            je_doc.append("accounts", {
-                "account": frappe.db.get_value("Stripe Plus Settings Payout Account", debit_accounts_name, "erp_account"),
-                "bank_account": frappe.db.get_value("Stripe Plus Settings Payout Account", debit_accounts_name, "erp_bank_account"),
-                "debit_in_account_currency": abs(payout.amount)
-            })
-            
-            try:
-                je_doc.save()
+    # add credit row if there are stripe fees
+    if stripe_fees:
+        stripe_fee_account = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account")
+        stripe_fee_cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
 
-            except Exception as e:
-                frappe.log_error(frappe.get_traceback(), _("Error Saving Journal Entry Document"))
+        je_doc.append("accounts", {
+            "account": stripe_fee_account,
+            "bank_account": get_bank_account_for_payment_entry("Receive", stripe_fee_account, stripe_fee_account, as_dict=False),
+            "debit_in_account_currency": abs(stripe_fees),
+            "cost_center": stripe_fee_cost_center
+        })
 
-            # submit according to settings
-            if frappe.db.get_single_value("Stripe Plus Settings", "auto_submit_journal"):
-                try:
-                    je_doc.submit() 
+    # fill credit row
+    je_doc.append("accounts", {
+        "account": credit_account,
+        "bank_account": credit_bank_account,
+        "credit_in_account_currency": abs(payout.amount) + abs(stripe_fees)
+    })
 
-                except Exception as e:
-                    frappe.log_error(frappe.get_traceback(), _("Error Submitting Journal Entry Document"))
+    # fill debit row
+    je_doc.append("accounts", {
+        "account": frappe.db.get_value("Stripe Plus Settings Payout Account", debit_accounts_name, "erp_account"),
+        "bank_account": frappe.db.get_value("Stripe Plus Settings Payout Account", debit_accounts_name, "erp_bank_account"),
+        "debit_in_account_currency": abs(payout.amount)
+    })
     
-            return je_doc
+    try:
+        je_doc.save()
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Journal Entry Document"))
+
+    # submit according to settings
+    if frappe.db.get_single_value("Stripe Plus Settings", "auto_submit_journal"):
+        try:
+            je_doc.submit() 
+
+        except Exception as e:
+            frappe.log_error(frappe.get_traceback(), _("Error Submitting Journal Entry Document"))
+
+    return je_doc
 
 def get_charge_details(id, api_key):
     # get Charge object
-    if id:
-        stripe.api_key = api_key
+    if not (id and api_key):
+        return
+    
+    stripe.api_key = api_key
 
-        try:
-            charge = stripe.Charge.retrieve(id)
-            return charge
-        
-        except Exception as e:
-            frappe.log_error(frappe.get_traceback(), _("Error getting Charge Details"))
-            return None
+    try:
+        charge = stripe.Charge.retrieve(id)
+        return charge
+    
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), _("Error getting Charge Details"))
+        return None
 
 def get_balance_transaction_details(id, api_key):
     # get Balance Transaction object 
-    if id:
-        stripe.api_key = api_key
+    if not (id and api_key):
+        return
+    
+    stripe.api_key = api_key
 
-        try:
-            balance_transaction = stripe.BalanceTransaction.retrieve(id)
-            return balance_transaction
-        
-        except Exception as e:
-            return {"Error getting Balance Transaction Details": str(e)}, 403
+    try:
+        balance_transaction = stripe.BalanceTransaction.retrieve(id)
+        return balance_transaction
+    
+    except Exception as e:
+        return {"Error getting Balance Transaction Details": str(e)}, 403
 
 # send an error email to user if journal entry creation fails  
 def notify_error_to_user(
@@ -807,12 +902,18 @@ def notify_error_to_user(
         stripe_total,
         has_refunds_or_adjusments
     ):
-    payout_url = get_url_to_form("Stripe Payout", payout_id)
     recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+    
+    if not recipients:
+        return
+    
+    if frappe.db.exists("Email Queue", {"reference_doctype": "Stripe Payout", "reference_name": payout_id}):
+        return
+
     message = frappe.render_template(
         "erpusa/templates/html/journal_entry_errors.html", {
             "payout_id": payout_id,
-            "payout_url": payout_url,
+            "payout_url": get_url_to_form("Stripe Payout", payout_id),
             "charges": charges,
             "stripe_fees": stripe_fees,
             "refunds": refunds,
@@ -823,15 +924,14 @@ def notify_error_to_user(
         }
     )
     
-    if recipients and not frappe.db.exists("Email Queue", {"reference_doctype": "Stripe Payout", "reference_name": payout_id}):
-        frappe.sendmail(
-            recipients=recipients.split(),
-            subject=_("Stripe Payout Journal Entry failed"),
-            message=message,
-            reference_doctype="Stripe Payout",
-            reference_name=payout_id,
-            now=True
-        )
+    frappe.sendmail(
+        recipients=recipients.split(),
+        subject=_("Stripe Payout Journal Entry failed"),
+        message=message,
+        reference_doctype="Stripe Payout",
+        reference_name=payout_id,
+        now=True
+    )
 
 def generate_realtime_notification_email_message(title, description, merchant_payment):
     return frappe.render_template(
@@ -849,51 +949,61 @@ def generate_realtime_notification_email_message(title, description, merchant_pa
 
 
 def notify_error_to_user_merchant_payment(merchant_payment_name, summary, error_message):
+    # check if merchant payment doc is in database
+    if not frappe.db.exists("Merchant Payment", merchant_payment_name):
+        return
+    
+    # check if recipients in settings is set
     recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+    if not recipients:
+        return
+    
+    # check if email has already been sent
+    reference_name = merchant_payment_name + "_error_" + now()
+    if frappe.db.exists("Email Queue", {"reference_doctype": "Merchant Payment", "reference_name": reference_name}):
+        return
+        
+    message = frappe.render_template(
+        "erpusa/templates/html/merchant_payment_errors.html",
+        {
+            "merchant_payment": merchant_payment_name,
+            "summary": summary,
+            "error_message": error_message
+        },
+    )
 
-    if frappe.db.exists("Merchant Payment", merchant_payment_name):
-        reference_name = merchant_payment_name + "_error_" + now()
-
-        if recipients and not frappe.db.exists("Email Queue", {"reference_doctype": "Merchant Payment", "reference_name": reference_name}):
-            message = frappe.render_template(
-                "erpusa/templates/html/merchant_payment_errors.html",
-                {
-                    "merchant_payment": merchant_payment_name,
-                    "summary": summary,
-                    "error_message": error_message
-                },
-            )
-
-            frappe.sendmail(
-                recipients=recipients.split(),
-                subject=_("Merchant Payment failed"),
-                message=message,
-                reference_doctype="Merchant Payment",
-                reference_name=reference_name,
-                now=True
-            )
+    frappe.sendmail(
+        recipients=recipients.split(),
+        subject=_("Merchant Payment failed"),
+        message=message,
+        reference_doctype="Merchant Payment",
+        reference_name=reference_name,
+        now=True
+    )
 
 
 def notify_user(merchant_payment):
     # check if realtime notifications is enabled
-    if frappe.db.get_single_value("Stripe Plus Settings", "turn_on_email_notifications") and frappe.db.get_single_value("Stripe Plus Settings", "notification_method") == "Realtime":
-        recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
-        subject = f"Received {fmt_money(merchant_payment.gross_amount)} from {merchant_payment.customer}"
-        reference_name = None
+    if not (frappe.db.get_single_value("Stripe Plus Settings", "turn_on_email_notifications") and frappe.db.get_single_value("Stripe Plus Settings", "notification_method") == "Realtime"):
+        return
 
-        if merchant_payment.source:
-            reference_name = merchant_payment.source + "_notification"
-        
-        if not (frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source + "_notification"}) or frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source})):
-            frappe.sendmail(
-                recipients=recipients.split(),
-                subject=subject,
-                message=generate_realtime_notification_email_message(
-                    title=f"{merchant_payment.customer} sent {fmt_money(merchant_payment.gross_amount)}",
-                    description=_("More information about this payment is shown below."),
-                    merchant_payment=merchant_payment
-                ),
-                reference_doctype="Stripe Transaction",
-                reference_name=reference_name,
-                now=True
-            )
+    recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+    subject = f"Received {fmt_money(merchant_payment.gross_amount)} from {merchant_payment.customer}"
+    reference_name = merchant_payment.source and f"{merchant_payment.source}_notification"
+    
+    # check if email has already been sent
+    if (frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source + "_notification"}) or frappe.db.exists("Email Queue", {"reference_name": merchant_payment.source})):
+        return
+    
+    frappe.sendmail(
+        recipients=recipients.split(),
+        subject=subject,
+        message=generate_realtime_notification_email_message(
+            title=f"{merchant_payment.customer} sent {fmt_money(merchant_payment.gross_amount)}",
+            description=_("More information about this payment is shown below."),
+            merchant_payment=merchant_payment
+        ),
+        reference_doctype="Stripe Transaction",
+        reference_name=reference_name,
+        now=True
+    )

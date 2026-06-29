@@ -9,90 +9,145 @@ from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import SUBSCRIPTION_STATUS_VERBOSE
 
-def receive_stripe_subscription_events(data, return_invoice_id=False):
+def receive_stripe_subscription_events(data, type):
     if data.get("object") == "subscription":
-        # get metadata to look for associated ERPNext subscription
-        metadata = data.get("metadata")
-        # check if subscription exists and set the stripe id and status
-        if metadata and metadata.get("erp_subscription_name"):
-            if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id"):
-                frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_id", data.get("id"))
-                
-                # if stripe is already linked with ERPNext, update the cancellation date if appplicable
-                if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"):
-                    import stripe
-                    stripe.api_key = get_api_key_secret(payment_gateway=frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "payment_gateway"))
-                    stripe.Subscription.modify(
-                        data.get("id"), 
-                        cancel_at=int(
-                            (datetime.datetime.combine(frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "end_date"), datetime.time()))
-                            .timestamp()
-                        )
-                    )
-                
-                # send welcome email and create user if customer is new
-                if not frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status") and data.get("status") == "active":
-                    user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
-                    representative = frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "user_account_representative")
-                    email_address = get_representative_email_address(
-                        representative=representative,
-                        log_title=f"Failed to send a welcome email for {metadata.get('erp_subscription_name')}.",
-                        as_dict=False
-                    )
-                    
-                    if not email_address:
-                        return
-                    
-                    user_exists = frappe.db.exists("User", email_address)
-                    
-                    frappe.sendmail(
-                        subject=_("Welcome to {}").format(frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "company")),
-                        recipients=[email_address],
-                        message=frappe.render_template(
-                            "erpusa/templates/html/subscription_welcome.html",
-                            {
-                                "customer": frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"),
-                                "subscription": metadata.get("erp_subscription_name"),
-                                "user_exists": user_exists
-                            },
-                        ),
-                        now=True,
-                        reference_doctype="Subscription",
-                        reference_name=f"{metadata.get('erp_subscription_name')}_welcome"
-                    )
-
-                    if user_to_authorize and not user_exists:
-                        frappe.set_user(user_to_authorize)
-                        user = frappe.new_doc("User")
-                        user.email = email_address
-                        user.first_name = frappe.db.get_value("Contact", representative, "first_name")
-                        user.last_name = frappe.db.get_value("Contact", representative, "last_name")
-                        user.save()
-                        
-                        user.append("roles", {
-                            "role": "Customer"
-                        })
-                        user.save()
-                        
-                        customer = frappe.get_doc("Customer", frappe.db.get_value("Subscription", metadata.get("erp_subscription_name"), "party"))
-                        if not frappe.db.exists("Portal User", {"parent": customer.name, "user": user.name}):
-                            customer.append("portal_userss", {
-                                "user": user.name
-                            })
-                        customer.save()
-                
-            frappe.db.set_value("Subscription", metadata.get("erp_subscription_name"), "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
+        process_subscription_object(data)
     
     # make payment entry if subscription was succesfully set up
-    if data.get("object") == "invoice" and data.get("subscription") and data.get("status") in ["open", "paid"]:
+    if data.get("object") == "invoice":
+        process_invoice_object(data, type)
+
+def process_subscription_object(data):
+    # get metadata to look for associated ERPNext subscription
+    subscription_name = data.get("metadata", {}).get("erp_subscription_name")
+
+    # check if subscription exists and set the stripe id and status
+    if not subscription_name:
+        return
+    
+    # check if subscription already has stripe_subscription_id (stripe subscription is new)
+    if not frappe.db.get_value("Subscription", subscription_name, "stripe_subscription_id"):
+        susbcription_id = data.get("id")
+        frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_id", susbcription_id)
+
+        # if stripe is already linked with ERPNext, update the cancellation date if appplicable
+        if not frappe.db.get_value("Subscription", subscription_name, "stripe_subscription_status") and frappe.db.get_value("Subscription", subscription_name, "end_date"):
+            import stripe
+            stripe.api_key = get_api_key_secret(payment_gateway=frappe.db.get_value("Subscription", subscription_name, "payment_gateway"))
+            stripe.Subscription.modify(
+                susbcription_id, 
+                cancel_at=int(
+                    (datetime.datetime.combine(frappe.db.get_value("Subscription", subscription_name, "end_date"), datetime.time()))
+                    .timestamp()
+                )
+            )
+
+        # if the stripe subscription is about to be active, send a welcome message and create a user before updating the subscription's stripe_subscription_status field
+        if not frappe.db.get_value("Subscription", subscription_name, "stripe_subscription_status") and data.get("status") == "active":
+            representative = frappe.db.get_value("Subscription", subscription_name, "user_account_representative")
+            email_address = get_representative_email_address(
+                representative=representative,
+                log_title=f"Failed to send a welcome email for {subscription_name}.",
+                as_dict=False
+            )
+            
+            if not email_address:
+                notify_error_to_user_new_subscription(subscription_name, susbcription_id, "email_address_missing")
+            
+            else:
+                frappe.sendmail(
+                    subject=_("Welcome to {}").format(frappe.db.get_value("Subscription", subscription_name, "company")),
+                    recipients=[email_address],
+                    message=frappe.render_template(
+                        "erpusa/templates/html/subscription_welcome.html",
+                        {
+                            "customer": frappe.db.get_value("Subscription", subscription_name, "party"),
+                            "subscription": subscription_name,
+                            "user_exists": user_exists
+                        },
+                    ),
+                    now=True,
+                    reference_doctype="Subscription",
+                    reference_name=f"{subscription_name}_welcome"
+                )
+            
+            user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
+
+            if not user_to_authorize:
+                notify_error_to_user_new_subscription(subscription_name, susbcription_id, "authorized_user_unset")
+            else:
+                user_exists = frappe.db.exists("User", email_address)
+                if not user_exists:
+                    frappe.set_user(user_to_authorize)
+                    user = frappe.new_doc("User")
+                    user.email = email_address
+                    user.first_name = frappe.db.get_value("Contact", representative, "first_name")
+                    user.last_name = frappe.db.get_value("Contact", representative, "last_name")
+                    user.save()
+                    
+                    user.append("roles", {
+                        "role": "Customer"
+                    })
+                    user.save()
+                    
+                    customer = frappe.get_doc("Customer", frappe.db.get_value("Subscription", subscription_name, "party"))
+                    if not frappe.db.exists("Portal User", {"parent": customer.name, "user": user.name}):
+                        customer.append("portal_userss", {
+                            "user": user.name
+                        })
+                    customer.save()
         
-        # find the subscription associated
-        subscription = frappe.db.exists("Subscription", {"stripe_subscription_id": data.get("subscription")})
-        if subscription:
-            create_payment_entry_from_stripe_invoice(data, subscription)
+    frappe.db.set_value("Subscription", subscription_name, "stripe_subscription_status", SUBSCRIPTION_STATUS_VERBOSE[data.get("status")])
+
+def notify_error_to_user_new_subscription(subscription_name, subscription_id, error_type):
+    recipients = frappe.db.get_single_value("Stripe Plus Settings", "notification_recipients")
+    
+    # check if recipients is set
+    if not recipients:
+        return
+    
+    # check if email has already been sent
+    reference_name = f"{subscription_name}_{error_type}"
+    if frappe.db.exists("Email Queue", {"reference_doctype": "Stripe Payout", "reference_name": reference_name}):
+        return
+
+    message = frappe.render_template(
+        "erpusa/templates/html/new_subscription_errors.html", {
+            "subscription_name": subscription_name,
+            "subscription_link": get_url_to_form("Subscription", subscription_name),
+            "subscription_id": subscription_id,
+            "error_type": error_type,
+        }
+    )
+    
+    frappe.sendmail(
+        recipients=recipients.split(),
+        subject=_("Stripe Subscription Failed"),
+        message=message,
+        reference_doctype="Subscription",
+        reference_name=reference_name,
+        now=True
+    )
+
+def process_invoice_object(data, type):
+    # check if invoice is for a subscription
+    if not data.get("subscription"):
+        return
+
+    # check if invoice is created or paid
+    if not (data.get("status") in ["open", "paid"] and type in ["invoice.created", "invoice.payment_succeeded"]):
+        return
+        
+    # find the subscription associated
+    subscription = frappe.db.exists("Subscription", {"stripe_subscription_id": data.get("subscription")})
+    if not subscription:
+        return
+    
+    create_payment_entry_from_stripe_invoice(data, subscription)
 
 def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_date=None, return_invoice_id=False):
     from erpusa.stripe_plus.api.webhook_receiver import create_update_stripe_transaction, get_charge_details, notify_error_to_user_merchant_payment
+
     api_key = get_api_key_secret(
         payment_gateway=frappe.db.get_value(
             "Subscription",
@@ -104,166 +159,189 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         invoice.get("charge"),
         api_key
     )
+
     # get charge details
     if charge:
         # update/create Stripe Transaction for the charge data and get the Merchant Payment doc associated
-        mp_doc = create_update_stripe_transaction(charge, api_key, return_mp_doc=True) 
+        mp_doc = create_update_stripe_transaction(data=charge, api_key=api_key, return_mp_doc=True)
     else:
         charge_transaction_name = frappe.db.exists("Stripe Transaction", {"payment_intent": invoice.get("payment_intent")})
         merchant_payment_name = frappe.db.exists("Merchant Payment", {"source": charge_transaction_name})
         mp_doc = frappe.get_doc("Merchant Payment", merchant_payment_name)
 
-    if mp_doc:
-        mp_doc.associated_subscription = subscription               
-        mp_doc.customer = frappe.db.get_value("Subscription", subscription, "party")
+    frappe.log_error(str(mp_doc))
 
-        try:
-            mp_doc.flags.ignore_permissions = True
-            mp_doc.save()
-
-        except TimestampMismatchError:
-            pass
-        
-        except Exception as e:
-            notify_error_to_user_merchant_payment(
-                mp_doc.name,
-                _("The Customer and/or Subscription association failed."),
-                frappe.get_traceback()
-            )
-            frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
+    if not mp_doc:
+        return
     
-        payment_intent = frappe.db.get_value("Stripe Transaction", mp_doc.source, "payment_intent")
+    mp_doc.associated_subscription = subscription               
+    mp_doc.customer = frappe.db.get_value("Subscription", subscription, "party")
 
-        if invoice.get('status') == "paid" and not frappe.db.exists("Payment Entry", { "reference_no":  payment_intent}):
-            user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
-            if user_to_authorize:
-                frappe.set_user(user_to_authorize)
+    try:
+        mp_doc.flags.ignore_permissions = True
+        mp_doc.save()
 
-                # fetch the oldest unpaid sales invoice
-                sales_invoices = frappe.db.get_all(
-                    "Sales Invoice",
-                    filters={"status": ["not in", ["Draft", "Paid", "Cancelled", "Return", "Partly Paid"]], "subscription": subscription},
-                    pluck="name",
-                    order_by="to_date asc",
-                    limit=1
-                )
+    except TimestampMismatchError:
+        pass
+    
+    except Exception as e:
+        notify_error_to_user_merchant_payment(
+            mp_doc.name,
+            _("The Customer and/or Subscription association failed."),
+            frappe.get_traceback()
+        )
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
-                pe_doc = None
-                cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
+    payment_intent = frappe.db.get_value("Stripe Transaction", mp_doc.source, "payment_intent")
+
+    frappe.log_error(str(payment_intent))
+
+    if not (invoice.get('status') == "paid" and not frappe.db.exists("Payment Entry", { "reference_no":  payment_intent})):
+        return
+
+    frappe.log_error("Step 1")
+    
+    user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
+    if not user_to_authorize:
+        return
+
+    frappe.log_error("Step 2")
+    
+    frappe.set_user(user_to_authorize)
+
+    # fetch the oldest unpaid sales invoice
+    sales_invoices = frappe.db.get_all(
+        "Sales Invoice",
+        filters={"status": ["not in", ["Draft", "Paid", "Cancelled", "Return", "Partly Paid"]], "subscription": subscription},
+        pluck="name",
+        order_by="to_date asc",
+        limit=1
+    )
+
+    frappe.log_error("Step 3")
+
+    pe_doc = None
+    cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
+    
+    if sales_invoices:
+        # set the customer and associated subscription
+        mp_doc.associated_sales_invoice = sales_invoices[0]
+        mp_error_message = _("The Sales Invoice association failed.")
+        
+        ##  Create a Payment Entry for the oldest sales invoice ##
+        if not frappe.db.exists("Payment Entry Reference", { "reference_name":  sales_invoices[0]}):
+            # get the Payment Request doc and fetch the cost_center from settings
+            pe_doc = get_payment_entry("Sales Invoice", sales_invoices[0], reference_date=reference_date)
+            # set the actual amount paid by the user
+            for index, reference in enumerate(pe_doc.references):
+                if reference.reference_name == sales_invoices[0]:
+                    pe_doc.references[index].allocated_amount = mp_doc.gross_amount
+
+            mp_error_message = _("The Payment Entry creation failed.")
+
+    else:
+        pe_doc = frappe.new_doc("Payment Entry")
+        pe_doc.party_type = "Customer"
+        pe_doc.party = mp_doc.customer
+        pe_doc.received_amount = mp_doc.net_amount
+        pe_doc.mode_of_payment = pe_doc.mode_of_payment or frappe.get_value("Payment Request", mp_doc.associated_payment_request, "mode_of_payment")
+        # set the bank account
+        if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
+            pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
+            
+        if reference_date:
+            pe_doc.reference_date = reference_date
+
+        mp_error_message = _("The Advance Payment Entry creation failed.")
+
+    
+
+    frappe.log_error("Step 4")
+
+    account = frappe.db.get_value(
+        "Payment Gateway Account",
+        frappe.db.get_value("Subscription", subscription, "payment_gateway_account"),
+        "payment_account"
+    )
+    
+    pe_doc.paid_to = account
+    pe_doc.mode_of_payment = frappe.db.get_value("Mode of Payment Account", {"default_account": pe_doc.paid_to}, "parent")
+    pe_doc.reference_no = payment_intent
+    pe_doc.reference_date = getdate()
+    pe_doc.paid_amount = mp_doc.net_amount
+
+    # apply Merchant Payment as deduction
+    pe_doc.append("deductions", {
+        "account": frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account"),
+        "cost_center": cost_center,
+        "amount": mp_doc.merchant_fee,
+        "description": mp_doc.name,
+    })
+    
+
+    frappe.log_error("Step 5")
+
+    # set the bank account
+    if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
+        pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
+
+    try:
+        pe_doc.save(ignore_permissions=True)
+
+    except TimestampMismatchError:
+        pass
+
+    except Exception as e:
+        notify_error_to_user_merchant_payment(
+            mp_doc.name,
+            _("The Payment Entry creation failed."),
+            frappe.get_traceback()
+        )
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
+
+    try:
+        pe_doc.submit()
+
+    except Exception as e:
+        notify_error_to_user_merchant_payment(
+            mp_doc.name,
+            _("The Payment Entry submission failed."),
+            frappe.get_traceback()
+        )
+        frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
                 
-                if sales_invoices:
-                    # set the customer and associated subscription
-                    mp_doc.associated_sales_invoice = sales_invoices[0]
-                    mp_error_message = _("The Sales Invoice association failed.")
-                    
-                    ##  Create a Payment Entry for the oldest sales invoice ##
-                    if not frappe.db.exists("Payment Entry Reference", { "reference_name":  sales_invoices[0]}):
-                        # get the Payment Request doc and fetch the cost_center from settings
-                        pe_doc = get_payment_entry("Sales Invoice", sales_invoices[0], reference_date=reference_date)
-                        # set the actual amount paid by the user
-                        for index, reference in enumerate(pe_doc.references):
-                            if reference.reference_name == sales_invoices[0]:
-                                pe_doc.references[index].allocated_amount = mp_doc.gross_amount
+    # update Merchant Payment doc
+    try:
+        mp_doc.associated_payment_entry = pe_doc.name
+        mp_doc.save()
 
-                        mp_error_message = _("The Payment Entry creation failed.")
+    except TimestampMismatchError:
+        pass
 
-                else:
-                    pe_doc = frappe.new_doc("Payment Entry")
-                    pe_doc.party_type = "Customer"
-                    pe_doc.party = mp_doc.customer
-                    pe_doc.received_amount = mp_doc.net_amount
-                    pe_doc.mode_of_payment = pe_doc.mode_of_payment or frappe.get_value("Payment Request", mp_doc.associated_payment_request, "mode_of_payment")
-                    # set the bank account
-                    if not pe_doc.bank_account and get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
-                        pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
-                        
-                    if reference_date:
-                        pe_doc.reference_date = reference_date
+    except Exception as e:
+        notify_error_to_user_merchant_payment(
+            mp_doc.name,
+            mp_error_message,
+            frappe.get_traceback()
+        )
+        frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
-                    mp_error_message = _("The Advance Payment Entry creation failed.")
-
-                account = frappe.db.get_value(
-                    "Payment Gateway Account",
-                    frappe.db.get_value("Subscription", subscription, "payment_gateway_account"),
-                    "payment_account"
-                )
-                
-                pe_doc.paid_to = account
-                pe_doc.mode_of_payment = frappe.db.get_value("Mode of Payment Account", {"default_account": pe_doc.paid_to}, "parent")
-                pe_doc.reference_no = payment_intent
-                pe_doc.reference_date = getdate()
-                pe_doc.paid_amount = mp_doc.net_amount
-
-                # apply Merchant Payment as deduction
-                pe_doc.append("deductions", {
-                    "account": frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_account"),
-                    "cost_center": cost_center,
-                    "amount": mp_doc.merchant_fee,
-                    "description": mp_doc.name,
-                })
-
-                # set the bank account
-                if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
-                    pe_doc.bank_account = get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False)
-
-                try:
-                    pe_doc.save(ignore_permissions=True)
-
-                except TimestampMismatchError:
-                    pass
-
-                except Exception as e:
-                    notify_error_to_user_merchant_payment(
-                        mp_doc.name,
-                        _("The Payment Entry creation failed."),
-                        frappe.get_traceback()
-                    )
-                    frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
-
-                try:
-                    pe_doc.submit()
-
-                except Exception as e:
-                    notify_error_to_user_merchant_payment(
-                        mp_doc.name,
-                        _("The Payment Entry submission failed."),
-                        frappe.get_traceback()
-                    )
-                    frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
-                            
-                # update Merchant Payment doc
-                try:
-                    mp_doc.associated_payment_entry = pe_doc.name
-                    mp_doc.save()
-
-                except TimestampMismatchError:
-                    pass
-
-                except Exception as e:
-                    notify_error_to_user_merchant_payment(
-                        mp_doc.name,
-                        mp_error_message,
-                        frappe.get_traceback()
-                    )
-                    frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
-
-                if not sales_invoices:
-                    notify_user_advance_payment(mp_doc, pe_doc.reference_no)
-                    
-                if return_invoice_id:
-                    if sales_invoices:
-                        return  _("Stripe Transaction ") +\
-                            f'<a href="{get_url_to_form("Stripe Transaction", charge.id)}">{charge.id}</a>' +\
-                            _(" posted as ") +\
-                            f'<a href="{get_url_to_form("Payment Entry", pe_doc.name)}">{pe_doc.name}</a>' +\
-                            _(" and paid to ") +\
-                            f'<a href="{get_url_to_form("Sales Invoice", sales_invoices[0])}">{sales_invoices[0]}</a>.'
-                    else:
-                        return _("Stripe Transaction ") +\
-                        f'<a href="{get_url_to_form("Stripe Transaction", charge.id)}">{charge.id}</a>' +\
-                        _(" posted as Advance Payment ") +\
-                        f'<a href="{get_url_to_form("Payment Entry", pe_doc.name)}">{pe_doc.name}</a>'
-
+    if not sales_invoices:
+        notify_user_advance_payment(mp_doc, pe_doc.reference_no)
+        
+    if return_invoice_id:
+        if sales_invoices:
+            return  _("Stripe Transaction ") +\
+                f'<a href="{get_url_to_form("Stripe Transaction", charge.id)}">{charge.id}</a>' +\
+                _(" posted as ") +\
+                f'<a href="{get_url_to_form("Payment Entry", pe_doc.name)}">{pe_doc.name}</a>' +\
+                _(" and paid to ") +\
+                f'<a href="{get_url_to_form("Sales Invoice", sales_invoices[0])}">{sales_invoices[0]}</a>.'
+        else:
+            return _("Stripe Transaction ") +\
+            f'<a href="{get_url_to_form("Stripe Transaction", charge.id)}">{charge.id}</a>' +\
+            _(" posted as Advance Payment ") +\
+            f'<a href="{get_url_to_form("Payment Entry", pe_doc.name)}">{pe_doc.name}</a>'
 
 def get_invoice_details(id, api_key):
     import stripe
@@ -295,7 +373,6 @@ def list_subscription_invoices(stripe_subscription, api_key):
         except Exception as e:
             frappe.log_error("Error getting Invoice Details", str(e))
             return None
-
 
 @frappe.whitelist()
 def cancel_subscription(subscription_name):

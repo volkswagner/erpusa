@@ -1,0 +1,22 @@
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+        <td>
+            <p><b>
+                <span>{{ _("Subscription") }} </span>
+                <a href="{{subscription_linkl}}" target="_blank">{{ subscription_name }}</a>
+                <span> {{ _("experienced an error while syncing with new Stripe Subscription") }} {{ subscription_id }}</span>
+            </p></b>
+        </td>
+    </tr>
+        <tr>
+        <td>
+            <p>
+                {% if error_type == "email_address_missing" %}
+                    <span>{{ _("The welcome email cannot be sent because the Subscription's User Account Representative is not set.") }}</span>
+                {% elif error_type == "authorized_user_unset" %}
+                    <span>{{ _("The dashboard account for the customer cannot be created because the User to Authorize is not set in Stripe Plus Settings.") }}</span>
+                {% endif %}
+            </p>
+        </td>
+    </tr>
+</table>
