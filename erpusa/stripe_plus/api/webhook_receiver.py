@@ -392,8 +392,8 @@ def handle_email_sending_and_logging(doc, data, metadata):
 def handle_accounting_automation(doc, metadata, api_key, event_type=None):
     doc.reload()
 
-    # check if processing is from a charge avent and check if event type is succeeded 
-    if event_type and event_type != "charge.succeeded":
+    # check if processing is from a charge event and check if event type is succeeded 
+    if event_type and event_type not in ["charge.succeeded", "charge.updated"]:
         return
 
     # check if payment is successful
