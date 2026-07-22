@@ -135,7 +135,7 @@ def process_invoice_object(data, type):
         return
 
     # check if invoice is created or paid
-    if not (data.get("status") in ["open", "paid"] and type in ["invoice.created", "invoice.payment_succeeded"]):
+    if not (data.get("status") in ["open", "paid"] and type in ["invoice.created", "invoice.paid"]):
         return
         
     # find the subscription associated
