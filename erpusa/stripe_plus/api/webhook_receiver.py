@@ -583,11 +583,11 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
     mp_doc.merchant_fee = 0.00
     mp_doc.gross_amount = 0.00
     mp_doc.net_amount = 0.00
-    
-    if metadata and metadata.get("doctype") and metadata.get("docname"):
-        mp_doc.customer = frappe.db.get_value(metadata.get("doctype"), metadata.get("docname"), "customer")
-        mp_doc.associated_payment_request = frappe.db.exists("Payment Request", {"reference_name": metadata.get("docname"), "docstatus": ["!=", 2]})
 
+    is_single_payment = metadata and metadata.get("doctype") and metadata.get("docname")
+    
+    if is_single_payment:
+        mp_doc.customer = frappe.db.get_value(metadata.get("doctype"), metadata.get("docname"), "customer")
         if metadata.get("doctype") == "Sales Order":
             mp_doc.associated_sales_order = metadata.get("docname")
 
@@ -605,6 +605,35 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
         mp_doc.stripe_status = balance_transaction.get("status").title()
         mp_doc.created = datetime.datetime.fromtimestamp(balance_transaction.get("created"))
         mp_doc.available_on = datetime.datetime.fromtimestamp(balance_transaction.get("available_on"))
+        mp_doc.associated_payment_request = None
+
+        if is_single_payment:
+            prs = frappe.db.get_all(
+                "Payment Request", 
+                filters={
+                    "reference_name": metadata.get("docname"),
+                    "docstatus": ["!=", 2],
+                    "outstanding_amount": [">", 0]
+                },
+                fields=["name", "outstanding_amount"]
+            )
+
+            if len(prs) == 1:
+                frappe.db.exists("Payment Request", { "reference_name": metadata.get("docname") })
+
+            elif len(prs) > 1:
+                for pr in prs:
+                    if float(pr['outstanding_amount']) == float(mp_doc.gross_amount):
+                        mp_doc.associated_payment_request = pr['name']
+
+            mp_doc.associated_payment_request = mp_doc.associated_payment_request or frappe.db.get_value(
+                "Payment Request",
+                filters={
+                    "reference_name": metadata.get("docname")
+                },
+                fieldname="name",
+                order_by="creation desc"
+            )
         
     try:
         mp_doc.flags.ignore_permissions = True
@@ -668,21 +697,58 @@ def create_sales_invoice(sales_order, merchant_payment):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
 
-def create_payment_entry(merchant_payment):
+def create_payment_entry(merchant_payment, display_errors=False):
+    payment_intent = frappe.get_value("Stripe Transaction", merchant_payment.source, "payment_intent")
+    payment_entry = frappe.db.exists("Payment Entry", {'reference_no': payment_intent, 'docstatus': ["!=", 2]})
+
+    if payment_entry:
+        if display_errors:
+            merchant_payment.associated_payment_entry = payment_entry
+            merchant_payment.save()
+            
+            frappe.msgprint(
+                _("A Payment Entry already exists for this transaction: {payment_entry} and was automatically linked ")
+                .format(
+                    payment_entry=f'<a href="{get_url_to_form("Payment Entry", payment_entry)}">{payment_entry}</a>'
+                )
+            )
+        return
+    
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
 
     # check if authorized user is set
     if not user_to_authorize:
+        if display_errors:
+            frappe.throw(
+                _("Couldn't proceed with the creation of Payment Entry as the Authorized User is not set in {stripe_plus_settings}")
+                .format(
+                    stripe_plus_settings=f'<a href="{get_url_to_form("Stripe Plus Settings", "Stripe Plus Settings")}">Stripe Plus Settings</a>'
+                )
+            )
+            frappe.throw(_("Can't proceed with creation as Authorized User is not set in Stripe Plus Settings").format(payment_entry=payment_entry))
         return
+
+    # do_not_create_invoice = frappe.db.get_value("Payment Request", merchant_payment.associated_payment_request, "do_not_create_invoice")
     
-    do_not_create_invoice = frappe.db.get_value("Payment Request", merchant_payment.associated_payment_request, "do_not_create_invoice")
-    # check if payment entry already exists
-    per_exists = frappe.db.exists(
-        "Payment Entry Reference", 
-        { "reference_name": merchant_payment.associated_sales_order if do_not_create_invoice else merchant_payment.associated_sales_invoice }
-    )
-    if per_exists:
-        return
+    # # check if payment entry already exists
+    # fully_paid = False
+    # payment_total = 0
+
+    # if do_not_create_invoice:
+    #     transaction_total = frappe.db.get_value("Sales Order", merchant_payment.associated_sales_order, "grand_total")
+    #     payments = frappe.db.get_all("Payment Entry Reference", filters={"reference_name": merchant_payment.associated_sales_order}, pluck="parent")
+
+    # else:
+    #     transaction_total = frappe.db.get_value("Sales Invoice", merchant_payment.associated_sales_invoice, "grand_total")
+    #     payments = frappe.db.get_all("Payment Entry Reference", filters={"reference_name": merchant_payment.associated_sales_invoice}, pluck="parent")
+
+    # for payment in payments:
+    #     payment_total = payment_total + frappe.db.get_value("Payment Entry", payment, "total_allocated_amount")
+
+    # fully_paid = transaction_total == payment_total
+
+    # if fully_paid:
+    #     return
     
     frappe.set_user(user_to_authorize)
 
@@ -691,7 +757,7 @@ def create_payment_entry(merchant_payment):
     cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
 
     # reference the invoice instead of sales order if do_not_create_invoice is disabled
-    if not do_not_create_invoice:
+    if not frappe.db.get_value("Payment Request", merchant_payment.associated_payment_request, "do_not_create_invoice"):
         pr_doc.reference_doctype = "Sales Invoice"
         pr_doc.reference_name = merchant_payment.associated_sales_invoice
 
@@ -708,7 +774,7 @@ def create_payment_entry(merchant_payment):
             pe_doc.references[index].allocated_amount = merchant_payment.gross_amount
             
     pe_doc.mode_of_payment = frappe.get_value("Payment Request", merchant_payment.associated_payment_request, "mode_of_payment") 
-    pe_doc.reference_no = frappe.get_value("Stripe Transaction", merchant_payment.source, "payment_intent")
+    pe_doc.reference_no = payment_intent
     pe_doc.paid_amount = merchant_payment.net_amount
 
     # apply Merchant Payment as deduction
@@ -736,6 +802,9 @@ def create_payment_entry(merchant_payment):
             frappe.get_traceback()
         )
         frappe.log_error(frappe.get_traceback(), _("Error Saving Payment Entry Document"))
+
+        if display_errors:
+            frappe.throw(frappe.get_traceback())
     
     # update Merchant Payment doc
     try:
@@ -752,6 +821,9 @@ def create_payment_entry(merchant_payment):
             frappe.get_traceback()
         )
         frappe.log_error(frappe.get_traceback(), _("Error Saving Merchant Payment Document"))
+
+        if display_errors:
+            frappe.throw(frappe.get_traceback())
         
     # submit Payment Entry doc according to settings
     if frappe.db.get_single_value("Stripe Plus Settings", "auto_submit_payment"):
@@ -760,6 +832,11 @@ def create_payment_entry(merchant_payment):
 
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
+
+        if display_errors:
+            frappe.throw(frappe.get_traceback())
+
+    return pe_doc.name
              
 def create_journal_entry(payout, sources=None, stripe_fees=None):
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
