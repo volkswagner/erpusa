@@ -85,9 +85,17 @@
   },
   {
    "default": "0",
-   "fieldname": "hide_warning",
+   "description": "When enabled, Sales Invoices generated from Subscriptions will automatically have their <i>Allocate Advances Automatically</i> field checked.\n<br>\nSuitable for situations where the payment gets processed before the invoice is created.",
+   "fieldname": "automatically_apply_advance_payments",
    "fieldtype": "Check",
-   "label": "Hide warning in Payment Request when Stripe Plus is disabled"
+   "label": "Automatically Apply Advance Payments"
+  },
+  {
+   "description": "<small>The credit account for each Journal Entry item is determined by the payment account in the referenced Payment Request or Subscription. If a credit account can't be determined, the value in this field will be applied.</small>",
+   "fieldname": "credit_account",
+   "fieldtype": "Link",
+   "label": "Default Credit Account",
+   "options": "Account"
   },
   {
    "description": "<small>Connecting the webhook receiver with your Stripe account unlocks accounting automation (automatic payment entry and payout journal entry) and more features such as notifications and events logging.</small>",
