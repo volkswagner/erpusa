@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import fmt_money
+from frappe.utils import fmt_money, get_datetime
 import stripe
 import json
 from decimal import Decimal, ROUND_DOWN
@@ -14,7 +14,8 @@ from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import
     get_customer_funding_instructions,
 )
 
-expected_keys = ["reference_doctype", "reference_docname", "payment_gateway", "description", "access_token"]
+expected_keys = ["reference_doctype", "reference_docname", "payment_gateway", "description"]
+access_token_cutoff = get_datetime("2026-08-31 00:00:00")
 
 def get_context(context):
     context.no_cache = 1
@@ -32,8 +33,11 @@ def get_context(context):
             for key in expected_keys:
                 context[key] = url_parameter[key]
 
+            context["access_token"] = url_parameter.get("access_token")
+
             paymentRequestAccessToken = frappe.db.get_value(context.reference_doctype, context.reference_docname, "stripe_plus_access_token")
-            if (context.access_token != paymentRequestAccessToken):
+            paymentRequestCreation = frappe.db.get_value(context.reference_doctype, context.reference_docname, "creation")
+            if ((get_datetime(paymentRequestCreation) >= access_token_cutoff) and (context.access_token != paymentRequestAccessToken)):
                 redirect_for_missing_info()
 
             context.to_pay_doctype = frappe.db.get_value(context.reference_doctype, context.reference_docname, "reference_doctype")
