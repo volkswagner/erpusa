@@ -1,13 +1,17 @@
 frappe.ui.form.on("Payment Entry", {
     refresh: function(frm) {
         if (frm.doc.paid_to && frm.is_new()) set_bank_account(frm)
+        
     },
+
     mode_of_payment: function(frm) {
         if (frm.doc.paid_to) set_bank_account(frm)
     },
+
     paid_to: function(frm) {
         if (frm.doc.paid_to) set_bank_account(frm)
     },
+
     paid_from: function(frm) {
         if (frm.doc.paid_from) set_bank_account(frm)
     }

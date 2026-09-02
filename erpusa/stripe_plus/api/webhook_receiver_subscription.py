@@ -198,14 +198,10 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
 
     if not (invoice.get('status') == "paid" and not frappe.db.exists("Payment Entry", { "reference_no":  payment_intent})):
         return
-
-    frappe.log_error("Step 1")
     
     user_to_authorize = frappe.db.get_single_value("Stripe Plus Settings", "user_to_authorize")
     if not user_to_authorize:
         return
-
-    frappe.log_error("Step 2")
     
     frappe.set_user(user_to_authorize)
 
@@ -218,12 +214,10 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         limit=1
     )
 
-    frappe.log_error("Step 3")
-
-    pe_doc = None
     cost_center = frappe.db.get_single_value("Stripe Plus Settings", "merchant_fee_cost_center")
     
     if sales_invoices:
+        frappe.log_error(str(sales_invoices[0]))
         # set the customer and associated subscription
         mp_doc.associated_sales_invoice = sales_invoices[0]
         mp_error_message = _("The Sales Invoice association failed.")
@@ -236,7 +230,7 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
             for index, reference in enumerate(pe_doc.references):
                 if reference.reference_name == sales_invoices[0]:
                     pe_doc.references[index].allocated_amount = mp_doc.gross_amount
-
+        
             mp_error_message = _("The Payment Entry creation failed.")
 
     else:
@@ -254,9 +248,8 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
 
         mp_error_message = _("The Advance Payment Entry creation failed.")
 
-    
-
-    frappe.log_error("Step 4")
+    if not pe_doc:
+        return
 
     account = frappe.db.get_value(
         "Payment Gateway Account",
@@ -277,9 +270,6 @@ def create_payment_entry_from_stripe_invoice(invoice, subscription, reference_da
         "amount": mp_doc.merchant_fee,
         "description": mp_doc.name,
     })
-    
-
-    frappe.log_error("Step 5")
 
     # set the bank account
     if get_bank_account_for_payment_entry(pe_doc.payment_type, pe_doc.paid_from, pe_doc.paid_to, as_dict=False):
