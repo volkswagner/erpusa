@@ -619,7 +619,7 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
             )
 
             if len(prs) == 1:
-                frappe.db.exists("Payment Request", { "reference_name": metadata.get("docname") })
+                mp_doc.associated_payment_request = frappe.db.exists("Payment Request", { "reference_name": metadata.get("docname") })
 
             elif len(prs) > 1:
                 for pr in prs:
