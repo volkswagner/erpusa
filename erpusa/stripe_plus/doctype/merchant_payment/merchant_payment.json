@@ -19,6 +19,7 @@
   "payment_method",
   "column_break_ecmi",
   "payment_status",
+  "failure_reason",
   "section_break_jdhr",
   "customer",
   "associated_sales_order",
@@ -150,7 +151,7 @@
    "fieldtype": "Select",
    "hidden": 1,
    "label": "Stripe Status",
-   "options": "Pending\nAvailable"
+   "options": "Pending\nAvailable\nFailed"
   },
   {
    "fieldname": "created_before",
@@ -170,7 +171,6 @@
    "options": "Subscription"
   },
   {
-   "fetch_from": "source.status",
    "fieldname": "payment_status",
    "fieldtype": "Data",
    "label": "Payment Status",
@@ -201,12 +201,17 @@
    "in_standard_filter": 1,
    "label": "Is available for payout",
    "read_only": 1
+  },
+  {
+   "fieldname": "failure_reason",
+   "fieldtype": "Data",
+   "label": "Failure Reason"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-16 12:06:29.802727",
+ "modified": "2026-09-02 03:20:48.392653",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Merchant Payment",
