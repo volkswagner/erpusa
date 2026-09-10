@@ -20,16 +20,20 @@
 			<th> Merchant </th>
 			<th> Merchant Transaction ID </th>
 			<th> Customer </th>
-			<th class="text-right"> Gross Amount </th>
+			{% if gross_amount %}
+				<th class="text-right"> Gross Amount </th>
+			{% endif %}
 		</tr>
 	</thead>
 	<tbody>
 		<tr>
-			<td> {{ id }}</td>
+			<td> <a href="{{ form_url }}" target="_blank">{{ id }}</a></td>
 			<td> {{ merchant }}</td>
 			<td> {{ merchant_transaction_id }}</td>
 			<td> {{ customer }}</td>
-			<td class="text-right"> {{ gross_amount }}</td>
+			{% if gross_amount %}
+				<td class="text-right"> {{ gross_amount }}</td>
+			{% endif %}
 		</tr>
 	</tbody>
 </table>
