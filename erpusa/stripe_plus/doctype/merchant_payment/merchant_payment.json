@@ -147,6 +147,7 @@
    "options": "Payment Request"
   },
   {
+   "default": "Pending",
    "fieldname": "stripe_status",
    "fieldtype": "Select",
    "hidden": 1,
@@ -205,13 +206,14 @@
   {
    "fieldname": "failure_reason",
    "fieldtype": "Data",
-   "label": "Failure Reason"
+   "label": "Failure Reason",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-02 03:20:48.392653",
+ "modified": "2026-09-16 03:22:35.835788",
  "modified_by": "Administrator",
  "module": "Stripe Plus",
  "name": "Merchant Payment",

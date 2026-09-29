@@ -409,15 +409,17 @@ def handle_accounting_automation(doc, metadata, api_key, event_type=None):
 
     if doc.status == "failed":
         notify_user_failed_payment(mp_doc)
-    
-    # verify the metadata to create invoice
-    if (metadata and metadata.get('doctype') and metadata.get('docname')) and (doc.paid and doc.receipt_url):
-        if metadata.get('doctype') == "Sales Order":
-            create_sales_invoice(metadata.get('docname'), mp_doc)
+        return
 
-        if doc.balance_transaction:
-        # create a Payment Entry doc
-            create_payment_entry(mp_doc)
+    if doc.status in ["pending", "succeded"]:
+        # verify the metadata to create invoice
+        if (metadata and metadata.get('doctype') and metadata.get('docname')) and (doc.paid and doc.receipt_url):
+            if metadata.get('doctype') == "Sales Order":
+                create_sales_invoice(metadata.get('docname'), mp_doc)
+
+            if doc.balance_transaction:
+            # create a Payment Entry doc
+                create_payment_entry(mp_doc)
 
     return mp_doc
 
@@ -581,6 +583,8 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
     mp_doc.merchant = "Stripe"
     mp_doc.source = stripe_transaction.stripe_transaction_id
     mp_doc.payment_status = stripe_transaction.status
+    mp_doc.stripe_status = "Failed" if mp_doc.payment_status == "failed" else ""
+    mp_doc.is_available_for_payout = not mp_doc.stripe_status == "Failed"
     mp_doc.merchant_fee = 0.00
     mp_doc.gross_amount = 0.00
     mp_doc.net_amount = 0.00
@@ -603,7 +607,9 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
         mp_doc.merchant_fee = balance_transaction.get("fee") / 100
         mp_doc.gross_amount = balance_transaction.get("amount") / 100
         mp_doc.net_amount = balance_transaction.get("net") / 100
-        mp_doc.stripe_status = balance_transaction.get("status").title()
+        mp_doc.payment_status = stripe_transaction.status
+        mp_doc.stripe_status = "Failed" if mp_doc.payment_status == "failed" else balance_transaction.get("status").title()
+        mp_doc.failure_reason = stripe_transaction.failure_message
         mp_doc.created = datetime.datetime.fromtimestamp(balance_transaction.get("created"))
         mp_doc.available_on = datetime.datetime.fromtimestamp(balance_transaction.get("available_on"))
         mp_doc.associated_payment_request = None
@@ -664,8 +670,8 @@ def notify_user_failed_payment(merchant_payment):
     frappe.sendmail(
         recipients=recipients.split(),
         subject=subject,
-        message=generate_realtime_notification_email_message(
-            title=_("The payment of {customer} didn't go through.").format(customer=merchant_payment.customer),
+        message=generate_realtime_notification_email_message_failed(
+            title=_("The payment from {customer} didn't go through.").format(customer=merchant_payment.customer),
             description=_("More information about this payment is shown below."),
             merchant_payment=merchant_payment
         ),
@@ -1040,10 +1046,24 @@ def generate_realtime_notification_email_message(title, description, merchant_pa
             "title": title,
             "description": description,
             "id": merchant_payment.name,
-            "form_url": get_url_to_form("Merchant Payment", merchant_payment.name),
+            "form_url": get_url_to_form(merchant_payment.doctype, merchant_payment.name),
             "merchant": merchant_payment.merchant,
             "merchant_transaction_id": merchant_payment.merchant_transaction_id,
             "customer": merchant_payment.customer,
+            "gross_amount": fmt_money(merchant_payment.gross_amount)
+        },
+    )
+
+def generate_realtime_notification_email_message_failed(title, description, merchant_payment):
+    return frappe.render_template(
+        "erpusa/templates/html/realtime_failed.html",
+        {
+            "title": title,
+            "description": description,
+            "id": merchant_payment.name,
+            "form_url": get_url_to_form(merchant_payment.doctype, merchant_payment.name),
+            "customer": merchant_payment.customer,
+            "failure_reason": merchant_payment.failure_reason,
             "gross_amount": fmt_money(merchant_payment.gross_amount)
         },
     )

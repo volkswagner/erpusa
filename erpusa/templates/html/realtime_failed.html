@@ -1,0 +1,34 @@
+
+<table class="report-title" border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td>
+			<b>{{ title }}</b>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<p>
+				{{ description }}
+			</p>
+		</td>
+	</tr>
+</table>
+<table class="table table-bordered text-medium" cellpadding="0" cellspacing="0" border="0">
+	<thead>
+		<tr>
+			<th> ID </th>
+			<th> Customer </th>
+			<th> Failure Reason </th>
+			<th class="text-right"> Gross Amount </th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td> <a href="{{ form_url }}" target="_blank">{{ id }}</a></td>
+			<td> {{ customer }}</td>
+			<td> {{ failure_reason }}</td>
+			<td class="text-right"> {{ gross_amount }}</td>
+		</tr>
+	</tbody>
+</table>
+

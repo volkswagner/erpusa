@@ -1,16 +1,18 @@
 // Copyright (c) 2025, VolksWagner and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Merchant Payment", {
-      onload(frm) {
-      },
+const states = {
+      'Pending': "blue",
+      'Available': "green",
+      'Failed': "red"
+}
 
+frappe.ui.form.on("Merchant Payment", {
 	refresh(frm) {
             frm.set_intro(
             __("Notice: Card and online payments are processed instantly, while ACH Debit Cards (us_bank_account) may take 3-5 business days."), "yellow"
             )
             frm.events.add_retry_pe_button(frm);
-            
 	},
 
       add_retry_pe_button(frm) {
@@ -36,9 +38,5 @@ frappe.ui.form.on("Merchant Payment", {
                   .attr("data-toggle", "tooltip")
                   .tooltip();
             }
-      },
-
-      retry_journal_entry(frm) {
-
       }
 });
