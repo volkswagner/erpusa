@@ -514,6 +514,24 @@ def create_update_stripe_payout(data, log_doc, api_key):
 def validate_stripe_payout_data(doc, api_key):
     doc.reload()
 
+    # check for minimum balance
+    from packaging import version
+    current_version = version.parse(stripe.VERSION)
+    target_version = version.parse("12.1.0b2")
+
+    minimum_balance = 0
+    if current_version <= target_version:
+        account = stripe.Account.retrieve()
+
+        if account:
+            default_currency = account.get('business_profile', {}).get('default_currency') or "usd"
+            balance_settings = stripe.BalanceSettings.retrieve(
+                stripe_account=account,
+            )
+
+            if balance_settings:
+                minimum_balance = balance_settings.get('payments', {}).get('payouts', {}).get('minimum_balance_by_currency', {}).get(default_currency)
+
     balance_transactions = stripe.BalanceTransaction.list(payout=doc.name, limit=100)
     sources = []
     charges = 0.0
@@ -552,9 +570,10 @@ def validate_stripe_payout_data(doc, api_key):
             adjustments = adjustments + txn.net
             
     total = charges + stripe_fees
-    
+
+    # if there is a minimum balance, no notification will be sent
     # refunds and adjustments are not handled at the moment, error message will be sent via email
-    if refunds or adjustments or (Decimal(total) / Decimal('100') != Decimal(str(doc.amount))):
+    if not minimum_balance and (refunds or adjustments or (Decimal(total) / Decimal('100') != Decimal(str(doc.amount)))):
         notify_error_to_user(
             doc.name,
             charges/100,
