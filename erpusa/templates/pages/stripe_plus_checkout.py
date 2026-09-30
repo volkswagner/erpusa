@@ -119,7 +119,13 @@ def redirect_for_missing_info():
             _("Looks like someone sent you to an incomplete URL. Please ask them to look into it."),
         )
     frappe.local.flags.redirect_location = frappe.local.response.location
-    raise frappe.Redirect 
+    raise frappe.Redirect
+
+def create_checkout_session(data, customer_id):
+    pass
+
+@frappe.whitelist()
+def create_fetch_checkout_session(allow_guest=True)
 
 def create_payment_intent(data, customer_id):
     amount_in_decimal = (Decimal(data.get('amount')) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
@@ -149,9 +155,6 @@ def create_payment_intent(data, customer_id):
     except Exception as e:
         frappe.log_error(f"Stripe Payment Error: {str(e)}", "Stripe API Error")
         return {"error": str(e)}, 403
-
-@frappe.whitelist(allow_guest=True)
-def create_fetch_payment_intent():
     data = json.loads(frappe.request.data)
     stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
 
@@ -159,6 +162,49 @@ def create_fetch_payment_intent():
     stripe_intent_id = frappe.db.get_value("Payment Request", data.get('request_name'), "stripe_intent_id")
     payment_request_customer = frappe.db.get_value("Payment Request", data.get('request_name'), "party")
     stripe_customer_id = frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id")
+
+@frappe.whitelist(allow_guest=True)
+def create_fetch_payment_intent():
+    data = json.loads(frappe.request.data)
+    stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
+    request_name = data.get('request_name')
+
+    # check if intent has already been made
+    stripe_intent_id = frappe.db.get_value("Payment Request", request_name, "stripe_intent_id")
+    payment_request_customer = frappe.db.get_value("Payment Request", request_name, "party")
+    stripe_customer_id = frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id")
+
+     # load payment amount from payment request
+    data["amount"] = frappe.db.get_value("Payment Request", request_name, "outstanding_amount")
+
+    if stripe_intent_id:
+        try:
+            checkout_session = stripe.checkout.Session.retrieve(stripe_intent_id)
+            # redirect to message page if success/processing
+
+            if payment_intent["status"] in ["succeeded", "processing"]:
+                return {
+                    "client_secret": "",
+                    "redirect": f"/message?title=This+payment+request+has+been+fulfilled.&message=The+{data.get('doctype')}+is+already+paid!+Thank+you+for+your+business.&type=success"
+                }
+            # return client secret if incomplete
+
+            elif payment_intent["status"] in ["requires_action", "requires_capture", "requires_confirmation", "requires_payment_method"]:
+                return {
+                    "clientSecret": payment_intent['client_secret'],
+                    "redirect": ""
+                }
+            # create new intent if cancelled
+    
+            else:
+                return create_payment_intent(data, stripe_customer_id)
+        
+        except Exception as e:
+            return {"error": str(e)}, 403
+        
+    else:
+        # create new intent if no intent id
+        return create_payment_intent(data, stripe_customer_id)
 
     # load payment amount from payment request
     data["amount"] = frappe.db.get_value("Payment Request", data.get('request_name'), "outstanding_amount")
