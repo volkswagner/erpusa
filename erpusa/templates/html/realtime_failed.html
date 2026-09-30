@@ -17,23 +17,17 @@
 	<thead>
 		<tr>
 			<th> ID </th>
-			<th> Merchant </th>
-			<th> Merchant Transaction ID </th>
 			<th> Customer </th>
-			{% if gross_amount %}
-				<th class="text-right"> Gross Amount </th>
-			{% endif %}
+			<th> Failure Reason </th>
+			<th class="text-right"> Gross Amount </th>
 		</tr>
 	</thead>
 	<tbody>
 		<tr>
 			<td> <a href="{{ form_url }}" target="_blank">{{ id }}</a></td>
-			<td> {{ merchant }}</td>
-			<td> {{ merchant_transaction_id }}</td>
 			<td> {{ customer }}</td>
-			{% if gross_amount %}
-				<td class="text-right"> {{ gross_amount }}</td>
-			{% endif %}
+			<td> {{ failure_reason }}</td>
+			<td class="text-right"> {{ gross_amount }}</td>
 		</tr>
 	</tbody>
 </table>
