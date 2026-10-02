@@ -520,13 +520,13 @@ def validate_stripe_payout_data(doc, api_key):
     target_version = version.parse("12.1.0b2")
 
     minimum_balance = 0
-    if current_version <= target_version:
+    if current_version >= target_version:
         account = stripe.Account.retrieve()
 
         if account:
             default_currency = account.get('business_profile', {}).get('default_currency') or "usd"
             balance_settings = stripe.BalanceSettings.retrieve(
-                stripe_account=account,
+                stripe_account=account.get('id'),
             )
 
             if balance_settings:
