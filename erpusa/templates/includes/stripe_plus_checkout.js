@@ -1,5 +1,3 @@
-// This is your test publishable API key.
-
 frappe.ready(function() {
   const accentColor = "rgb(103, 93, 255)";
   const stripe = Stripe("{{ publishable_key }}");
@@ -7,165 +5,194 @@ frappe.ready(function() {
   let elements;
   
   initialize();
-  document
-    .querySelector("#payment-form")
-    .addEventListener("submit", handleSubmit);
+  // document
+  //   .querySelector("#payment-form")
+  //   .addEventListener("submit", handleSubmit);
   
-  // Fetches a payment intent and captures the client secret
-  async function initialize() {
-    const response = await fetch("/api/method/erpusa.templates.pages.stripe_plus_checkout.create_fetch_payment_intent", {
-      method: "POST",
-      headers: { 
-          "Content-Type": "application/json",
-          "X-Frappe-CSRF-Token": frappe.csrf_token
-      },
-      body: JSON.stringify({ 
-        "pm_configuration": "{{ pm_configuration }}"=="None"? null : "{{ pm_configuration }}",
-        "doctype": "{{ to_pay_doctype }}",
-        "docname": "{{ to_pay_id }}",
-        "gateway_controller": "{{ gateway_controller }}",
-        "request_name": "{{ reference_docname }}"
-      })
-    });
-    const { message: { clientSecret, redirect } } = await response.json();
+  // // Fetches a payment intent and captures the client secret
+  // async function initialize() {
+  //   const response = await fetch("/api/method/erpusa.templates.pages.stripe_plus_checkout.create_fetch_payment_intent", {
+  //     method: "POST",
+  //     headers: { 
+  //         "Content-Type": "application/json",
+  //         "X-Frappe-CSRF-Token": frappe.csrf_token
+  //     },
+  //     body: JSON.stringify({ 
+  //       "pm_configuration": "{{ pm_configuration }}"=="None"? null : "{{ pm_configuration }}",
+  //       "doctype": "{{ to_pay_doctype }}",
+  //       "docname": "{{ to_pay_id }}",
+  //       "gateway_controller": "{{ gateway_controller }}",
+  //       "request_name": "{{ reference_docname }}"
+  //     })
+  //   });
+  //   const { message: { clientSecret, redirect } } = await response.json();
 
-    const customerSessionResponse = await fetch("/api/method/erpusa.templates.pages.stripe_plus_checkout.create_customer_session", {
-      method: "POST",
-      headers: { 
-          "Content-Type": "application/json",
-          "X-Frappe-CSRF-Token": frappe.csrf_token
-      },
-      body: JSON.stringify({ 
-        "doctype": "{{ to_pay_doctype }}",
-        "docname": "{{ to_pay_id }}",
-        "gateway_controller": "{{ gateway_controller }}",
-        "request_name": "{{ reference_docname }}"
-    })
-    });
-    const { message: { customerSessionClientSecret } } = await customerSessionResponse.json();
+  //   const customerSessionResponse = await fetch("/api/method/erpusa.templates.pages.stripe_plus_checkout.create_customer_session", {
+  //     method: "POST",
+  //     headers: { 
+  //         "Content-Type": "application/json",
+  //         "X-Frappe-CSRF-Token": frappe.csrf_token
+  //     },
+  //     body: JSON.stringify({ 
+  //       "doctype": "{{ to_pay_doctype }}",
+  //       "docname": "{{ to_pay_id }}",
+  //       "gateway_controller": "{{ gateway_controller }}",
+  //       "request_name": "{{ reference_docname }}"
+  //   })
+  //   });
+  //   const { message: { customerSessionClientSecret } } = await customerSessionResponse.json();
 
-    if (redirect) {
-        window.location.href = redirect;
-    }
+  //   if (redirect) {
+  //       window.location.href = redirect;
+  //   }
   
-    const appearance = {
-      theme: 'flat',
-      variables: {
-        iconColor: accentColor,
-        fontLineHeight: '1.5',
-        borderRadius: '10px',
-        colorBackground: 'rgb(243, 243, 243)',
-        accessibleColorOnColorPrimary: '#262626',
-        tabIconHoverColor: 'white',
-        tabIconSelectedColor: 'white'
-      },
-      rules: {
-        '.Block': {
-          backgroundColor: 'var(--colorBackground)',
-          boxShadow: 'none',
-          padding: '12px'
-        },
-        '.Input:focus': {
-          backgroundColor: 'white',
-        },
-        '.Input': {
-          padding: '12px'
-        },
-        '.Input:disabled, .Input--invalid:disabled': {
-          color: 'lightgray'
-        },
-        '.Tab': {
-          padding: '10px 12px 8px 12px',
-          border: 'none'
-        },
-        '.Tab:hover': {
-          border: 'none',
-          backgroundColor: accentColor,
-          boxShadow: '0',
-          color: 'white'
-        },
-        '.TabIcon': {
-          fill: accentColor,
-        },
-        '.Label': {
-          fontWeight: '500'
-        },
-      }
-    };
-    elements = stripe.elements({ appearance, clientSecret, customerSessionClientSecret })
+  //   const appearance = {
+  //     theme: 'flat',
+  //     variables: {
+  //       iconColor: accentColor,
+  //       fontLineHeight: '1.5',
+  //       borderRadius: '10px',
+  //       colorBackground: 'rgb(243, 243, 243)',
+  //       accessibleColorOnColorPrimary: '#262626',
+  //       tabIconHoverColor: 'white',
+  //       tabIconSelectedColor: 'white'
+  //     },
+  //     rules: {
+  //       '.Block': {
+  //         backgroundColor: 'var(--colorBackground)',
+  //         boxShadow: 'none',
+  //         padding: '12px'
+  //       },
+  //       '.Input:focus': {
+  //         backgroundColor: 'white',
+  //       },
+  //       '.Input': {
+  //         padding: '12px'
+  //       },
+  //       '.Input:disabled, .Input--invalid:disabled': {
+  //         color: 'lightgray'
+  //       },
+  //       '.Tab': {
+  //         padding: '10px 12px 8px 12px',
+  //         border: 'none'
+  //       },
+  //       '.Tab:hover': {
+  //         border: 'none',
+  //         backgroundColor: accentColor,
+  //         boxShadow: '0',
+  //         color: 'white'
+  //       },
+  //       '.TabIcon': {
+  //         fill: accentColor,
+  //       },
+  //       '.Label': {
+  //         fontWeight: '500'
+  //       },
+  //     }
+  //   };
+  //   elements = stripe.elements({ appearance, clientSecret, customerSessionClientSecret })
   
-    const paymentElementOptions = {
-      layout: {
-        type: 'accordion',
-        defaultCollapsed: false,
-        radios: true,
-        spacedAccordionItems: false
-      },
-      paymentMethodOrder: ['us_bank_account', 'card']
-    };
+  //   const paymentElementOptions = {
+  //     layout: {
+  //       type: 'accordion',
+  //       defaultCollapsed: false,
+  //       radios: true,
+  //       spacedAccordionItems: false
+  //     },
+  //     paymentMethodOrder: ['us_bank_account', 'card']
+  //   };
   
-    const paymentElement = elements.create("payment", paymentElementOptions);
-    paymentElement.mount("#payment-element");
+  //   const paymentElement = elements.create("payment", paymentElementOptions);
+  //   paymentElement.mount("#payment-element");
 
-  }
+  // }
   
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
+  // async function handleSubmit(e) {
+  //   e.preventDefault();
+  //   setLoading(true);
     
   
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        // Make sure to change this to your payment completion page
-        return_url: "{{ frappe.utils.get_url() }}/stripe_plus_return?reference_docname={{ reference_docname }}&gateway_controller={{ gateway_controller }}&to_pay_id={{ to_pay_id }}&to_pay_doctype={{ to_pay_doctype }}&amount={{ amount }}",
-        payment_method_data: {
-          billing_details: {
-            name: "{{ payer_name }}"
-          }
-        }
-      },
+  //   const { error } = await stripe.confirmPayment({
+  //     elements,
+  //     confirmParams: {
+  //       // Make sure to change this to your payment completion page
+  //       return_url: "{{ frappe.utils.get_url() }}/stripe_plus_return?reference_docname={{ reference_docname }}&gateway_controller={{ gateway_controller }}&to_pay_id={{ to_pay_id }}&to_pay_doctype={{ to_pay_doctype }}&amount={{ amount }}",
+  //       payment_method_data: {
+  //         billing_details: {
+  //           name: "{{ payer_name }}"
+  //         }
+  //       }
+  //     },
+  //   });
+  
+  //   // This point will only be reached if there is an immediate error when
+  //   // confirming the payment. Otherwise, your customer will be redirected to
+  //   // your `return_url`. For some payment methods like iDEAL, your customer will
+  //   // be redirected to an intermediate site first to authorize the payment, then
+  //   // redirected to the `return_url`.
+  //   if (error.type === "card_error" || error.type === "validation_error") {
+  //     showMessage(error.message);
+  //   } else {
+  //     showMessage("An unexpected error occurred.");
+  //   }
+  
+  //   setLoading(false);
+  // }
+  
+  // // ------- UI helpers -------
+  
+  // function showMessage(messageText) {
+  //   const messageContainer = document.querySelector("#payment-message");
+  
+  //   messageContainer.classList.remove("hidden");
+  //   messageContainer.textContent = messageText;
+  
+  //   setTimeout(function () {
+  //     messageContainer.classList.add("hidden");
+  //     messageContainer.textContent = "";
+  //   }, 4000);
+  // }
+  
+  // // Show a spinner on payment submission
+  // function setLoading(isLoading) {
+  //   if (isLoading) {
+  //     // Disable the button and show a spinner
+  //     document.querySelector("#submit").disabled = true;
+  //     document.querySelector("#spinner").classList.remove("hidden");
+  //     document.querySelector("#button-text").classList.add("hidden");
+  //   } else {
+  //     document.querySelector("#submit").disabled = false;
+  //     document.querySelector("#spinner").classList.add("hidden");
+  //     document.querySelector("#button-text").classList.remove("hidden");
+  //   }
+  // }
+
+    async function initialize() {
+    const fetchClientSecret = async () => {
+      const response = await fetch("/api/method/erpusa.templates.pages.stripe_plus_checkout.create_fetch_checkout_session", {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "X-Frappe-CSRF-Token": frappe.csrf_token
+        },
+        body: JSON.stringify({ 
+          "pm_configuration": "{{ pm_configuration }}"=="None"? null : "{{ pm_configuration }}",
+          "doctype": "{{ to_pay_doctype }}",
+          "docname": "{{ to_pay_id }}",
+          "gateway_controller": "{{ gateway_controller }}",
+          "request_name": "{{ reference_docname }}"
+        })
+      });
+      const { message: { clientSecret, redirect } } = await response.json();
+      console.log(clientSecret)
+      return clientSecret;
+    };
+
+    const checkout = await stripe.initEmbeddedCheckout({
+      fetchClientSecret,
     });
-  
-    // This point will only be reached if there is an immediate error when
-    // confirming the payment. Otherwise, your customer will be redirected to
-    // your `return_url`. For some payment methods like iDEAL, your customer will
-    // be redirected to an intermediate site first to authorize the payment, then
-    // redirected to the `return_url`.
-    if (error.type === "card_error" || error.type === "validation_error") {
-      showMessage(error.message);
-    } else {
-      showMessage("An unexpected error occurred.");
-    }
-  
-    setLoading(false);
-  }
-  
-  // ------- UI helpers -------
-  
-  function showMessage(messageText) {
-    const messageContainer = document.querySelector("#payment-message");
-  
-    messageContainer.classList.remove("hidden");
-    messageContainer.textContent = messageText;
-  
-    setTimeout(function () {
-      messageContainer.classList.add("hidden");
-      messageContainer.textContent = "";
-    }, 4000);
-  }
-  
-  // Show a spinner on payment submission
-  function setLoading(isLoading) {
-    if (isLoading) {
-      // Disable the button and show a spinner
-      document.querySelector("#submit").disabled = true;
-      document.querySelector("#spinner").classList.remove("hidden");
-      document.querySelector("#button-text").classList.add("hidden");
-    } else {
-      document.querySelector("#submit").disabled = false;
-      document.querySelector("#spinner").classList.add("hidden");
-      document.querySelector("#button-text").classList.remove("hidden");
-    }
+
+    // Mount Checkout
+    checkout.mount('#checkout');
   }
 })

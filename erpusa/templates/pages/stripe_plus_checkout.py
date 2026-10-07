@@ -13,6 +13,7 @@ from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import
     get_api_key_secret,
     get_customer_funding_instructions,
 )
+from urllib.parse import urlencode
 
 expected_keys = ["reference_doctype", "reference_docname", "payment_gateway", "description"]
 access_token_cutoff = get_datetime("2026-08-31 00:00:00")
@@ -121,11 +122,92 @@ def redirect_for_missing_info():
     frappe.local.flags.redirect_location = frappe.local.response.location
     raise frappe.Redirect
 
-def create_checkout_session(data, customer_id):
-    pass
+def create_checkout_session(data):
+    request_name = data.get('request_name')
+    payment_request_customer = frappe.db.get_value("Payment Request", request_name, "party")
 
-@frappe.whitelist()
-def create_fetch_checkout_session(allow_guest=True)
+     # load payment amount from payment request
+    data["amount"] = frappe.db.get_value("Payment Request", request_name, "outstanding_amount")
+    stripe.api_key = get_api_key_secret(data.get("gateway_controller"))
+    amount_in_decimal = (Decimal(data.get('amount')) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
+    amount_in_int = int(amount_in_decimal)
+
+    return_url_params = {
+        'reference_docname': data.get('reference_docname'),
+        'gateway_controller': data.get('gateway_controller'),
+        'to_pay_id': data.get('to_pay_id'),
+        'to_pay_doctype': data.get('to_pay_doctype'),
+        'amount': amount_in_int
+    }
+
+    customer_session_secret = create_customer_session(data)
+
+    try:
+        session = stripe.checkout.Session.create(
+            ui_mode = "embedded",
+            mode="payment",
+            customer=frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id"),
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'unit_amount': amount_in_int,
+                    'product_data': {
+                        'name': request_name,
+                        'description': request_name,
+                    },
+                },
+                'quantity': 1,
+            }],
+            payment_intent_data={
+                'metadata': {
+                    'doctype': data.get('doctype'),
+                    'docname': data.get('docname')
+                },
+                'setup_future_usage': "on_session"
+            },
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&{urlencode(return_url_params)}",
+            payment_method_configuration=data.get('pm_configuration', None),
+            saved_payment_method_options={
+                'payment_method_save': "enabled",
+                'payment_method_remove': "enabled"
+            }
+        )
+        
+    except Exception as e:
+        return str(e)
+    
+    if frappe.db.exists("Payment Request", data.get('request_name')):
+        frappe.db.set_value("Payment Request", data.get('request_name'), "stripe_intent_id", session['id'])
+    
+    return {"clientSecret": session['client_secret']}
+
+@frappe.whitelist(allow_guest=True)
+def create_fetch_checkout_session(allow_guest=True):
+    data = json.loads(frappe.request.data)
+    stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
+
+    # check if intent has already been made
+    stripe_intent_id = frappe.db.get_value("Payment Request", data.get('request_name'), "stripe_intent_id")
+
+    if stripe_intent_id:
+        try:
+            checkout = stripe.checkout.Session.retrieve(stripe_intent_id)
+
+            if checkout['status'] != "complete":
+                return create_checkout_session(data)
+                
+            else:
+                return {
+                    "clientSecret": checkout['client_secret'],
+                    "redirect": ""
+                }
+            
+        except Exception as e:
+            return {"error": str(e)}, 403
+        
+    else:
+        
+        return create_checkout_session(data)
 
 def create_payment_intent(data, customer_id):
     amount_in_decimal = (Decimal(data.get('amount')) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
@@ -155,13 +237,6 @@ def create_payment_intent(data, customer_id):
     except Exception as e:
         frappe.log_error(f"Stripe Payment Error: {str(e)}", "Stripe API Error")
         return {"error": str(e)}, 403
-    data = json.loads(frappe.request.data)
-    stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
-
-    # check if intent has already been made
-    stripe_intent_id = frappe.db.get_value("Payment Request", data.get('request_name'), "stripe_intent_id")
-    payment_request_customer = frappe.db.get_value("Payment Request", data.get('request_name'), "party")
-    stripe_customer_id = frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id")
 
 @frappe.whitelist(allow_guest=True)
 def create_fetch_payment_intent():
@@ -239,7 +314,7 @@ def create_fetch_payment_intent():
         return create_payment_intent(data, stripe_customer_id)
     
 @frappe.whitelist(allow_guest=True)
-def create_customer_session():
+def create_customer_session(data):
     data = json.loads(frappe.request.data)
     stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
 
@@ -261,6 +336,8 @@ def create_customer_session():
         },
     )
 
-    return {
-        "customerSessionClientSecret": customerSession.client_secret,
-    }
+    # return {
+    #     "customerSessionClientSecret": customerSession.client_secret,
+    # }
+
+    return customerSession.client_secret
