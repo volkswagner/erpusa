@@ -1182,3 +1182,42 @@ def get_update_request_to_update(subscription, request):
             get_end_date_changes(),
             get_plan_changes()
         ]
+
+@frappe.whitelist()
+def get_payment_method_details(subscription_name, payment_gateway):
+    payments = frappe.db.get_all("Merchant Payment", filters={'associated_subscription': subscription_name}, pluck="source")
+
+    if not payments:
+        frappe.throw(_("This subscription still doesn't have a verified payment method. Ensure that at least 1 Stripe payment was made for this subscription."))
+
+    payment_method_id = frappe.db.get_value("Stripe Transaction", payments[0], "payment_method")
+    payment_method_details = None
+            
+    stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
+
+    try:
+        payment_method_details = stripe.PaymentMethod.retrieve(payment_method_id)
+    
+    except Exception as e:
+        frappe.throw(str(e))
+
+    if not payment_method_details:
+        frappe.throw(_("Couldn't find the payment method from stripe.com."))
+
+    payment_method_details['method_full'] = METHODS_FULLNAME[payment_method_details.get('type')]
+    return payment_method_details
+
+@frappe.whitelist()
+def redisplay_payment_method(payment_method_id, payment_gateway):
+    stripe.api_key = get_api_key_secret(payment_gateway=payment_gateway)
+    
+    try:
+        payment_method_details = stripe.PaymentMethod.modify(payment_method_id, allow_redisplay="always")
+    
+    except Exception as e:
+        frappe.throw(str(e))
+
+    if not payment_method_details:
+        frappe.throw(_("Couldn't find the payment method from stripe.com."))
+
+    frappe.msgprint(_("Successfully allowed redisplay for payment method."))

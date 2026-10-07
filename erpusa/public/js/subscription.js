@@ -51,6 +51,7 @@ frappe.ui.form.on("Subscription", {
 
     refresh: async function(frm) {
         frm.events.override_actions_buttons(frm);
+        frm.events.add_custom_buttons(frm);
         frm.events.set_intro(frm);
         frm.events.insert_look_for_unallocated_stripe_transactions_button(frm);
         frm.events.insert_advance_payments_link(frm);
@@ -140,6 +141,82 @@ frappe.ui.form.on("Subscription", {
                 );
             }
         }
+    },
+
+    add_custom_buttons: function (frm) {
+        frm.add_custom_button(
+            __("Redisplay Payment Method"),
+            function() {
+                frappe.call({
+                    method: "erpusa.stripe_plus.api.webhook_receiver_subscription.get_payment_method_details",
+                    args: {
+                        subscription_name: frm.doc.name,
+                        payment_gateway: frm.doc.payment_gateway
+                    },
+                    callback: function (r) {
+                        if (r.message) {
+                            const type = r.message.type;
+
+                            let prompt = frappe.prompt([
+                                {
+                                    fieldtype: "HTML",
+                                    options: __("Subscription Payment Methods by default are not visible for the checkout Page. This allows the payment method to be saved or used for regular Payment Requests for faster checkouts.")
+                                            + "<br/><br/>" +
+                                            __("Allow this payment method to be used in future checkouts?")
+                                },
+                                {
+                                    fieldtype: "Section Break"
+                                },
+                                {
+                                    fieldname: "payment_method_id",
+                                    fieldtype: "Data",
+                                    label: __("Payment Method ID"),
+                                    read_only: 1,
+                                    default: r.message.id
+                                },
+                                {
+                                    fieldname: "type",
+                                    fieldtype: "Data",
+                                    label: __("Type"),
+                                    read_only: 1,
+                                    default: r.message.method_full
+                                },
+                                {
+                                    fieldtype: "Column Break"
+                                },
+                                {
+                                    fieldtype: "Data",
+                                    fieldname: "last_4",
+                                    label: __("Last 4 Digits"),
+                                    read_only: 1,
+                                    default: "*****" + r.message[type].last4
+                                },
+                                {
+                                    fieldtype: "Data",
+                                    fieldname: "expiration",
+                                    label: __("Expiration"),
+                                    read_only: 1,
+                                    default: r.message[type].exp_month && `${r.message[type].exp_month}/${r.message[type].exp_year}`
+                                }
+                            ],
+                            (values) => {
+                                frappe.call({
+                                    method: "erpusa.stripe_plus.api.webhook_receiver_subscription.redisplay_payment_method",
+                                    args: {
+                                        payment_method_id: values.payment_method_id,
+                                        payment_gateway: frm.doc.payment_gateway
+                                    }
+                                })
+                            },
+                            __("Redisplay Payment Method"),
+                            __("Yes")
+                            )
+                        }
+                    }
+                })
+            },
+            tools_button
+        )
     },
 
     set_intro: function (frm) {
