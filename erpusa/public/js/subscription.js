@@ -196,7 +196,7 @@ frappe.ui.form.on("Subscription", {
                                     fieldname: "expiration",
                                     label: __("Expiration"),
                                     read_only: 1,
-                                    default: r.message[type].exp_month && `${r.message[type].exp_month}/${r.message[type].exp_year}`
+                                    default: r.message[type].exp_month? `${r.message[type].exp_month}/${r.message[type].exp_year}` : undefined
                                 }
                             ],
                             (values) => {
