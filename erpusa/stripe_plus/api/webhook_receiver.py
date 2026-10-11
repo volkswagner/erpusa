@@ -411,10 +411,10 @@ def handle_accounting_automation(doc, metadata, api_key, event_type=None):
         notify_user_failed_payment(mp_doc)
         return
 
-    if doc.status in ["pending", "succeded"]:
+    if doc.status in ["pending", "succeeded"] and mp_doc.associated_payment_request:
         # verify the metadata to create invoice
         if (metadata and metadata.get('doctype') and metadata.get('docname')) and (doc.paid and doc.receipt_url):
-            if metadata.get('doctype') == "Sales Order":
+            if metadata.get('doctype') == "Sales Order" and not frappe.db.get_value("Payment Request", mp_doc.associated_payment_request, "do_not_create_invoice"):
                 create_sales_invoice(metadata.get('docname'), mp_doc)
 
             if doc.balance_transaction:
@@ -600,6 +600,12 @@ def create_update_merchant_payment(stripe_transaction, metadata, api_key):
             mp_doc.associated_sales_invoice = metadata.get("docname")
                 
     # update fields if balance transaction is made
+    balance_transaction_id = stripe_transaction.balance_transaction
+
+    if not balance_transaction_id:
+        charge = get_charge_details(stripe_transaction.name, api_key)
+        balance_transaction_id = charge.get("balance_transaction_id")
+
     balance_transaction = get_balance_transaction_details(stripe_transaction.balance_transaction, api_key)
 
     if balance_transaction:
@@ -686,10 +692,6 @@ def create_sales_invoice(sales_order, merchant_payment):
 
      # check if authorized user is set
     if not user_to_authorize:
-        return
-
-    # check if do_not_create_invoice is disabled 
-    if frappe.db.get_value("Payment Request", merchant_payment.associated_payment_request, "do_not_create_invoice"):
         return
 
     # check if sales order was already paid
@@ -862,8 +864,8 @@ def create_payment_entry(merchant_payment, display_errors=False):
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), _("Error Submitting Payment Entry Document"))
 
-        if display_errors:
-            frappe.throw(frappe.get_traceback())
+            if display_errors:
+                frappe.throw(frappe.get_traceback())
 
     return pe_doc.name
              
@@ -909,8 +911,8 @@ def create_journal_entry(payout, sources=None, stripe_fees=None):
                 ) or default_credit_account
 
             if not default_credit_account:
-                frappe.log_error("The default credit account is not set in Stripe Plus Settings", "Error Creating Journal Entry")
-                frappe.throw("Error Creating Journal Entry")
+                frappe.log_error(_("The default credit account is not set in Stripe Plus Settings", "Error Creating Journal Entry"))
+                frappe.throw(_("Error Creating Journal Entry"))
 
             credit_bank_account = frappe.db.get_value("Bank Account", {"account": credit_account}, "name")
 
