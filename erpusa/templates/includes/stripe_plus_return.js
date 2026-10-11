@@ -16,53 +16,16 @@ const InfoIcon =
   <path d="M5.75 4C5.75 3.31075 6.31075 2.75 7 2.75C7.68925 2.75 8.25 3.31075 8.25 4C8.25 4.68925 7.68925 5.25 7 5.25C6.31075 5.25 5.75 4.68925 5.75 4Z" fill="white"/>
 </svg>`;
 
-// ------- UI helpers -------
-function setPaymentDetails(intent) {
-  let statusText = "Something went wrong, please try again.";
-  let paymentDescriptionBase = "Your {{ amount }} payment for {{ to_pay_doctype }} number {{ to_pay_id }}";
-  let iconColor = "#DF1B41";
-  let shadowColor = "rgba(177, 48, 48, 0.25)";
-  let icon = ErrorIcon;
-  let paymentDescription = " didn't go through.";
+let payment_intent_status = "{{ payment_intent_status }}"
+let statusText = "Something went wrong, please try again.";
+let paymentDescriptionBase = "Your {{ amount }} payment for {{ to_pay_doctype }} number {{ to_pay_id }}";
+let iconColor = "#DF1B41";
+let shadowColor = "rgba(177, 48, 48, 0.25)";
+let icon = ErrorIcon;
+let paymentDescription = " didn't go through.";
 
-  
-  if (!intent) {
-    setErrorState();
-    return;
-  }
 
-  switch (intent.status) {
-    case "succeeded":
-      statusText = "Payment Successful";
-      icon = SuccessIcon;
-      iconColor = "#30B130";
-      shadowColor = "rgba(48, 177, 48, 0.25)"
-      paymentDescription = " was successful."
-      break;
-    case "processing":
-      statusText = "Processing Payment";
-      icon = InfoIcon;
-      iconColor = "#6D6E78";
-      shadowColor = "rgba(109, 110, 120, 0.25)"
-      paymentDescription = " is still processing."
-      break;
-    case "requires_payment_method":
-      statusText = "Payment Failed. Please try again.";
-      paymentDescription = " failed."
-      break;
-    default:
-      break;
-  }
-  
-  document.querySelector("#payment-status").style.borderColor = iconColor;
-  document.querySelector("#payment-status").style.boxShadow = `0px 15px 25px 5px ${shadowColor}`;
-  document.querySelector("#status-icon").style.backgroundColor = iconColor;
-  document.querySelector("#status-icon").innerHTML = icon;
-  document.querySelector("#status-text").textContent= statusText;
-  document.querySelector("#payment-description").textContent = paymentDescriptionBase + paymentDescription;
-}
-
-function setErrorState() {
+if (!payment_intent_status) {
   document.querySelector("#payment-status").style.borderColor = "#DF1B41";
   document.querySelector("#payment-status").style.boxShadow = `0px 15px 25px 5px rgba(223, 27, 65, 0.25)`;
   document.querySelector("#status-icon").style.backgroundColor = "#DF1B41";
@@ -71,24 +34,33 @@ function setErrorState() {
   document.querySelector("#payment-description").textContent= paymentDescriptionBase + " failed";
 }
 
-// Stripe.js instance
-const stripe = Stripe("{{ publishable_key }}");
-
-checkStatus();
-
-// Fetches the payment intent status after payment submission
-async function checkStatus() {
-  const clientSecret = new URLSearchParams(window.location.search).get(
-    "payment_intent_client_secret"
-  );
-
-  if (!clientSecret) {
-    setErrorState();
-    return;
-  }
-
-  const { paymentIntent } = await stripe.retrievePaymentIntent(clientSecret);
-
-  setPaymentDetails(paymentIntent);
+switch (payment_intent_status) {
+  case "succeeded":
+    statusText = "Payment Successful";
+    icon = SuccessIcon;
+    iconColor = "#30B130";
+    shadowColor = "rgba(48, 177, 48, 0.25)"
+    paymentDescription = " was successful."
+    break;
+  case "processing":
+    statusText = "Processing Payment";
+    icon = InfoIcon;
+    iconColor = "#6D6E78";
+    shadowColor = "rgba(109, 110, 120, 0.25)"
+    paymentDescription = " is still processing."
+    break;
+  case "requires_payment_method":
+    statusText = "Payment Failed. Please try again.";
+    paymentDescription = " failed."
+    break;
+  default:
+    break;
 }
+
+document.querySelector("#payment-status").style.borderColor = iconColor;
+document.querySelector("#payment-status").style.boxShadow = `0px 15px 25px 5px ${shadowColor}`;
+document.querySelector("#status-icon").style.backgroundColor = iconColor;
+document.querySelector("#status-icon").innerHTML = icon;
+document.querySelector("#status-text").textContent= statusText;
+document.querySelector("#payment-description").textContent = paymentDescriptionBase + paymentDescription;
 

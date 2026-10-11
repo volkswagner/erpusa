@@ -1,7 +1,6 @@
 import frappe
 from frappe import _
 
-from payments.templates.pages.stripe_checkout import get_api_key
 from payments.payment_gateways.doctype.stripe_settings.stripe_settings import get_gateway_controller
 from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_user_account_representative,  get_representative_email_address
 from erpusa.templates.pages.stripe_plus_subs_checkout import get_session_status

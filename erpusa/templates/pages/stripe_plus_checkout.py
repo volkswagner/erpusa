@@ -8,11 +8,8 @@ import stripe
 import json
 from decimal import Decimal, ROUND_DOWN
 from payments.templates.pages.stripe_checkout import is_a_subscription, get_api_key
-from payments.payment_gateways.doctype.stripe_settings.stripe_settings import (get_gateway_controller)
-from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import (
-    get_api_key_secret,
-    get_customer_funding_instructions,
-)
+from payments.payment_gateways.doctype.stripe_settings.stripe_settings import get_gateway_controller
+from erpusa.stripe_plus.doctype.stripe_plus_settings.stripe_plus_settings import get_api_key_secret
 from urllib.parse import urlencode
 
 expected_keys = ["reference_doctype", "reference_docname", "payment_gateway", "description"]
@@ -129,18 +126,16 @@ def create_checkout_session(data):
      # load payment amount from payment request
     data["amount"] = frappe.db.get_value("Payment Request", request_name, "outstanding_amount")
     stripe.api_key = get_api_key_secret(data.get("gateway_controller"))
-    amount_in_decimal = (Decimal(data.get('amount')) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
+    amount_in_decimal = (Decimal(str(data.get('amount'))) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
     amount_in_int = int(amount_in_decimal)
 
     return_url_params = {
-        'reference_docname': data.get('reference_docname'),
+        'reference_docname': data.get('request_name'),
         'gateway_controller': data.get('gateway_controller'),
-        'to_pay_id': data.get('to_pay_id'),
-        'to_pay_doctype': data.get('to_pay_doctype'),
+        'to_pay_id': data.get('docname'),
+        'to_pay_doctype': data.get('doctype'),
         'amount': amount_in_int
     }
-
-    customer_session_secret = create_customer_session(data)
 
     try:
         session = stripe.checkout.Session.create(
@@ -152,8 +147,8 @@ def create_checkout_session(data):
                     'currency': 'usd',
                     'unit_amount': amount_in_int,
                     'product_data': {
-                        'name': request_name,
-                        'description': request_name,
+                        'name': f"{data.get('doctype')} - {data.get('docname')}",
+                        'description': f"{data.get('doctype')} - {data.get('docname')}",
                     },
                 },
                 'quantity': 1,
@@ -165,7 +160,7 @@ def create_checkout_session(data):
                 },
                 'setup_future_usage': "on_session"
             },
-            return_url=f"{frappe.utils.get_url()}/stripe_plus_subs_return?session_id={{CHECKOUT_SESSION_ID}}&{urlencode(return_url_params)}",
+            return_url=f"{frappe.utils.get_url()}/stripe_plus_return?session_id={{CHECKOUT_SESSION_ID}}&{urlencode(return_url_params)}",
             payment_method_configuration=data.get('pm_configuration', None),
             saved_payment_method_options={
                 'payment_method_save': "enabled",
@@ -209,110 +204,6 @@ def create_fetch_checkout_session(allow_guest=True):
         
         return create_checkout_session(data)
 
-def create_payment_intent(data, customer_id):
-    amount_in_decimal = (Decimal(data.get('amount')) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
-    amount_in_int = int(amount_in_decimal)
-    
-    try:
-        intent = stripe.PaymentIntent.create(
-            amount=amount_in_int,
-            currency='usd',
-            customer=customer_id,
-            setup_future_usage="on_session",
-            payment_method_configuration=data.get('pm_configuration', None),
-            metadata={
-                'doctype': data.get('doctype'),
-                'docname': data.get('docname')
-            }
-        )
-
-        if frappe.db.exists("Payment Request", data.get('request_name')):
-            frappe.db.set_value("Payment Request", data.get('request_name'), "stripe_intent_id", intent['id'])
-
-        return {
-            "clientSecret": intent['client_secret'],
-            "redirect": ""
-        }
-    
-    except Exception as e:
-        frappe.log_error(f"Stripe Payment Error: {str(e)}", "Stripe API Error")
-        return {"error": str(e)}, 403
-
-@frappe.whitelist(allow_guest=True)
-def create_fetch_payment_intent():
-    data = json.loads(frappe.request.data)
-    stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
-    request_name = data.get('request_name')
-
-    # check if intent has already been made
-    stripe_intent_id = frappe.db.get_value("Payment Request", request_name, "stripe_intent_id")
-    payment_request_customer = frappe.db.get_value("Payment Request", request_name, "party")
-    stripe_customer_id = frappe.db.get_value("Customer", payment_request_customer, "stripe_customer_id")
-
-     # load payment amount from payment request
-    data["amount"] = frappe.db.get_value("Payment Request", request_name, "outstanding_amount")
-
-    if stripe_intent_id:
-        try:
-            checkout_session = stripe.checkout.Session.retrieve(stripe_intent_id)
-            # redirect to message page if success/processing
-
-            if payment_intent["status"] in ["succeeded", "processing"]:
-                return {
-                    "client_secret": "",
-                    "redirect": f"/message?title=This+payment+request+has+been+fulfilled.&message=The+{data.get('doctype')}+is+already+paid!+Thank+you+for+your+business.&type=success"
-                }
-            # return client secret if incomplete
-
-            elif payment_intent["status"] in ["requires_action", "requires_capture", "requires_confirmation", "requires_payment_method"]:
-                return {
-                    "clientSecret": payment_intent['client_secret'],
-                    "redirect": ""
-                }
-            # create new intent if cancelled
-    
-            else:
-                return create_payment_intent(data, stripe_customer_id)
-        
-        except Exception as e:
-            return {"error": str(e)}, 403
-        
-    else:
-        # create new intent if no intent id
-        return create_payment_intent(data, stripe_customer_id)
-
-    # load payment amount from payment request
-    data["amount"] = frappe.db.get_value("Payment Request", data.get('request_name'), "outstanding_amount")
-
-    if stripe_intent_id:
-        try:
-            payment_intent = stripe.PaymentIntent.retrieve(stripe_intent_id)
-            # redirect to message page if success/processing
-
-            if payment_intent["status"] in ["succeeded", "processing"]:
-                return {
-                    "client_secret": "",
-                    "redirect": f"/message?title=This+payment+request+has+been+fulfilled.&message=The+{data.get('doctype')}+is+already+paid!+Thank+you+for+your+business.&type=success"
-                }
-            # return client secret if incomplete
-
-            elif payment_intent["status"] in ["requires_action", "requires_capture", "requires_confirmation", "requires_payment_method"]:
-                return {
-                    "clientSecret": payment_intent['client_secret'],
-                    "redirect": ""
-                }
-            # create new intent if cancelled
-    
-            else:
-                return create_payment_intent(data, stripe_customer_id)
-        
-        except Exception as e:
-            return {"error": str(e)}, 403
-        
-    else:
-        # create new intent if no intent id
-        return create_payment_intent(data, stripe_customer_id)
-    
 @frappe.whitelist(allow_guest=True)
 def create_customer_session(data):
     data = json.loads(frappe.request.data)
