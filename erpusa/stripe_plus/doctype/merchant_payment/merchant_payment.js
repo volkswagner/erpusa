@@ -38,7 +38,7 @@ frappe.ui.form.on("Merchant Payment", {
                   frm.add_custom_button(__("Retry PE"), function() { 
                         if (frm.doc.associated_subscription) {
                               frappe.confirm(
-                                    __("This feature is not ideal for subscription payments. Retry PE anyways?"),
+                                    __("This feature is not recommended for subscription payments. Retry PE anyways?"),
                                     () => { retry_pe(); },
                                     () => {}
                               );
