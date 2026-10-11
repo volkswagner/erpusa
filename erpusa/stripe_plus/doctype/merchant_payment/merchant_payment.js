@@ -16,14 +16,15 @@ frappe.ui.form.on("Merchant Payment", {
 	},
 
       add_retry_pe_button(frm) {
-            if (!frm.doc.associated_payment_entry) {
-                  frm.add_custom_button(__("Retry PE"), function() { 
+            if (!frm.is_new() && !frm.doc.associated_payment_entry) {
+                  const retry_pe = () => {
                         frm.call({
                               method: "retry_payment_entry",
+                              freeze: true,
+                              freeze_message: __("Retrying PE"),
                               doc: frm.doc
                         }).then((response) => {
                               frm.reload_doc().then(() => {
-                                    console.log(response.message && response.message.success_message)
                                     if (response.message && response.message.success_message)  {
                                           frappe.msgprint({
                                                 title: __("Payment Entry Creation Successful"),
@@ -32,6 +33,20 @@ frappe.ui.form.on("Merchant Payment", {
                                     }
                               });
                         });
+                  }
+                  
+                  frm.add_custom_button(__("Retry PE"), function() { 
+                        if (frm.doc.associated_subscription) {
+                              frappe.confirm(
+                                    __("This feature is not ideal for subscription payments. Retry PE anyways?"),
+                                    () => { retry_pe(); },
+                                    () => {}
+                              );
+                        }
+
+                        else {
+                              retry_pe();
+                        }
                   });
                   $('[data-label="Retry%20PE"]')
                   .attr("title", "Retry Payment Entry")
