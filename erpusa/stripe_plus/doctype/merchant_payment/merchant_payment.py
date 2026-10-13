@@ -15,9 +15,6 @@ class MerchantPayment(Document):
 
 	@frappe.whitelist()
 	def retry_payment_entry(self):
-		if self.associated_subscription or (self.associated_sales_invoice and frappe.db.get_value("Sales Invoice", self.associated_sales_invoice, "subscription")):
-			frappe.throw(_("This function is not designed for subscription payments. Use the 'Look for Unallocated Payments' feature found in the subscription doc instead."))
-
 		from erpusa.stripe_plus.api.webhook_receiver import create_payment_entry
 
 		payment_entry = create_payment_entry(self, True)
