@@ -491,7 +491,6 @@ def create_update_stripe_payout(data, log_doc, api_key):
 
     # validate stripe payout data
     sources, stripe_fees = validate_stripe_payout_data(doc, api_key)
-    frappe.log_error(str(sources and stripe_fees is not None))
     if not (sources and stripe_fees is not None):
         return
         

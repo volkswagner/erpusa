@@ -123,7 +123,7 @@ def create_checkout_session(data):
     request_name = data.get('request_name')
     payment_request_customer = frappe.db.get_value("Payment Request", request_name, "party")
 
-     # load payment amount from payment request
+    # load payment amount from payment request
     data["amount"] = frappe.db.get_value("Payment Request", request_name, "outstanding_amount")
     stripe.api_key = get_api_key_secret(data.get("gateway_controller"))
     amount_in_decimal = (Decimal(str(data.get('amount'))) * 100).quantize(Decimal("1"), rounding=ROUND_DOWN)
@@ -177,7 +177,7 @@ def create_checkout_session(data):
     return {"clientSecret": session['client_secret']}
 
 @frappe.whitelist(allow_guest=True)
-def create_fetch_checkout_session(allow_guest=True):
+def create_fetch_checkout_session():
     data = json.loads(frappe.request.data)
     stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
 
@@ -205,7 +205,7 @@ def create_fetch_checkout_session(allow_guest=True):
         return create_checkout_session(data)
 
 @frappe.whitelist(allow_guest=True)
-def create_customer_session(data):
+def create_customer_session():
     data = json.loads(frappe.request.data)
     stripe.api_key = get_api_key_secret(data.get('gateway_controller'))
 
@@ -227,8 +227,6 @@ def create_customer_session(data):
         },
     )
 
-    # return {
-    #     "customerSessionClientSecret": customerSession.client_secret,
-    # }
-
-    return customerSession.client_secret
+    return {
+        "customerSessionClientSecret": customerSession.client_secret,
+    }
